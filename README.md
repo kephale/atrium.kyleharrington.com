@@ -7,7 +7,7 @@ a collection of executable scripts for science, ai, and more
 Scripts in this repository can be run using UV:
 
 ```bash
-uv run https://kephale.github.io/Kyle Harrington's atrium/[group]/[solution]/[version].py
+uv run https://kephale.github.io/atrium.kyleharrington.com/[group]/[solution]/[version].py
 ```
 
 ## Structure

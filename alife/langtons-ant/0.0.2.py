@@ -1,5 +1,5 @@
 # /// script
-# title = "Langton's Ant Simulation"
+# title = "Langton's Ant"
 # description = "Simulates Langton's Ant using napari for visualization."
 # author = "Kyle Harrington <napari@kyleharrington.com>"
 # license = "MIT"

@@ -1,5 +1,5 @@
 # /// script
-# title = "Mandelbrot Set Visualizer"
+# title = "Mandelbrot Set"
 # description = "Visualize the Mandelbrot set interactively using napari."
 # author = "Kyle Harrington <napari@kyleharrington.com>"
 # license = "MIT"

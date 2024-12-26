@@ -1,0 +1,10 @@
+Group: example
+Name: Hello World
+Description: A simple example script that prints a greeting
+URL: https://kephale.github.io/Kyle Harrington's atrium/example/hello-world
+
+Group: example
+Name: External Script
+Description: Script from external repository
+URL: https://kephale.github.io/Kyle Harrington's atrium/example/external-script
+

@@ -1592,6 +1592,9 @@ def generate_static_site(base_dir, static_dir):
         f.write(Template(INDEX_TEMPLATE).render(**context))
     
     generate_sitemap_txt(solutions, static_dir)
+
+    # Copy CNAME
+    shutil.copy("./CNAME", static_dir)
     
     # Generate MCP server code
     tool_definitions = generate_mcp_tool_definitions_with_ast(solutions)

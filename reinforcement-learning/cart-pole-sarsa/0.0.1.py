@@ -1,7 +1,7 @@
 # /// script
-# title = "CartPole SARSA Optimization"
+# title = "CartPole SARSA"
 # description = "Visualize the CartPole game optimized using SARSA in Napari."
-# author = "Kyle Harrington <napari@kyleharrington.com>"
+# author = "Kyle Harrington <atrium@kyleharrington.com>"
 # license = "MIT"
 # version = "0.0.1"
 # keywords = ["cartpole", "sarsa", "reinforcement learning", "napari", "interactive"]

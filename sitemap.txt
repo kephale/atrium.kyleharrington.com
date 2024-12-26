@@ -14,7 +14,7 @@ Description: A 3D swarm simulation using energy dynamics, collision handling, an
 URL: https://atrium.kyleharrington.com/alife/evolving-swarm
 
 Group: reinforcement-learning
-Name: CartPole SARSA Optimization
+Name: CartPole SARSA
 Description: Visualize the CartPole game optimized using SARSA in Napari.
 URL: https://atrium.kyleharrington.com/reinforcement-learning/cart-pole-sarsa
 

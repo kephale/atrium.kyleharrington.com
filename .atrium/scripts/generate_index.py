@@ -757,6 +757,38 @@ SOLUTION_TEMPLATE = """
                 height: 60px;
             }
         }
+
+        .cli-arguments-section {
+            margin: 2rem 0;
+        }
+
+        .cli-arg-item {
+            background: var(--code-background);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .cli-arg-item code {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .arg-type {
+            color: var(--text-secondary);
+            margin-left: 0.5rem;
+        }
+
+        .arg-help {
+            margin-top: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .arg-default {
+            margin-top: 0.25rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
@@ -858,6 +890,26 @@ SOLUTION_TEMPLATE = """
                     Copy Command
                 </button>
             </div>
+
+            {% if cli_args %}
+            <div class="cli-arguments-section">
+                <h2>Command Line Arguments</h2>
+                <div class="dependencies-list">
+                    {% for arg in cli_args %}
+                    <div class="cli-arg-item">
+                        <code>--{{ arg.name }}</code>
+                        <span class="arg-type">({{ arg.type }})</span>
+                        {% if arg.help %}
+                        <p class="arg-help">{{ arg.help }}</p>
+                        {% endif %}
+                        {% if arg.default %}
+                        <p class="arg-default">Default: {{ arg.default }}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
 
             {% if dependencies %}
             <div class="dependencies-section">
@@ -1243,6 +1295,13 @@ def extract_metadata(file_path):
             relative_path = os.path.relpath(file_path, BASE_DIR)
             metadata["script_source"] = f"{SITE_CONFIG['base_url']}/{relative_path}"
 
+        # Extract Typer arguments
+        try:
+            metadata['cli_args'] = extract_typer_args(file_path)
+        except Exception as e:
+            print(f"Error extracting Typer args from {file_path}: {e}")
+            metadata['cli_args'] = []
+
         # Handle cover image
         if not metadata.get("cover_image"):
             # Check for local cover.png
@@ -1493,6 +1552,49 @@ def get_cover_image_path(solution_entry, entry, solution_name, metadata, site_co
     elif "cover_image" in metadata:
         return metadata["cover_image"]
     return None
+
+def extract_typer_args(file_path):
+    """Extract command-line arguments from a Typer app."""
+    args = []
+    tree = ast.parse(open(file_path).read())
+    
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef):
+            for decorator in node.decorator_list:
+                if (isinstance(decorator, ast.Call) and 
+                    isinstance(decorator.func, ast.Attribute) and 
+                    decorator.func.attr == 'command'):
+                    
+                    for arg in node.args.args:
+                        arg_info = {
+                            'name': arg.arg,
+                            'type': ast.unparse(arg.annotation) if arg.annotation else 'Any',
+                            'help': None,
+                            'default': None
+                        }
+                        
+                        # Extract default value and help text from typer.Option
+                        for kw in node.args.defaults:
+                            if (isinstance(kw, ast.Call) and 
+                                isinstance(kw.func, ast.Attribute) and 
+                                kw.func.value.id == 'typer' and 
+                                kw.func.attr == 'Option'):
+                                
+                                if kw.args:
+                                    try:
+                                        arg_info['default'] = ast.literal_eval(kw.args[0])
+                                    except:
+                                        pass
+                                
+                                for keyword in kw.keywords:
+                                    if keyword.arg == 'help':
+                                        try:
+                                            arg_info['help'] = ast.literal_eval(keyword.value)
+                                        except:
+                                            pass
+                                
+                        args.append(arg_info)
+    return args
 
 def generate_static_site(base_dir, static_dir):
     """Generate the static site with proper site_config handling."""

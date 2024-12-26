@@ -1,5 +1,5 @@
 # /// script
-# title = "napari Launcher"
+# title = "napari"
 # description = "A simple Python script to launch napari."
 # author = "Kyle Harrington <napari@kyleharrington.com>"
 # license = "MIT"

@@ -206,7 +206,7 @@
 # description = "Visualize the Mandelbrot set interactively using napari."
 # author = "Kyle Harrington <napari@kyleharrington.com>"
 # license = "MIT"
-# version = "0.0.1"
+# version = "0.0.2"
 # keywords = ["mandelbrot", "visualization", "napari", "interactive"]
 # classifiers = [
 #     "Development Status :: 5 - Production/Stable",
@@ -215,17 +215,19 @@
 #     "Programming Language :: Python :: 3.12",
 #     "Topic :: Scientific/Engineering :: Visualization",
 # ]
-# requires-python = ">=3.12"
+# requires-python = ">=3.11"
 # dependencies = [
 #     "napari[all]>=0.5.4",
 #     "numpy",
 #     "typer",
+#     "magicgui",
 # ]
 # ///
 
 import typer
 import napari
 import numpy as np
+from magicgui import magicgui
 
 app = typer.Typer(help="Visualize the Mandelbrot set interactively using napari.")
 
@@ -234,7 +236,7 @@ def mandelbrot(xmin, xmax, ymin, ymax, width, height, max_iter):
     x = np.linspace(xmin, xmax, width)
     y = np.linspace(ymin, ymax, height)
     X, Y = np.meshgrid(x, y)
-    c = X + 1j * Y
+    c = X + 1j * Y 
     z = np.zeros_like(c)
     img = np.zeros(c.shape, dtype=int)
 
@@ -265,15 +267,32 @@ def visualize(
     viewer = napari.Viewer()
     layer = viewer.add_image(mandelbrot_image, name="Mandelbrot Set")
 
-    # Callback to update the resolution interactively
-    def update_resolution(layer):
-        nonlocal width, height, mandelbrot_image
-        width, height = layer.data.shape
-        mandelbrot_image = mandelbrot(xmin, xmax, ymin, ymax, width, height, max_iter)
+    @magicgui(
+        auto_call=True,
+        xmin={'label': 'X Min', 'widget_type': 'FloatSpinBox', 'step': 0.1, 'min': -10.0, 'max': 10.0},
+        xmax={'label': 'X Max', 'widget_type': 'FloatSpinBox', 'step': 0.1, 'min': -10.0, 'max': 10.0},
+        ymin={'label': 'Y Min', 'widget_type': 'FloatSpinBox', 'step': 0.1, 'min': -10.0, 'max': 10.0},
+        ymax={'label': 'Y Max', 'widget_type': 'FloatSpinBox', 'step': 0.1, 'min': -10.0, 'max': 10.0},
+        mwidth={'label': 'Width', 'widget_type': 'SpinBox', 'step': 10, 'min': 100, 'max': 2000},
+        mheight={'label': 'Height', 'widget_type': 'SpinBox', 'step': 10, 'min': 100, 'max': 2000},
+        max_iter={'label': 'Max Iterations', 'widget_type': 'SpinBox', 'step': 10, 'min': 10, 'max': 1000}
+    )
+    def update_mandelbrot(xmin: float, xmax: float, ymin: float, ymax: float, mwidth: int, mheight: int, max_iter: int):
+        """Update the Mandelbrot set parameters and refresh the image."""
+        mandelbrot_image = mandelbrot(xmin, xmax, ymin, ymax, mwidth, mheight, max_iter)
         layer.data = mandelbrot_image
 
-    # Connect Napari events
-    layer.events.data.connect(lambda event: update_resolution(layer))
+    # Add the magicgui widget to the Napari viewer
+    viewer.window.add_dock_widget(update_mandelbrot, area='right')
+
+    # Set initial values for the widget using the .value attribute correctly
+    update_mandelbrot.xmin.value = xmin
+    update_mandelbrot.xmax.value = xmax
+    update_mandelbrot.ymin.value = ymin
+    update_mandelbrot.ymax.value = ymax
+    update_mandelbrot.mwidth.value = width
+    update_mandelbrot.mheight.value = height
+    update_mandelbrot.max_iter.value = max_iter
 
     # Start Napari event loop
     napari.run()

@@ -1,5 +1,5 @@
 Group: visualization
-Name: napari Launcher
+Name: napari
 Description: A simple Python script to launch napari.
 URL: https://atrium.kyleharrington.com/visualization/napari
 

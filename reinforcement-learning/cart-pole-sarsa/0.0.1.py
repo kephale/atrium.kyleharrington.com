@@ -23,13 +23,6 @@
 # ]
 # ///
 
-# Key fixes:
-# 1. Added proper yield timing control
-# 2. Enhanced frame update mechanism
-# 3. Improved worker management
-# 4. Added error handling for frame updates
-
-import napari
 import numpy as np
 np.bool8 = bool
 import gym

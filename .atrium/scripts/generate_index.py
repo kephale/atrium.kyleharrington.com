@@ -328,6 +328,28 @@ INDEX_TEMPLATE = """
 </html>
 """
 
+CLI_ARGUMENTS_TEMPLATE = """
+{% if cli_args %}
+<div class="cli-arguments-section">
+    <h2>Command Line Arguments</h2>
+    {% for arg in cli_args %}
+    <div class="cli-arg-item">
+        <code>--{{ arg.name }}</code>
+        {% if arg.type %}
+        <span class="arg-type">({{ arg.type }})</span>
+        {% endif %}
+        {% if arg.help %}
+        <p class="arg-help">{{ arg.help }}</p>
+        {% endif %}
+        {% if arg.default != None %}
+        <p class="arg-default">Default: {{ arg.default }}</p>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+"""
+
 SOLUTION_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -1554,73 +1576,82 @@ def get_cover_image_path(solution_entry, entry, solution_name, metadata, site_co
     return None
 
 def extract_typer_args(file_path):
-    """Extract command-line arguments from a Typer app."""
+    """Extract command-line arguments from a Typer app with improved parsing."""
     import ast
-
-    def get_option_value(node):
-        """Extract value from a typer.Option() call."""
-        if isinstance(node, ast.Call):
-            if (isinstance(node.func, ast.Attribute) and 
-                isinstance(node.func.value, ast.Name) and
-                node.func.value.id == 'typer' and 
-                node.func.attr == 'Option'):
-                
-                # Get default value from first argument
-                if node.args:
-                    try:
-                        return ast.literal_eval(node.args[0])
-                    except:
-                        pass
-        return None
-
-    def get_help_text(node):
-        """Extract help text from typer.Option() keywords."""
-        if isinstance(node, ast.Call):
-            for kw in node.keywords:
-                if kw.arg == 'help':
-                    try:
-                        return ast.literal_eval(kw.value)
-                    except:
-                        pass
-        return None
-
     args = []
-    with open(file_path, 'r') as f:
-        tree = ast.parse(f.read())
-
+    
+    try:
+        with open(file_path, 'r') as f:
+            tree = ast.parse(f.read())
+    except Exception as e:
+        print(f"Error parsing file {file_path}: {e}")
+        return args
+    
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef):
+            has_typer_command = False
+            
+            # Check if function has @app.command() decorator
             for decorator in node.decorator_list:
                 if (isinstance(decorator, ast.Call) and 
                     isinstance(decorator.func, ast.Attribute) and 
                     decorator.func.attr == 'command'):
+                    has_typer_command = True
+                    break
+            
+            if has_typer_command:
+                # Process each argument in the function
+                for arg in node.args.args:
+                    if arg.arg == 'self':  # Skip self parameter
+                        continue
                     
-                    for i, arg in enumerate(node.args.args):
-                        if arg.arg == 'self':
-                            continue
-
-                        arg_info = {
-                            'name': arg.arg,
-                            'type': None,
-                            'help': None,
-                            'default': None
-                        }
-
-                        # Get type annotation
-                        if arg.annotation:
-                            try:
-                                arg_info['type'] = ast.unparse(arg.annotation)
-                            except:
-                                arg_info['type'] = 'Any'
-
-                        # Get default value and help text from typer.Option
-                        if i >= len(node.args.args) - len(node.args.defaults):
-                            default_node = node.args.defaults[i - (len(node.args.args) - len(node.args.defaults))]
-                            arg_info['default'] = get_option_value(default_node)
-                            arg_info['help'] = get_help_text(default_node)
-
-                        args.append(arg_info)
-
+                    # Find default value and help text from typer.Option
+                    default_value = None
+                    help_text = None
+                    
+                    # Check for default values in typer.Option
+                    if hasattr(node.args, 'defaults'):
+                        idx = len(node.args.args) - len(node.args.defaults)
+                        arg_pos = node.args.args.index(arg)
+                        if arg_pos >= idx:
+                            default = node.args.defaults[arg_pos - idx]
+                            if (isinstance(default, ast.Call) and
+                                isinstance(default.func, ast.Attribute) and
+                                isinstance(default.func.value, ast.Name) and
+                                default.func.value.id == 'typer' and
+                                default.func.attr == 'Option'):
+                                
+                                # Extract default value from Option's first argument
+                                if default.args:
+                                    try:
+                                        default_value = ast.literal_eval(default.args[0])
+                                    except:
+                                        default_value = None
+                                
+                                # Extract help text from Option's keywords
+                                for keyword in default.keywords:
+                                    if keyword.arg == 'help':
+                                        try:
+                                            help_text = ast.literal_eval(keyword.value)
+                                        except:
+                                            help_text = None
+                    
+                    arg_info = {
+                        'name': arg.arg,
+                        'type': None,
+                        'help': help_text,
+                        'default': default_value
+                    }
+                    
+                    # Extract type annotation
+                    if arg.annotation:
+                        try:
+                            arg_info['type'] = ast.unparse(arg.annotation)
+                        except:
+                            arg_info['type'] = 'Any'
+                    
+                    args.append(arg_info)
+    
     return args
 
 def generate_static_site(base_dir, static_dir):
@@ -1703,6 +1734,7 @@ def generate_static_site(base_dir, static_dir):
                         'keywords': metadata.get("keywords", []),
                         'requires_python': metadata.get("requires_python", ""),
                         'repository': metadata.get("repository", ""),
+                        'cli_args': extract_typer_args(file_path),
                         'documentation': metadata.get("documentation", ""),
                         'homepage': metadata.get("homepage", "")
                     }

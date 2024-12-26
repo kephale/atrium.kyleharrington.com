@@ -1,5 +1,5 @@
 # /// script
-# title = "3D Swarm Simulation with Enhanced Dynamics in Napari"
+# title = "3D evolving swarm"
 # description = "A 3D swarm simulation using energy dynamics, collision handling, and reproduction."
 # author = "Kyle Harrington <atrium@kyleharrington.com>"
 # license = "MIT"

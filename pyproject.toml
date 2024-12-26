@@ -5,7 +5,7 @@ description = "a collection of executable scripts for science, ai, and more"
 authors = [
     { name = "Kyle Harrington", email = "atrium@kyleharrington.com" }
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "jinja2>=3.1.4",
     "typer>=0.14.0",

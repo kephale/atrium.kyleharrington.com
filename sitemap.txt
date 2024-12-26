@@ -13,6 +13,11 @@ Name: 3D evolving swarm
 Description: A 3D swarm simulation using energy dynamics, collision handling, and reproduction.
 URL: https://atrium.kyleharrington.com/alife/evolving-swarm
 
+Group: reinforcement-learning
+Name: CartPole SARSA Optimization
+Description: Visualize the CartPole game optimized using SARSA in Napari.
+URL: https://atrium.kyleharrington.com/reinforcement-learning/cart-pole-sarsa
+
 Group: fractals
 Name: Mandelbrot Set
 Description: Visualize the Mandelbrot set interactively using napari.

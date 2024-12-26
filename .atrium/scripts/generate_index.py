@@ -894,20 +894,20 @@ SOLUTION_TEMPLATE = """
             {% if cli_args %}
             <div class="cli-arguments-section">
                 <h2>Command Line Arguments</h2>
-                <div class="dependencies-list">
-                    {% for arg in cli_args %}
-                    <div class="cli-arg-item">
-                        <code>--{{ arg.name }}</code>
-                        <span class="arg-type">({{ arg.type }})</span>
-                        {% if arg.help %}
-                        <p class="arg-help">{{ arg.help }}</p>
-                        {% endif %}
-                        {% if arg.default %}
-                        <p class="arg-default">Default: {{ arg.default }}</p>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
+                {% for arg in cli_args %}
+                <div class="cli-arg-item">
+                    <code>--{{ arg.name }}</code>
+                    {% if arg.type %}
+                    <span class="arg-type">({{ arg.type }})</span>
+                    {% endif %}
+                    {% if arg.help %}
+                    <p class="arg-help">{{ arg.help }}</p>
+                    {% endif %}
+                    {% if arg.default != None %}
+                    <p class="arg-default">Default: {{ arg.default }}</p>
+                    {% endif %}
                 </div>
+                {% endfor %}
             </div>
             {% endif %}
 
@@ -1554,46 +1554,74 @@ def get_cover_image_path(solution_entry, entry, solution_name, metadata, site_co
     return None
 
 def extract_typer_args(file_path):
-    """Extract command-line arguments from a Typer app."""
+    """Extract command-line arguments from a Typer app with improved parsing."""
+    import ast
+    
     args = []
     tree = ast.parse(open(file_path).read())
     
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef):
+            has_typer_command = False
+            
+            # Check if function has @app.command() decorator
             for decorator in node.decorator_list:
                 if (isinstance(decorator, ast.Call) and 
                     isinstance(decorator.func, ast.Attribute) and 
                     decorator.func.attr == 'command'):
-                    
-                    for arg in node.args.args:
-                        arg_info = {
-                            'name': arg.arg,
-                            'type': ast.unparse(arg.annotation) if arg.annotation else 'Any',
-                            'help': None,
-                            'default': None
-                        }
+                    has_typer_command = True
+                    break
+            
+            if has_typer_command:
+                # Process each argument in the function
+                for arg in node.args.args:
+                    if arg.arg == 'self':  # Skip self parameter
+                        continue
                         
-                        # Extract default value and help text from typer.Option
-                        for kw in node.args.defaults:
-                            if (isinstance(kw, ast.Call) and 
-                                isinstance(kw.func, ast.Attribute) and 
-                                kw.func.value.id == 'typer' and 
-                                kw.func.attr == 'Option'):
+                    arg_info = {
+                        'name': arg.arg,
+                        'type': None,
+                        'help': None,
+                        'default': None
+                    }
+                    
+                    # Extract type annotation
+                    if arg.annotation:
+                        try:
+                            arg_info['type'] = ast.unparse(arg.annotation)
+                        except:
+                            arg_info['type'] = 'Any'
+                    
+                    # Look for typer.Option calls in defaults
+                    defaults_start = len(node.args.args) - len(node.args.defaults)
+                    arg_pos = node.args.args.index(arg)
+                    
+                    if arg_pos >= defaults_start:
+                        default = node.args.defaults[arg_pos - defaults_start]
+                        if isinstance(default, ast.Call):
+                            func = default.func
+                            if (isinstance(func, ast.Attribute) and 
+                                isinstance(func.value, ast.Name) and
+                                func.value.id == 'typer' and 
+                                func.attr == 'Option'):
                                 
-                                if kw.args:
-                                    try:
-                                        arg_info['default'] = ast.literal_eval(kw.args[0])
-                                    except:
-                                        pass
-                                
-                                for keyword in kw.keywords:
-                                    if keyword.arg == 'help':
+                                # Extract help text from Option
+                                for kw in default.keywords:
+                                    if kw.arg == 'help':
                                         try:
-                                            arg_info['help'] = ast.literal_eval(keyword.value)
+                                            arg_info['help'] = ast.literal_eval(kw.value)
                                         except:
                                             pass
-                                
-                        args.append(arg_info)
+                                    
+                                # Extract default value
+                                if default.args:
+                                    try:
+                                        arg_info['default'] = ast.literal_eval(default.args[0])
+                                    except:
+                                        pass
+                    
+                    args.append(arg_info)
+    
     return args
 
 def generate_static_site(base_dir, static_dir):

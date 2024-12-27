@@ -1,5 +1,5 @@
 # /// script
-# title = "Oscillatory Gene Regulatory Network"
+# title = "Fit oscillatory GRN"
 # description = "Optimize a GRN to produce antiphase oscillations among 4 species."
 # author = "Kyle Harrington <atrium@kyleharrington.com>"
 # license = "MIT"

@@ -1,0 +1,362 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> - Source Code</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1d4ed8;
+            --background-color: #f8fafc;
+            --card-background: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --code-background: #1e1e1e;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary-color: #3b82f6;
+                --secondary-color: #60a5fa;
+                --background-color: #0f172a;
+                --card-background: #1e293b;
+                --text-primary: #f1f5f9;
+                --text-secondary: #94a3b8;
+                --border-color: #334155;
+                --code-background: #1e1e1e;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            padding: 2rem;
+            color: white;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: flex-start;
+            gap: 2rem;
+        }
+
+        .header-logo {
+            flex-shrink: 0;
+            text-decoration: none;
+        }
+
+        .logo-image {
+            height: 80px;
+            width: auto;
+        }
+
+        .header-text {
+            flex-grow: 1;
+        }
+
+        .header-title {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            font-weight: 800;
+        }
+
+        .nav-bar {
+            background-color: var(--card-background);
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            color: var(--text-secondary);
+            text-decoration: none;
+            gap: 0.5rem;
+            font-size: 0.95rem;
+        }
+
+        .back-link:hover {
+            color: var(--primary-color);
+        }
+
+        .source-container {
+            background: var(--card-background);
+            border-radius: 1rem;
+            margin: 2rem 0;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .source-header {
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .source-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .download-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            text-decoration: none;
+        }
+
+        .download-button:hover {
+            background: var(--secondary-color);
+        }
+
+        pre[class*="language-"] {
+            margin: 0;
+            border-radius: 0;
+        }
+
+        .code-wrapper {
+            max-height: 800px;
+            overflow-y: auto;
+            background: var(--code-background);
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+
+            .logo-image {
+                height: 60px;
+            }
+
+            .header-title {
+                font-size: 1.5rem;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <a href="../../index.html" class="header-logo">
+                <img src="../../icon_transparent.png" alt=" Logo" class="logo-image">
+            </a>
+            <div class="header-text">
+                <h1 class="header-title"> - Source Code</h1>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="source-container">
+            <div class="source-header">
+                <div class="source-title"></div>
+                <a href="" download="" class="download-button">
+                    <i class="fas fa-download"></i>
+                    Download Source
+                </a>
+            </div>
+            <div class="code-wrapper">
+                <pre class="line-numbers"><code class="language-python"># /// script
+# title = "Oscillatory Gene Regulatory Network"
+# description = "Optimize a GRN to produce antiphase oscillations among 4 species."
+# author = "Kyle Harrington <atrium@kyleharrington.com>"
+# license = "MIT"
+# version = "0.0.1"
+# keywords = ["GRNs", "oscillations", "pytorch"]
+# classifiers = [
+#     "Development Status :: 4 - Beta",
+#     "Intended Audience :: Developers",
+#     "License :: OSI Approved :: MIT License",
+#     "Programming Language :: Python :: 3.12",
+#     "Topic :: Scientific/Engineering :: Visualization",
+# ]
+# requires-python = ">=3.11"
+# dependencies = [
+#     "numpy>=1.24.0",
+#     "matplotlib",
+#     "torch"
+# ]
+# ///
+
+import torch
+import torch.nn as nn
+import numpy as np
+import matplotlib.pyplot as plt
+from typing import List
+
+class OscillatoryGRN(nn.Module):
+    """Gene Regulatory Network designed for oscillatory behavior."""
+
+    def __init__(self, num_genes: int):
+        super().__init__()
+        self.num_genes = num_genes
+        self.weights = nn.Parameter(torch.randn(num_genes, num_genes) * 0.1)
+        self.thresholds = nn.Parameter(torch.ones(num_genes) * 0.5)
+
+    def forward(self, state: torch.Tensor) -> torch.Tensor:
+        """Calculate the next state using a sigmoid activation function."""
+        input_signal = torch.sigmoid(self.weights @ state - self.thresholds)
+        return input_signal
+
+    def integrate(self, state: torch.Tensor, dt: float = 0.1) -> torch.Tensor:
+        """Perform one step of Euler integration."""
+        derivatives = self.forward(state) - state
+        return state + dt * derivatives
+
+def generate_target_pattern(num_genes: int, num_steps: int, period: int) -> torch.Tensor:
+    """Create a target pattern of antiphase sinusoidal oscillations."""
+    time = torch.linspace(0, num_steps / period, num_steps)
+    target = torch.zeros(num_genes, num_steps)
+    for gene in range(num_genes):
+        target[gene, :] = 0.5 * (1 + torch.sin(2 * np.pi * time - (2 * np.pi * gene / num_genes)))
+    return target
+
+def optimize_grn(
+    num_genes: int, 
+    num_steps: int, 
+    period: int, 
+    learning_rate: float = 0.01, 
+    num_epochs: int = 1000, 
+    annealing_period: int = 200
+):
+    """Optimize the GRN to match the target oscillatory pattern with cosine annealing."""
+    grn = OscillatoryGRN(num_genes)
+    optimizer = torch.optim.Adam(grn.parameters(), lr=learning_rate)
+    
+    # Apply a cosine annealing learning rate scheduler
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=annealing_period, eta_min=0.0001)
+    
+    # Initialize the state and target
+    state = torch.rand(num_genes, requires_grad=False)
+    target = generate_target_pattern(num_genes, num_steps, period)
+    
+    loss_fn = nn.MSELoss()
+    loss_history = []
+
+    for epoch in range(num_epochs):
+        optimizer.zero_grad()
+        
+        # Simulate the GRN
+        state_history = torch.zeros(num_genes, num_steps, requires_grad=False)
+        current_state = state.clone()
+        for t in range(num_steps):
+            current_state = grn.integrate(current_state)
+            state_history[:, t] = current_state
+        
+        # Compute the loss
+        loss = loss_fn(state_history, target)
+        loss.backward()
+        optimizer.step()
+        
+        # Update the learning rate using the scheduler
+        scheduler.step()
+        
+        loss_history.append(loss.item())
+        if epoch % 100 == 0:
+            current_lr = scheduler.get_last_lr()[0]
+            print(f"Epoch {epoch}, Loss: {loss.item():.6f}, Learning Rate: {current_lr:.6f}")
+    
+    return grn, loss_history
+
+
+def plot_results(grn: OscillatoryGRN, num_genes: int, num_steps: int, period: int, loss_history: List[float]):
+    """Visualize the results of the optimization."""
+    state = torch.rand(num_genes, requires_grad=False)
+    state_history = torch.zeros(num_genes, num_steps, requires_grad=False)
+    
+    current_state = state.clone()
+    for t in range(num_steps):
+        current_state = grn.integrate(current_state)
+        state_history[:, t] = current_state
+    
+    target = generate_target_pattern(num_genes, num_steps, period)
+    
+    # Plot the loss history
+    plt.figure()
+    plt.plot(loss_history)
+    plt.title("Loss Over Time")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.grid()
+
+    # Plot the oscillatory behavior and the target
+    plt.figure()
+    time = np.arange(num_steps)
+    colors = plt.cm.tab10.colors  # Use a colormap for distinct colors
+
+    for i in range(num_genes):
+        plt.plot(time, state_history[i, :].detach().numpy(), color=colors[i % len(colors)], label=f"Gene {i+1} Output", linestyle='-')
+        plt.plot(time, target[i, :].detach().numpy(), color=colors[i % len(colors)], label=f"Gene {i+1} Target", linestyle='--')
+    
+    plt.title("Optimized Oscillatory Behavior")
+    plt.xlabel("Time Steps")
+    plt.ylabel("Expression Level")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+if __name__ == "__main__":
+    num_genes = 4
+    num_steps = 500
+    period = 100
+    learning_rate = 0.01
+    num_epochs = 10000
+    annealing_period = 200
+
+    grn, loss_history = optimize_grn(num_genes, num_steps, period, learning_rate, num_epochs, annealing_period)
+    plot_results(grn, num_genes, num_steps, period, loss_history)
+</code></pre>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+</body>
+</html>

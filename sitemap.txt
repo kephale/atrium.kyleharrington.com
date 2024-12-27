@@ -23,3 +23,8 @@ Name: Mandelbrot Set
 Description: Visualize the Mandelbrot set interactively using napari.
 URL: https://atrium.kyleharrington.com/fractals/napari-mandelbrot
 
+Group: grn
+Name: Oscillatory Gene Regulatory Network
+Description: Optimize a GRN to produce antiphase oscillations among 4 species.
+URL: https://atrium.kyleharrington.com/grn/optimize-antiphase
+

@@ -46,7 +46,9 @@ def mandelbulb_dataset(max_levels=14):
 
     Returns
     -------
-    List of arrays representing different scales of the mandelbulb
+    tuple
+        (List of arrays representing different scales of the mandelbulb,
+         Scale tuple with value of 1 for each dimension)
     """
     chunk_size = (32, 32, 32)
 
@@ -76,24 +78,21 @@ def mandelbulb_dataset(max_levels=14):
 
         arrays += [a]
 
-    return arrays
+    # For mandelbulb, use scale of 1 for each dimension
+    scale = (1,) * len(arrays[0].shape) if arrays else None
+
+    return arrays, scale
 
 def load_ome_zarr(path):
-    """Load an OME-zarr dataset with multiple resolution levels.
-    
-    Parameters
-    ----------
-    path : str
-        Path to the zarr store
-        
-    Returns
-    -------
-    list
-        List of arrays representing different scales
-    """
+    """Load an OME-zarr dataset with multiple resolution levels."""
     import s3fs
+    import logging
+    
+    LOGGER = logging.getLogger("zarr_loader")
+    LOGGER.setLevel(logging.DEBUG)
     
     if path.startswith('s3://'):
+        LOGGER.info(f"Opening S3 path: {path}")
         fs = s3fs.S3FileSystem(anon=True)
         store = zarr.open(fs.get_mapper(path), mode='r')
     else:
@@ -103,12 +102,57 @@ def load_ome_zarr(path):
     scales = sorted([k for k in store.keys() if k.startswith('s')])
     if not scales:
         raise ValueError(f"No scale levels found in {path}")
-        
+    
+    LOGGER.info(f"Found scale levels: {scales}")
+    
     arrays = []
     for scale in scales:
-        arrays.append(store[scale])
+        arr = store[scale]
+        LOGGER.info(f"Scale {scale} shape: {arr.shape}, chunks: {arr.chunks}")
+        arrays.append(arr)
     
-    return arrays
+    # Extract scale from OME-Zarr metadata
+    scale = None
+    try:
+        LOGGER.info("Store attributes: " + str(store.attrs.asdict()))
+        multiscales = store.attrs['multiscales'][0]
+        LOGGER.info("Multiscales metadata: " + str(multiscales))
+        
+        if 'datasets' in multiscales and len(multiscales['datasets']) > 0:
+            # Get scale from the highest resolution (first dataset)
+            first_dataset = multiscales['datasets'][0]
+            LOGGER.info("First dataset metadata: " + str(first_dataset))
+            
+            if 'coordinateTransformations' in first_dataset:
+                for transform in first_dataset['coordinateTransformations']:
+                    if transform['type'] == 'scale':
+                        scale = tuple(transform['scale'])
+                        LOGGER.info(f"Found scale: {scale}")
+                        break
+            
+            # Fallback: try to get scale from pixel_size if available
+            if scale is None and 'metadata' in multiscales:
+                metadata = multiscales['metadata']
+                if 'pixel_size' in metadata:
+                    pixel_size = metadata['pixel_size']
+                    if all(key in pixel_size for key in ['x', 'y', 'z']):
+                        scale = (
+                            float(pixel_size['z']), 
+                            float(pixel_size['y']), 
+                            float(pixel_size['x'])
+                        )
+                        LOGGER.info(f"Using pixel_size as scale: {scale}")
+    except Exception as e:
+        LOGGER.warning(f"Error extracting scale from metadata: {str(e)}")
+        LOGGER.warning("Defaulting to scale=None")
+        scale = None
+
+    if scale is None:
+        LOGGER.warning("No scale found in metadata, using default scale=(1,1,1)")
+        scale = (1,) * len(arrays[0].shape)
+        
+    LOGGER.info(f"Final scale: {scale}")
+    return arrays, scale
 
 def main(
     zarr_path: Optional[str] = typer.Argument(None, help="Path to the Zarr store."),
@@ -122,42 +166,55 @@ def main(
         help="Contrast limits as min,max (e.g., '0,255'). Default is [0, 255]"
     )
 ):
-    """
-    Open a Zarr dataset as a multiscale image in napari using progressive (tiled) loading.
-    If --demo is specified, opens the mandelbulb dataset instead.
-    """
+    """Open a Zarr dataset as a multiscale image in napari using progressive loading."""
     import napari
-
+    import logging
+    
+    LOGGER = logging.getLogger("main")
+    LOGGER.setLevel(logging.DEBUG)
+    
     # Create a napari viewer with specified dimension display
     viewer = napari.Viewer(ndisplay=ndisplay)
     viewer.axes.visible = True
-
-    if demo:
-        # Load the mandelbulb demo dataset
-        arrays = mandelbulb_dataset(max_levels=16)
-    else:
-        if zarr_path is None:
-            raise typer.BadParameter("zarr_path is required when not using --demo")
+    
+    try:
+        if demo:
+            arrays, scale = mandelbulb_dataset(max_levels=16)
+        else:
+            if zarr_path is None:
+                raise typer.BadParameter("zarr_path is required when not using --demo")
             
-        arrays = load_ome_zarr(zarr_path)
+            arrays, scale = load_ome_zarr(zarr_path)
+            
+        LOGGER.info(f"Loaded arrays with shapes: {[arr.shape for arr in arrays]}")
+        LOGGER.info(f"Using scale: {scale}")
+        
+        if scale is not None and len(scale) != len(arrays[0].shape):
+            LOGGER.error(f"Scale dimensions ({len(scale)}) don't match data dimensions ({len(arrays[0].shape)})")
+            scale = (1,) * len(arrays[0].shape)
+            LOGGER.info(f"Falling back to default scale: {scale}")
 
-    # Set default contrast limits if not provided
-    if contrast_limits is None:
-        contrast_limits = [0, 255]
-    else:
-        # Convert string tuple to list of floats
-        contrast_limits = list(contrast_limits)
-
-    # Add the progressive-loading multiscale image
-    add_progressive_loading_image(
-        arrays,
-        viewer=viewer,
-        contrast_limits=contrast_limits,
-        colormap=colormap,
-        ndisplay=ndisplay,
-    )
-
-    napari.run()
+        # Set default contrast limits if not provided
+        if contrast_limits is None:
+            contrast_limits = [0, 255]
+        
+        LOGGER.info("Adding progressive loading image...")
+        viewer = add_progressive_loading_image(
+            arrays,
+            viewer=viewer,
+            contrast_limits=contrast_limits,
+            colormap=colormap,
+            ndisplay=ndisplay,
+            # scale=scale,
+        )
+        LOGGER.info("Progressive loading image added successfully")
+        
+        LOGGER.info("Starting napari event loop...")
+        napari.run()
+        
+    except Exception as e:
+        LOGGER.error(f"Error occurred: {str(e)}", exc_info=True)
+        raise
 
 if __name__ == "__main__":
     typer.run(main)

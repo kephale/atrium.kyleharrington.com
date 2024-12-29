@@ -18,6 +18,50 @@
             --code-background: #f1f5f9;
             --tag-background: #e2e8f0;
             --hover-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --footer-background: var(--card-background);
+            --footer-text: var(--text-secondary);
+            --footer-link: var(--primary-color);
+        }
+
+        .footer {
+            background-color: var(--footer-background);
+            padding: 2rem 1rem;
+            margin-top: 4rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+            color: var(--footer-text);
+        }
+
+        .footer-link {
+            color: var(--footer-link);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        .footer-link:hover {
+            text-decoration: underline;
+        }
+
+        .footer-text {
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        .footer-heart {
+            color: #e25555;
+            display: inline-block;
+            animation: heartbeat 1.5s ease infinite;
+        }
+
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
         }
 
         @media (prefers-color-scheme: dark) {
@@ -613,5 +657,15 @@
             });
         }
     </script>
+    <footer class="footer">
+        <div class="footer-content">
+            <p class="footer-text">
+                Built with <span class="footer-heart">♥</span> using 
+                <a href="https://github.com/kephale/atrium" class="footer-link" target="_blank">
+                    Atrium
+                </a>
+            </p>
+        </div>
+    </footer>
 </body>
 </html>

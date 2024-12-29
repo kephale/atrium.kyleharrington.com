@@ -3,6 +3,11 @@ Name: napari
 Description: A simple Python script to launch napari.
 URL: https://atrium.kyleharrington.com/visualization/napari
 
+Group: visualization
+Name: napari tiled zarr
+Description: Open a multiscale zarr with napari and use multiscale tiled loading
+URL: https://atrium.kyleharrington.com/visualization/napari-tiled-zarr
+
 Group: alife
 Name: Langton's Ant
 Description: Simulates Langton's Ant using napari for visualization.

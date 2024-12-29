@@ -2,6 +2,8 @@
 
 a collection of executable scripts for science, ai, and more
 
+This collection is managed by [atrium](https://github.com/kephale/atrium).
+
 ## Usage
 
 Scripts in this repository can be run using UV:

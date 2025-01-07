@@ -21,7 +21,7 @@
 #     "pandas",
 #     "copick",
 #     "typer",
-#     "polnet @ git+https://github.com/jtschwar/polnet",
+#     "polnet @ git+https://github.com/anmartinezs/polnet",
 #     "copick-utils @ git+https://github.com/copick/copick-utils"
 # ]
 # ///

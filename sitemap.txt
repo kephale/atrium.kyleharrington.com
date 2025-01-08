@@ -33,6 +33,11 @@ Name: napari
 Description: A simple Python script to launch napari.
 URL: https://atrium.kyleharrington.com/visualization/napari
 
+Group: atrium
+Name: Update an atrium in a repository
+Description: Updates an atrium configuration in a repository for GH pages
+URL: https://atrium.kyleharrington.com/atrium/update
+
 Group: alife
 Name: 3D evolving swarm
 Description: A 3D swarm simulation using energy dynamics, collision handling, and reproduction.

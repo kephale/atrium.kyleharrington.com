@@ -79,15 +79,18 @@ def parse_pns_config(file_path):
     return config
 
 def get_pns_info(pns_path):
-    """Extract necessary information from PNS/PMS file with better error handling"""
+    """Extract necessary information from PNS/PMS file with debug logging"""
     try:
+        print(f"\nProcessing PNS file: {pns_path}")
         config = parse_pns_config(pns_path)
+        print(f"Parsed config: {config}")
+        
         if not config:
             print(f"Warning: Empty config parsed from {pns_path}")
             return None
             
-        return {
-            'file_path': pns_path,  # Add file path to config
+        result = {
+            'file_path': pns_path,
             'mmer_id': config.get('MMER_ID', ''),
             'mmer_svol': config.get('MMER_SVOL', ''),
             'mmer_iso': float(config.get('MMER_ISO', '0')),
@@ -98,8 +101,11 @@ def get_pns_info(pns_path):
             'pmer_reverse_normals': config.get('PMER_REVERSE_NORMALS', 'False').lower() == 'true',
             'is_membrane': 'PMER_REVERSE_NORMALS' in config
         }
+        print(f"Processed config: {result}")
+        return result
+        
     except Exception as e:
-        print(f"Error parsing {pns_path}: {e}")
+        print(f"Error parsing {pns_path}: {str(e)}")
         return None
 
 # Modify the add_points function to use the configuration information
@@ -174,14 +180,16 @@ def generate_synthetic_data(
     MEMBRANES_LIST = split_args(membranes_list) if membranes_list else []
     
     # Parse protein configuration files
+    print("\nParsing protein configurations:")
     protein_configs = []
     for pns_file in PROTEINS_LIST:
+        print(f"\nProcessing protein file: {pns_file}")
         config = get_pns_info(pns_file)
         if config:
+            print(f"Adding config tuple: ({pns_file}, {config})")
             protein_configs.append((pns_file, config))
         else:
-            typer.echo(f"Skipping invalid protein config: {pns_file}")
-            continue
+            print(f"Skipping invalid protein config: {pns_file}")
     
     mb_protein_configs = []
     for pms_file in MB_PROTEINS_LIST:
@@ -259,12 +267,25 @@ def generate_synthetic_data(
                 try:
                     # Extract just the file paths for the all_features2 call
                     protein_paths = []
-                    for pns_file, config in protein_configs:
-                        if config and 'file_path' in config:
-                            protein_paths.append(config['file_path'])
+                    print("\nExtracting protein paths:")
+                    for config_tuple in protein_configs:
+                        print(f"Processing config tuple: {config_tuple}")
+                        if len(config_tuple) == 2:  # Verify tuple structure
+                            pns_file, config = config_tuple
+                            if config and 'file_path' in config:
+                                print(f"Adding path: {config['file_path']}")
+                                protein_paths.append(config['file_path'])
+                            else:
+                                print(f"Skipping malformed config for {pns_file}")
                         else:
-                            typer.echo(f"Skipping malformed config for {pns_file}")
-                    mb_protein_paths = [p[0] for p in mb_protein_configs]
+                            print(f"Invalid tuple structure: {config_tuple}")
+
+                    mb_protein_paths = []
+                    for config_tuple in mb_protein_configs:
+                        if len(config_tuple) == 2:
+                            pns_file, config = config_tuple
+                            if config and 'file_path' in config:
+                                mb_protein_paths.append(config['file_path'])
                     
                     all_features2(NTOMOS, VOI_SHAPE, permanent_dir, VOI_OFFS, 
                                 voxel_size, MMER_TRIES, PMER_TRIES,

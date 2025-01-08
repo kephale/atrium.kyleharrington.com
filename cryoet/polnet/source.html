@@ -309,6 +309,66 @@ def add_points(copick_run, csvFile, in_user_id, in_session_id):
         except Exception as e: 
             pass
 
+def parse_pns_config(file_path):
+    """Parse PNS/PMS configuration file"""
+    config = {}
+    with open(file_path, 'r') as f:
+        for line in f:
+            # Skip empty lines
+            if not line.strip():
+                continue
+            # Split on first '=' only
+            parts = line.strip().split('=', 1)
+            if len(parts) == 2:
+                key = parts[0].strip()
+                value = parts[1].strip()
+                config[key] = value
+    return config
+
+def get_pns_info(pns_path):
+    """Extract necessary information from PNS/PMS file"""
+    config = parse_pns_config(pns_path)
+    return {
+        'mmer_id': config.get('MMER_ID', ''),
+        'mmer_svol': config.get('MMER_SVOL', ''),
+        'mmer_iso': float(config.get('MMER_ISO', '0')),
+        'pmer_l': float(config.get('PMER_L', '1.1')),
+        'pmer_l_max': float(config.get('PMER_L_MAX', '3000')),
+        'pmer_occ': float(config.get('PMER_OCC', '0.2')),
+        'pmer_over_tol': float(config.get('PMER_OVER_TOL', '0.05')),
+        'pmer_reverse_normals': config.get('PMER_REVERSE_NORMALS', 'False').lower() == 'true',
+        'is_membrane': 'PMER_REVERSE_NORMALS' in config
+    }
+
+# Modify the add_points function to use the configuration information
+def add_points(copick_run, csvFile, in_user_id, in_session_id):
+    """Add protein coordinates and orientations to the Copick run."""
+    unique_labels = np.unique(csvFile['Label'])
+    for ii in range(1, len(unique_labels)+1):
+        try:
+            protein_info = csvFile[csvFile['Label'] == ii]
+            if len(protein_info) == 0:
+                continue
+                
+            proteinName = protein_info['Code'].iloc[0].split('_')[0]
+            points = protein_info[['X', 'Y', 'Z']]
+            qOrientations = protein_info[['Q2', 'Q3', 'Q4', 'Q1']]
+
+            orientations = np.zeros([points.shape[0], 4, 4])
+            for jj in range(points.shape[0]):
+                v = qOrientations.iloc[jj].to_numpy()
+                r = R.from_quat(v)         
+                orientations[jj,:3,:3] = r.as_matrix()  
+            orientations[:,3,3] = 1
+
+            picks = copick_run.new_picks(object_name=proteinName, 
+                                       user_id=in_user_id, 
+                                       session_id=in_session_id) 
+            picks.from_numpy(points.to_numpy(), orientations)               
+        except Exception as e: 
+            print(f"Error processing label {ii}: {e}")
+            continue
+
 def extract_membrane_segmentation(segVol, csvFile, pickable_objects):
     """Extract membrane segmentation from the volume."""
     membranes = np.zeros(segVol.shape, dtype=np.uint8)
@@ -344,19 +404,31 @@ def generate_synthetic_data(
     mb_proteins_list: Optional[str] = typer.Option(None, help="Comma-separated list of membrane protein file paths"),
     membranes_list: Optional[str] = typer.Option(None, help="Comma-separated list of membrane file paths"),
 ):
-    """
-    Generate synthetic cryo-ET data using Polnet with added debug logging.
-    """
+    """Generate synthetic cryo-ET data using Polnet."""
+    
     # Convert string inputs to lists
     PROTEINS_LIST = split_args(proteins_list)
     MB_PROTEINS_LIST = split_args(mb_proteins_list) if mb_proteins_list else []
     MEMBRANES_LIST = split_args(membranes_list) if membranes_list else []
     
-    # Add debug logging for input parameters
-    typer.echo("Debug: Input parameters:")
-    typer.echo(f"PROTEINS_LIST: {PROTEINS_LIST}")
-    typer.echo(f"MB_PROTEINS_LIST: {MB_PROTEINS_LIST}")
-    typer.echo(f"MEMBRANES_LIST: {MEMBRANES_LIST}")
+    # Parse protein configuration files
+    protein_configs = []
+    for pns_file in PROTEINS_LIST:
+        try:
+            config = get_pns_info(pns_file)
+            protein_configs.append((pns_file, config))
+        except Exception as e:
+            typer.echo(f"Error parsing protein config {pns_file}: {e}", err=True)
+            continue
+    
+    mb_protein_configs = []
+    for pms_file in MB_PROTEINS_LIST:
+        try:
+            config = get_pns_info(pms_file)
+            mb_protein_configs.append((pms_file, config))
+        except Exception as e:
+            typer.echo(f"Error parsing membrane protein config {pms_file}: {e}", err=True)
+            continue
     
     # Validate config path
     if not os.path.exists(config_path):
@@ -421,43 +493,28 @@ def generate_synthetic_data(
                 TEM_DIR = os.path.join(permanent_dir, 'tem')
                 TOMOS_DIR = os.path.join(permanent_dir, 'tomos')
                 
-                # Generate features with debug logging
+                # Generate features with parsed configurations
                 try:
-                    typer.echo(f"\nDebug: Generating features for {RUN_NAME}")
-                    typer.echo("Debug: all_features2 parameters:")
-                    typer.echo(f"NTOMOS: {NTOMOS}")
-                    typer.echo(f"VOI_SHAPE: {VOI_SHAPE}")
-                    typer.echo(f"permanent_dir: {permanent_dir}")
-                    typer.echo(f"VOI_OFFS: {VOI_OFFS}")
-                    typer.echo(f"voxel_size: {voxel_size}")
-                    typer.echo(f"MMER_TRIES: {MMER_TRIES}")
-                    typer.echo(f"PMER_TRIES: {PMER_TRIES}")
-                    typer.echo(f"MEMBRANES_LIST: {MEMBRANES_LIST}")
-                    typer.echo(f"Empty list: []")
-                    typer.echo(f"PROTEINS_LIST: {PROTEINS_LIST}")
-                    typer.echo(f"MB_PROTEINS_LIST: {MB_PROTEINS_LIST}")
-                    typer.echo(f"SURF_DEC: {SURF_DEC}")
-                    typer.echo(f"TILT_ANGS: {TILT_ANGS}")
-                    typer.echo(f"SNR: {SNR}")
-                    typer.echo(f"MALIGN_MIN: {MALIGN_MIN}")
-                    typer.echo(f"MALIGN_MAX: {MALIGN_MAX}")
-                    typer.echo(f"MALIGN_SIGMA: {MALIGN_SIGMA}")
+                    # Extract just the file paths for the all_features2 call
+                    protein_paths = [p[0] for p in protein_configs]
+                    mb_protein_paths = [p[0] for p in mb_protein_configs]
                     
                     all_features2(NTOMOS, VOI_SHAPE, permanent_dir, VOI_OFFS, 
                                 voxel_size, MMER_TRIES, PMER_TRIES,
-                                MEMBRANES_LIST, [], PROTEINS_LIST, 
-                                MB_PROTEINS_LIST, SURF_DEC,
+                                MEMBRANES_LIST, [], protein_paths, 
+                                mb_protein_paths, SURF_DEC,
                                 TILT_ANGS, SNR, MALIGN_MIN, MALIGN_MAX, MALIGN_SIGMA)
+                                
                 except Exception as e:
                     typer.echo(f"Error generating features for {RUN_NAME}: {e}", err=True)
-                    typer.echo(f"Debug: Exception type: {type(e)}")
-                    typer.echo(f"Debug: Exception args: {e.args}")
                     continue
                 
                 # Process and save results
                 try:
                     points_csv_path = os.path.join(permanent_dir, 'tomos_motif_list.csv')
                     csvFile = pd.read_csv(points_csv_path, delimiter='\t')
+                    
+                    # Use the parsed configurations when adding points
                     add_points(copick_run, csvFile, USER_ID, SESSION_ID)
                     
                     # Save tomogram

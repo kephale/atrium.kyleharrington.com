@@ -79,19 +79,28 @@ def parse_pns_config(file_path):
     return config
 
 def get_pns_info(pns_path):
-    """Extract necessary information from PNS/PMS file"""
-    config = parse_pns_config(pns_path)
-    return {
-        'mmer_id': config.get('MMER_ID', ''),
-        'mmer_svol': config.get('MMER_SVOL', ''),
-        'mmer_iso': float(config.get('MMER_ISO', '0')),
-        'pmer_l': float(config.get('PMER_L', '1.1')),
-        'pmer_l_max': float(config.get('PMER_L_MAX', '3000')),
-        'pmer_occ': float(config.get('PMER_OCC', '0.2')),
-        'pmer_over_tol': float(config.get('PMER_OVER_TOL', '0.05')),
-        'pmer_reverse_normals': config.get('PMER_REVERSE_NORMALS', 'False').lower() == 'true',
-        'is_membrane': 'PMER_REVERSE_NORMALS' in config
-    }
+    """Extract necessary information from PNS/PMS file with better error handling"""
+    try:
+        config = parse_pns_config(pns_path)
+        if not config:
+            print(f"Warning: Empty config parsed from {pns_path}")
+            return None
+            
+        return {
+            'file_path': pns_path,  # Add file path to config
+            'mmer_id': config.get('MMER_ID', ''),
+            'mmer_svol': config.get('MMER_SVOL', ''),
+            'mmer_iso': float(config.get('MMER_ISO', '0')),
+            'pmer_l': float(config.get('PMER_L', '1.1')),
+            'pmer_l_max': float(config.get('PMER_L_MAX', '3000')),
+            'pmer_occ': float(config.get('PMER_OCC', '0.2')),
+            'pmer_over_tol': float(config.get('PMER_OVER_TOL', '0.05')),
+            'pmer_reverse_normals': config.get('PMER_REVERSE_NORMALS', 'False').lower() == 'true',
+            'is_membrane': 'PMER_REVERSE_NORMALS' in config
+        }
+    except Exception as e:
+        print(f"Error parsing {pns_path}: {e}")
+        return None
 
 # Modify the add_points function to use the configuration information
 def add_points(copick_run, csvFile, in_user_id, in_session_id):
@@ -167,11 +176,11 @@ def generate_synthetic_data(
     # Parse protein configuration files
     protein_configs = []
     for pns_file in PROTEINS_LIST:
-        try:
-            config = get_pns_info(pns_file)
+        config = get_pns_info(pns_file)
+        if config:
             protein_configs.append((pns_file, config))
-        except Exception as e:
-            typer.echo(f"Error parsing protein config {pns_file}: {e}", err=True)
+        else:
+            typer.echo(f"Skipping invalid protein config: {pns_file}")
             continue
     
     mb_protein_configs = []
@@ -249,7 +258,12 @@ def generate_synthetic_data(
                 # Generate features with parsed configurations
                 try:
                     # Extract just the file paths for the all_features2 call
-                    protein_paths = [p[0] for p in protein_configs]
+                    protein_paths = []
+                    for pns_file, config in protein_configs:
+                        if config and 'file_path' in config:
+                            protein_paths.append(config['file_path'])
+                        else:
+                            typer.echo(f"Skipping malformed config for {pns_file}")
                     mb_protein_paths = [p[0] for p in mb_protein_configs]
                     
                     all_features2(NTOMOS, VOI_SHAPE, permanent_dir, VOI_OFFS, 

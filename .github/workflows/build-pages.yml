@@ -24,7 +24,7 @@ jobs:
 
       - name: Generate static site using UV
         run: |
-          uv run https://atrium.kyleharrington.com/atrium/update/0.0.1.py
+          uv run .atrium/scripts/generate_index.py
           mkdir -p docs
           cp icon_transparent.png docs/
           cp -r .atrium/docs/* docs/

@@ -268,7 +268,7 @@
 #     "pandas",
 #     "copick",
 #     "typer",
-#     "polnet @ git+https://github.com/anmartinezs/polnet",
+#     "polnet @ git+https://github.com/kephale/polnet@scaling",
 #     "copick-utils @ git+https://github.com/copick/copick-utils"
 # ]
 # ///
@@ -334,7 +334,7 @@ def split_int_args(arg: str) -> List[int]:
 @app.command()
 def generate_synthetic_data(
     config_path: str = typer.Argument(..., help="Path to the Copick configuration file"),
-    proteins_list: str = typer.Argument(..., help="Comma-separated list of protein file paths"),
+    proteins_list: str = typer.Option(None, help="Comma-separated list of protein file paths"),
     num_tomos_per_snr: int = typer.Option(1, help="Number of tomograms to produce per SNR"),
     snr: str = typer.Option("0.5", help="Comma-separated list of SNRs to simulate"),
     tilt_range: str = typer.Option("-60,60,3", help="Min,Max,Delta for tilt range"),
@@ -345,38 +345,41 @@ def generate_synthetic_data(
     membranes_list: Optional[str] = typer.Option(None, help="Comma-separated list of membrane file paths"),
 ):
     """
-    Generate synthetic cryo-ET data using Polnet.
-    
-    This tool creates synthetic cryo-electron tomography data including protein placements
-    and membrane simulations. It uses the Polnet framework to generate realistic synthetic
-    data for training and testing purposes.
+    Generate synthetic cryo-ET data using Polnet with added debug logging.
     """
     # Convert string inputs to lists
     PROTEINS_LIST = split_args(proteins_list)
     MB_PROTEINS_LIST = split_args(mb_proteins_list) if mb_proteins_list else []
     MEMBRANES_LIST = split_args(membranes_list) if membranes_list else []
     
+    # Add debug logging for input parameters
+    typer.echo("Debug: Input parameters:")
+    typer.echo(f"PROTEINS_LIST: {PROTEINS_LIST}")
+    typer.echo(f"MB_PROTEINS_LIST: {MB_PROTEINS_LIST}")
+    typer.echo(f"MEMBRANES_LIST: {MEMBRANES_LIST}")
+    
     # Validate config path
     if not os.path.exists(config_path):
         typer.echo(f"Error: Config file not found: {config_path}", err=True)
         raise typer.Exit(1)
         
-    # Setup constants
+    # Setup constants with debug logging
     SESSION_ID = '0'
     USER_ID = 'polnet'
     SEGMENTATION_NAME = 'membrane'
     TOMO_TYPE = 'wbp'
     
-    # Initialize Copick
+    # Initialize Copick with debug logging
     try:
         root = copick.from_file(config_path)
         objects = root.pickable_objects
         pickable_objects = [o.name for o in objects if o.is_particle]
+        typer.echo(f"Debug: Pickable objects: {pickable_objects}")
     except Exception as e:
         typer.echo(f"Error initializing Copick: {e}", err=True)
         raise typer.Exit(1)
     
-    # Setup tomography parameters
+    # Setup tomography parameters with debug logging
     NTOMOS = 1
     SURF_DEC = 0.9
     MMER_TRIES = 20
@@ -387,7 +390,10 @@ def generate_synthetic_data(
                 (int(y * 0.025), int(y * 0.975)), 
                 (int(z * 0.025), int(z * 0.975)))
     
-    # Parse tilt and SNR parameters
+    typer.echo(f"Debug: VOI_SHAPE: {VOI_SHAPE}")
+    typer.echo(f"Debug: VOI_OFFS: {VOI_OFFS}")
+    
+    # Parse tilt and SNR parameters with debug logging
     DETECTOR_SNR = split_float_args(snr)
     minAng, maxAng, angIncr = split_float_args(tilt_range)
     TILT_ANGS = [angle for angle in 
@@ -397,14 +403,8 @@ def generate_synthetic_data(
     MALIGNS = split_float_args(misalignment)
     MALIGN_MIN, MALIGN_MAX, MALIGN_SIGMA = MALIGNS
     
-    # Print configuration
-    typer.echo("Configuration Summary:")
-    typer.echo(f"Config Path: {config_path}")
-    typer.echo(f"Proteins: {', '.join(PROTEINS_LIST)}")
-    typer.echo(f"Membrane Proteins: {', '.join(MB_PROTEINS_LIST)}")
-    typer.echo(f"Membranes: {', '.join(MEMBRANES_LIST)}")
-    typer.echo(f"SNR values: {DETECTOR_SNR}")
-    typer.echo(f"Tilt range: {minAng} to {maxAng} with {angIncr}° increments")
+    typer.echo(f"Debug: TILT_ANGS: {TILT_ANGS}")
+    typer.echo(f"Debug: MALIGNS: {MALIGNS}")
     
     # Generate tomograms for each SNR
     run_ids = [run.name for run in root.runs] 
@@ -421,8 +421,28 @@ def generate_synthetic_data(
                 TEM_DIR = os.path.join(permanent_dir, 'tem')
                 TOMOS_DIR = os.path.join(permanent_dir, 'tomos')
                 
-                # Generate features
+                # Generate features with debug logging
                 try:
+                    typer.echo(f"\nDebug: Generating features for {RUN_NAME}")
+                    typer.echo("Debug: all_features2 parameters:")
+                    typer.echo(f"NTOMOS: {NTOMOS}")
+                    typer.echo(f"VOI_SHAPE: {VOI_SHAPE}")
+                    typer.echo(f"permanent_dir: {permanent_dir}")
+                    typer.echo(f"VOI_OFFS: {VOI_OFFS}")
+                    typer.echo(f"voxel_size: {voxel_size}")
+                    typer.echo(f"MMER_TRIES: {MMER_TRIES}")
+                    typer.echo(f"PMER_TRIES: {PMER_TRIES}")
+                    typer.echo(f"MEMBRANES_LIST: {MEMBRANES_LIST}")
+                    typer.echo(f"Empty list: []")
+                    typer.echo(f"PROTEINS_LIST: {PROTEINS_LIST}")
+                    typer.echo(f"MB_PROTEINS_LIST: {MB_PROTEINS_LIST}")
+                    typer.echo(f"SURF_DEC: {SURF_DEC}")
+                    typer.echo(f"TILT_ANGS: {TILT_ANGS}")
+                    typer.echo(f"SNR: {SNR}")
+                    typer.echo(f"MALIGN_MIN: {MALIGN_MIN}")
+                    typer.echo(f"MALIGN_MAX: {MALIGN_MAX}")
+                    typer.echo(f"MALIGN_SIGMA: {MALIGN_SIGMA}")
+                    
                     all_features2(NTOMOS, VOI_SHAPE, permanent_dir, VOI_OFFS, 
                                 voxel_size, MMER_TRIES, PMER_TRIES,
                                 MEMBRANES_LIST, [], PROTEINS_LIST, 
@@ -430,6 +450,8 @@ def generate_synthetic_data(
                                 TILT_ANGS, SNR, MALIGN_MIN, MALIGN_MAX, MALIGN_SIGMA)
                 except Exception as e:
                     typer.echo(f"Error generating features for {RUN_NAME}: {e}", err=True)
+                    typer.echo(f"Debug: Exception type: {type(e)}")
+                    typer.echo(f"Debug: Exception args: {e.args}")
                     continue
                 
                 # Process and save results

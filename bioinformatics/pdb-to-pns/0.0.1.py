@@ -27,25 +27,22 @@
 import os
 from pathlib import Path
 import logging
-from typing import List, Dict, Optional, Union, Tuple
 import typer
 import numpy as np
 import gemmi
-from scipy.spatial.transform import Rotation as R
 from scipy.ndimage import gaussian_filter
-from skimage import measure
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def pdb_to_coordinates(filename: os.PathLike) -> np.ndarray:
-    """Read a PDB/mmCIF file and return the atomic coordinates."""
+def pdb_to_density(filename: os.PathLike, box_size: int = 128, voxel_size: float = 1.0, sigma: float = 1.0) -> np.ndarray:
+    """Convert PDB to density map."""
     try:
-        # First try reading as PDB
+        # Read structure
         st = gemmi.read_structure(str(filename))
         
-        # Extract coordinates from all atoms
+        # Extract coordinates
         coords = []
         for model in st:
             for chain in model:
@@ -56,109 +53,105 @@ def pdb_to_coordinates(filename: os.PathLike) -> np.ndarray:
         
         coords = np.array(coords)
         
+        # Center coordinates
+        centroids = np.mean(coords, axis=0)
+        coords = coords - centroids
+        
+        # Create density map
+        pad = box_size // 2
+        scaled_coords = coords / voxel_size + pad
+        
+        density, _ = np.histogramdd(
+            scaled_coords,
+            bins=box_size,
+            range=tuple([(0, box_size - 1)] * 3),
+        )
+        
+        # Smooth and normalize
+        density = gaussian_filter(density, sigma=sigma)
+        density = (density - density.min()) / (density.max() - density.min())
+        
+        return density
+        
     except Exception as e:
-        logger.debug(f"Failed to read as PDB, trying CIF format: {str(e)}")
-        try:
-            # Try reading as mmCIF
-            doc = gemmi.cif.read_file(str(filename))
-            block = doc.sole_block()
-            data = block.find("_atom_site.", ["Cartn_x", "Cartn_y", "Cartn_z"])
-            
-            coords = np.stack(
-                [[float(r) for r in data.column(idx)] for idx in range(3)],
-                axis=-1,
-            )
-        except Exception as e2:
-            raise RuntimeError(f"Failed to read file in both PDB and CIF formats: {str(e2)}")
+        raise RuntimeError(f"Failed to process PDB file: {str(e)}")
 
-    # Center the molecule in XYZ
-    centroids = np.mean(coords, axis=0)
-    coords = coords - centroids
-
-    return coords
-
-def write_pns_file(pns_path: Path, vertices: np.ndarray, faces: np.ndarray):
-    """Write a PNS format file."""
-    with open(pns_path, 'w') as f:
-        # Write header
-        f.write(f"{len(vertices)} {len(faces)}\n")
-        
-        # Write vertices
-        for v in vertices:
-            f.write(f"{v[0]:.6f} {v[1]:.6f} {v[2]:.6f}\n")
-        
-        # Write faces (adjust indices to 1-based)
-        for face in faces:
-            f.write(f"3 {face[0]+1} {face[1]+1} {face[2]+1}\n")
-
-class PDBtoPNSConverter:
-    """Convert PDB files to PNS format using density-based surface extraction."""
+def write_mrc(density: np.ndarray, output_path: Path):
+    """Write density map to MRC format."""
+    # Create grid object
+    grid = gemmi.FloatGrid(density.shape[0], density.shape[1], density.shape[2])
+    grid.set_unit_cell(gemmi.UnitCell(density.shape[0], density.shape[1], density.shape[2], 90, 90, 90))
     
+    # Copy data to grid
+    for i in range(density.shape[0]):
+        for j in range(density.shape[1]):
+            for k in range(density.shape[2]):
+                grid.set_value(i, j, k, density[i,j,k])
+    
+    # Write to file
+    ccp4 = gemmi.Ccp4Map()
+    ccp4.grid = grid
+    ccp4.update_ccp4_header()
+    ccp4.write_ccp4_map(str(output_path))
+
+def write_pns(pdb_id: str, mrc_path: Path, output_path: Path, 
+              iso_value: float = 0.1, pmer_l: float = 1.2, 
+              pmer_l_max: float = 3000.0, pmer_occ: float = 0.5,
+              pmer_over_tol: float = 0.01):
+    """Write PNS format file with parameters."""
+    with open(output_path, 'w') as f:
+        f.write(f"MMER_ID = pdb_{pdb_id}\n")
+        f.write(f"MMER_SVOL = {str(mrc_path.absolute())}\n")
+        f.write(f"MMER_ISO = {iso_value}\n")
+        f.write(f"PMER_L = {pmer_l}\n")
+        f.write(f"PMER_L_MAX = {pmer_l_max}\n")
+        f.write(f"PMER_OCC = {pmer_occ}\n")
+        f.write(f"PMER_OVER_TOL = {pmer_over_tol}\n")
+
+class PDBConverter:
     def __init__(
         self,
         input_dir: str,
         output_dir: str,
-        voxel_size: float = 1.0,
         box_size: int = 128,
+        voxel_size: float = 1.0,
         sigma: float = 1.0,
-        iso_value: float = 0.5
+        iso_value: float = 0.1
     ):
         self.input_dir = Path(input_dir)
         self.output_dir = Path(output_dir)
-        self.voxel_size = voxel_size
         self.box_size = box_size
+        self.voxel_size = voxel_size
         self.sigma = sigma
         self.iso_value = iso_value
         
-        # Create output directory
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        
-    def create_density_map(self, coords: np.ndarray) -> np.ndarray:
-        """Create a density map from atomic coordinates."""
-        # Scale coordinates to grid
-        pad = self.box_size // 2
-        scaled_coords = coords / self.voxel_size + pad
-        
-        # Create density map using histogramdd
-        density, _ = np.histogramdd(
-            scaled_coords,
-            bins=self.box_size,
-            range=tuple([(0, self.box_size - 1)] * 3),
-        )
-        
-        # Apply Gaussian filter to smooth
-        density = gaussian_filter(density, sigma=self.sigma)
-        
-        # Normalize
-        density = (density - density.min()) / (density.max() - density.min())
-        
-        return density
-    
-    def extract_surface(self, density: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """Extract surface vertices and faces using marching cubes."""
-        # Run marching cubes from skimage
-        vertices, faces, normals, values = measure.marching_cubes(density, self.iso_value)
-        
-        # Scale vertices back to original coordinate system
-        vertices = vertices * self.voxel_size - (self.box_size * self.voxel_size) / 2
-        
-        return vertices, faces
+        # Create output directories
+        self.mrc_dir = self.output_dir / "phantom_mrcs"
+        self.pns_dir = self.output_dir / "phantom_pns"
+        self.mrc_dir.mkdir(parents=True, exist_ok=True)
+        self.pns_dir.mkdir(parents=True, exist_ok=True)
     
     def process_file(self, pdb_path: Path):
         """Process a single PDB file."""
         try:
-            # Read coordinates
-            coords = pdb_to_coordinates(pdb_path)
+            # Get PDB ID from filename
+            pdb_id = pdb_path.stem
             
             # Create density map
-            density = self.create_density_map(coords)
+            density = pdb_to_density(
+                pdb_path,
+                box_size=self.box_size,
+                voxel_size=self.voxel_size,
+                sigma=self.sigma
+            )
             
-            # Extract surface
-            vertices, faces = self.extract_surface(density)
+            # Write MRC file
+            mrc_path = self.mrc_dir / f"{pdb_id}.mrc"
+            write_mrc(density, mrc_path)
             
             # Write PNS file
-            pns_path = self.output_dir / f"{pdb_path.stem}.pns"
-            write_pns_file(pns_path, vertices, faces)
+            pns_path = self.pns_dir / f"{pdb_id}.pns"
+            write_pns(pdb_id, mrc_path, pns_path, iso_value=self.iso_value)
             
             logger.info(f"Successfully processed {pdb_path.name}")
             
@@ -174,51 +167,46 @@ class PDBtoPNSConverter:
             self.process_file(pdb_path)
 
 # Create Typer app
-app = typer.Typer(help="Convert PDB files to PNS format")
+app = typer.Typer(help="Convert PDB files to MRC and PNS formats")
 
 @app.command()
 def convert(
     input_dir: str = typer.Option(
-        ...,  # Required argument
+        ...,
         help="Directory containing PDB files"
     ),
     output_dir: str = typer.Option(
-        "pns_output",
-        help="Directory for output PNS files"
-    ),
-    voxel_size: float = typer.Option(
-        1.0,
-        help="Voxel size in Angstroms"
+        "output",
+        help="Base directory for output files"
     ),
     box_size: int = typer.Option(
         128,
         help="Size of density grid in pixels"
+    ),
+    voxel_size: float = typer.Option(
+        1.0,
+        help="Voxel size in Angstroms"
     ),
     sigma: float = typer.Option(
         1.0,
         help="Gaussian smoothing sigma"
     ),
     iso_value: float = typer.Option(
-        0.5,
+        0.1,
         help="Isosurface threshold value"
     )
 ):
     """
-    Convert a directory of PDB files to PNS format.
-    
-    This tool:
-    1. Reads atomic coordinates from PDB files
-    2. Creates a density map
-    3. Extracts isosurfaces using marching cubes
-    4. Outputs the surfaces in PNS format
+    Convert a directory of PDB files to MRC density maps and corresponding PNS files.
+    The MRC files will be placed in a 'phantom_mrcs' subdirectory and PNS files in 
+    a 'phantom_pns' subdirectory.
     """
     try:
-        # Create and run converter
-        converter = PDBtoPNSConverter(
+        converter = PDBConverter(
             input_dir=input_dir,
             output_dir=output_dir,
-            voxel_size=voxel_size,
             box_size=box_size,
+            voxel_size=voxel_size,
             sigma=sigma,
             iso_value=iso_value
         )

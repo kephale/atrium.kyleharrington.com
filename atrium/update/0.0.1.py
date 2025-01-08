@@ -1,5 +1,5 @@
 # /// script
-# title = Update an atrium in a repository"
+# title = "Update an atrium in a repository"
 # description = "Updates an atrium configuration in a repository for GH pages"
 # author = "Kyle Harrington"
 # license = "MIT"

@@ -33,7 +33,8 @@ import ast
 from urllib.request import urlopen
 
 # Import site configuration
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+REPO_ROOT = os.getcwd()
+sys.path.append(os.path.join(REPO_ROOT, ".atrium"))
 from site_config import SITE_CONFIG
 
 # Base directories

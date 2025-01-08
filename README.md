@@ -4,12 +4,14 @@ a collection of executable scripts for science, ai, and more
 
 This collection is managed by [atrium](https://github.com/kephale/atrium).
 
+Browse the collection [here](https://atrium.kyleharrington.com/).
+
 ## Usage
 
 Scripts in this repository can be run using UV:
 
 ```bash
-uv run https://kephale.github.io/atrium.kyleharrington.com/[group]/[solution]/[version].py
+uv run https://atrium.kyleharrington.com/[group]/[solution]/[version].py
 ```
 
 ## Structure

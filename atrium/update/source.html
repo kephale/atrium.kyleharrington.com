@@ -2189,25 +2189,12 @@ def generate_static_site(base_dir, static_dir):
     
     generate_sitemap_txt(solutions, static_dir)
 
-    # Copy CNAME
-    shutil.copy("./CNAME", static_dir)
-    
-    # Generate MCP server code
-    tool_definitions = generate_mcp_tool_definitions_with_ast(solutions)
-    with open(MCP_SERVER_PATH, "w") as f:
-        f.write(Template("""
-from fastmcp import FastMCP
-from typing import Optional, List, Union
-import subprocess
-
-mcp = FastMCP("Demo 🚀")
-
-
-
-if __name__ == "__main__":
-    mcp.run()
-""").render(tool_definitions=tool_definitions))
-    print(f"mcp_server.py generated at {MCP_SERVER_PATH}")
+    # Copy CNAME if it exists
+    cname_path = "./CNAME"
+    if os.path.exists(cname_path):
+        shutil.copy(cname_path, static_dir)
+    else:
+        print(f"Warning: {cname_path} not found. Skipping CNAME copy.")
 
 if __name__ == "__main__":
     generate_static_site(BASE_DIR, STATIC_DIR)

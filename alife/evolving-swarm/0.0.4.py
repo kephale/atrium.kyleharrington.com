@@ -3,7 +3,7 @@
 # description = "A 3D swarm simulation using energy dynamics, collision handling, and reproduction."
 # author = "Kyle Harrington <atrium@kyleharrington.com>"
 # license = "MIT"
-# version = "0.1.0"
+# version = "0.0.4"
 # keywords = ["swarm simulation", "genetic algorithms", "napari", "3D visualization"]
 # classifiers = [
 #     "Development Status :: 4 - Beta",

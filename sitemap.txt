@@ -33,6 +33,11 @@ Name: napari
 Description: A simple Python script to launch napari.
 URL: https://atrium.kyleharrington.com/visualization/napari
 
+Group: meshes
+Name: 3D Blob Meshing
+Description: A Python script to generate and visualize 3D meshes from scikit-image blobs, with export to OBJ, PLY, and Neuroglancer Precomputed formats.
+URL: https://atrium.kyleharrington.com/meshes/zmesh-ng-precomputed
+
 Group: atrium
 Name: Update an atrium in a repository
 Description: Updates an atrium configuration in a repository for GH pages

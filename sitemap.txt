@@ -58,3 +58,8 @@ Name: CartPole SARSA
 Description: Visualize the CartPole game optimized using SARSA in Napari.
 URL: https://atrium.kyleharrington.com/reinforcement-learning/cart-pole-sarsa
 
+Group: communication
+Name: napari-webcam-filters
+Description: A Python script to launch napari with real-time webcam filters for video conferencing. Follow pyvirtualcam install instructions first.
+URL: https://atrium.kyleharrington.com/communication/napari-conference
+

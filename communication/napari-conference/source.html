@@ -1,0 +1,371 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> - Source Code</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1d4ed8;
+            --background-color: #f8fafc;
+            --card-background: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --code-background: #1e1e1e;
+            --footer-background: var(--card-background);
+            --footer-text: var(--text-secondary);
+            --footer-link: var(--primary-color);
+        }
+
+        .footer {
+            background-color: var(--footer-background);
+            padding: 2rem 1rem;
+            margin-top: 4rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+            color: var(--footer-text);
+        }
+
+        .footer-link {
+            color: var(--footer-link);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        .footer-link:hover {
+            text-decoration: underline;
+        }
+
+        .footer-text {
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        .footer-heart {
+            color: #e25555;
+            display: inline-block;
+            animation: heartbeat 1.5s ease infinite;
+        }
+
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary-color: #3b82f6;
+                --secondary-color: #60a5fa;
+                --background-color: #0f172a;
+                --card-background: #1e293b;
+                --text-primary: #f1f5f9;
+                --text-secondary: #94a3b8;
+                --border-color: #334155;
+                --code-background: #1e1e1e;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            padding: 2rem;
+            color: white;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: flex-start;
+            gap: 2rem;
+        }
+
+        .header-logo {
+            flex-shrink: 0;
+            text-decoration: none;
+        }
+
+        .logo-image {
+            height: 80px;
+            width: auto;
+        }
+
+        .header-text {
+            flex-grow: 1;
+        }
+
+        .header-title {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            font-weight: 800;
+        }
+
+        .nav-bar {
+            background-color: var(--card-background);
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            color: var(--text-secondary);
+            text-decoration: none;
+            gap: 0.5rem;
+            font-size: 0.95rem;
+        }
+
+        .back-link:hover {
+            color: var(--primary-color);
+        }
+
+        .source-container {
+            background: var(--card-background);
+            border-radius: 1rem;
+            margin: 2rem 0;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .source-header {
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .source-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .download-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            text-decoration: none;
+        }
+
+        .download-button:hover {
+            background: var(--secondary-color);
+        }
+
+        pre[class*="language-"] {
+            margin: 0;
+            border-radius: 0;
+        }
+
+        .code-wrapper {
+            max-height: 800px;
+            overflow-y: auto;
+            background: var(--code-background);
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+
+            .logo-image {
+                height: 60px;
+            }
+
+            .header-title {
+                font-size: 1.5rem;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <a href="../../index.html" class="header-logo">
+                <img src="../../icon_transparent.png" alt=" Logo" class="logo-image">
+            </a>
+            <div class="header-text">
+                <h1 class="header-title"> - Source Code</h1>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="source-container">
+            <div class="source-header">
+                <div class="source-title"></div>
+                <a href="" download="" class="download-button">
+                    <i class="fas fa-download"></i>
+                    Download Source
+                </a>
+            </div>
+            <div class="code-wrapper">
+                <pre class="line-numbers"><code class="language-python"># /// script
+# title = "napari-webcam-filters"
+# description = "A Python script to launch napari with real-time webcam filters for video conferencing. Follow pyvirtualcam install instructions first."
+# author = "Kyle Harrington <napari@kyleharrington.com>"
+# license = "MIT"
+# version = "0.1.0"
+# keywords = ["napari", "webcam", "filters", "video-conferencing", "virtual-camera"]
+# repository = "https://github.com/kephale/napari-webcam-filters"
+# documentation = "https://github.com/kephale/napari-webcam-filters#readme"
+# homepage = "https://napari.org"
+# classifiers = [
+#     "Development Status :: 3 - Alpha",
+#     "Intended Audience :: End Users/Desktop",
+#     "License :: OSI Approved :: MIT License",
+#     "Programming Language :: Python :: 3.8",
+#     "Topic :: Multimedia :: Video",
+#     "Topic :: Scientific/Engineering :: Image Processing",
+# ]
+# requires-python = ">=3.8"
+# dependencies = [
+#     "napari[all]",
+#     "opencv-python",
+#     "pyvirtualcam",
+#     "numpy",
+#     "magicgui",
+#     "napari-conference @ git+https://github.com/kephale/napari-conference"
+# ]
+# ///
+
+import sys
+import site
+
+import typer
+import napari
+from dataclasses import dataclass
+from typing import Optional
+import logging
+
+from napari_conference import conference_widget, WebcamProcessor, ImageFilters, WebcamState
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = typer.Typer(help="A CLI to launch napari with webcam filters for video conferencing.")
+
+@dataclass
+class LaunchConfig:
+    """Configuration for launching the webcam application."""
+    window_width: int = 800
+    window_height: int = 600
+    layer_name: str = "Webcam Feed"
+    default_filter: str = "None"
+    default_trails: float = 0.1
+
+@app.command()
+def launch(
+    width: int = typer.Option(800, help="Window width"),
+    height: int = typer.Option(600, help="Window height"),
+    layer_name: str = typer.Option("Webcam Feed", help="Name of the webcam layer"),
+    filter_name: str = typer.Option("None", help="Initial filter to apply"),
+    trails: float = typer.Option(0.1, help="Motion trails parameter (0-1)")
+):
+    """
+    Launch napari with the webcam filters plugin.
+    
+    The application provides real-time filters and effects for video conferencing,
+    including virtual camera output capabilities.
+    """
+    config = LaunchConfig(
+        window_width=width,
+        window_height=height,
+        layer_name=layer_name,
+        default_filter=filter_name,
+        default_trails=trails
+    )
+    
+    logger.info(f"Launching napari with window size {config.window_width}x{config.window_height}")
+    
+    # Initialize viewer and state
+    viewer = napari.Viewer()
+    viewer.window.resize(config.window_width, config.window_height)
+    state = WebcamState()
+    
+    # Create and add the widget
+    widget = conference_widget()
+    widget.layer_name.value = config.layer_name
+    widget.dropdown.value = config.default_filter
+    widget.trails_param.value = config.default_trails
+    
+    viewer.window.add_dock_widget(widget, name="Webcam Filters")
+    
+    logger.info("Starting napari event loop")
+    napari.run()
+
+def main():
+    """Entry point for the application."""
+    try:
+        app()
+    except Exception as e:
+        logger.error(f"Error running application: {e}")
+        raise
+
+if __name__ == "__main__":
+    main()</code></pre>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+    <footer class="footer">
+        <div class="footer-content">
+            <p class="footer-text">
+                Built with <span class="footer-heart">♥</span> using 
+                <a href="https://github.com/kephale/atrium" class="footer-link" target="_blank">
+                    Atrium
+                </a>
+            </p>
+        </div>
+    </footer>
+</body>
+</html>

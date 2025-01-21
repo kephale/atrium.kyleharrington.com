@@ -24,6 +24,11 @@ Description: Open a multiscale zarr with napari and use multiscale tiled loading
 URL: https://atrium.kyleharrington.com/visualization/napari-tiled-zarr
 
 Group: visualization
+Name: napari
+Description: A simple Python script to launch napari.
+URL: https://atrium.kyleharrington.com/visualization/napari-experiments
+
+Group: visualization
 Name: Napari PNS Browser
 Description: A napari-based viewer for browsing PNS files with widget controls
 URL: https://atrium.kyleharrington.com/visualization/napari-pns-browser

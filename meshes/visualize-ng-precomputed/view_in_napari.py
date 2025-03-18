@@ -10,7 +10,6 @@
 # dependencies = [
 #     "napari",
 #     "numpy",
-#     "trimesh",
 #     "PyQt5"
 # ]
 # ///

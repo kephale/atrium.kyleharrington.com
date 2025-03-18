@@ -63,11 +63,21 @@ class PrecomputedMeshValidator:
             "missing_data": []
         }
         
-        # Get all numerical files (potential mesh data)
-        all_files = list(self.precomputed_dir.glob("*[0-9]"))
-        mesh_files = {p.stem: p for p in all_files if not p.name.endswith('.index')}
-        index_files = {p.stem: p for p in all_files if p.name.endswith('.index')}
+        # Get all files in the directory for better diagnostics
+        all_files = list(self.precomputed_dir.iterdir())
+        print(f"Found {len(all_files)} total files in {self.precomputed_dir}")
         
+        # Filter for numerical files (potential mesh data)
+        numeric_files = [f for f in all_files if f.name.split('.')[0].isdigit()]
+        print(f"Found {len(numeric_files)} numeric files")
+        
+        # Separate mesh data and index files
+        mesh_files = {p.stem: p for p in numeric_files if not p.name.endswith('.index')}
+        index_files = {p.stem: p for p in numeric_files if p.name.endswith('.index')}
+        
+        print(f"Found {len(mesh_files)} mesh data files and {len(index_files)} index files")
+        
+        # Check for complete mesh sets (both data and index)
         for mesh_id in mesh_files:
             if mesh_id in index_files:
                 try:
@@ -86,7 +96,11 @@ class PrecomputedMeshValidator:
                     result["missing_data"].append(int(index_id))
                 except ValueError:
                     continue
-                    
+        
+        # Provide more diagnostics
+        if result["complete_meshes"]:
+            print(f"Complete meshes found: {sorted(result['complete_meshes'])}")
+        
         return result
         
     def validate_mesh_data(self, mesh_id: int) -> Tuple[bool, str]:

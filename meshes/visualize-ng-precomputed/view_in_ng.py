@@ -21,6 +21,7 @@ import json
 import webbrowser
 import sys
 import signal
+import time
 import os
 from pathlib import Path
 import json
@@ -56,15 +57,15 @@ class PrecomputedMeshValidator:
                 info = json.load(f)
                 
             # Validate required info file fields
-            required_fields = ["@type", "data_type", "num_channels", "scales"]
+            required_fields = ["data_type", "num_channels", "scales"]
             missing_fields = [field for field in required_fields if field not in info]
             if missing_fields:
                 return False, f"Info file missing required fields: {missing_fields}"
                 
-            # Check for Neuroglancer compatibility
-            if info.get("@type") != "neuroglancer_multilod_draco":
+            # Check for Neuroglancer compatibility - be more lenient about type
+            if "@type" in info and info["@type"] != "neuroglancer_multilod_draco":
                 print(f"Warning: Info file has @type '{info.get('@type')}', expected 'neuroglancer_multilod_draco'")
-                
+                # But continue anyway, as different @type values might still work
         except json.JSONDecodeError:
             return False, f"Invalid JSON in info file: {info_path}"
         except Exception as e:
@@ -206,13 +207,22 @@ def setup_viewer(precomputed_dir: Path):
     
     # Initialize viewer with validated meshes
     viewer = neuroglancer.Viewer()
+    
+    # Ensure the path is properly formatted
+    absolute_path = str(precomputed_dir.absolute())
+    print(f"Using data source: precomputed://{absolute_path}")
+    
     with viewer.txn() as s:
         s.layers['meshes'] = neuroglancer.SegmentationLayer(
-            source=f'precomputed+file://{precomputed_dir.absolute()}',
+            source=f'precomputed://{absolute_path}',
             segments=validation_results["valid_meshes"]
         )
         s.layout = '3d'
         s.show_axis_lines = True
+        
+        # Set some reasonable defaults for the view
+        s.perspective_zoom = 1024
+        s.perspective_orientation = [0.5, 0.5, 0.5, 0.5]
                 
     return viewer
 
@@ -225,6 +235,10 @@ def main():
                       help="Enable debug logging")
     
     args = parser.parse_args()
+    
+    # Setup local server to allow access to local files
+    neuroglancer.set_server_bind_address('127.0.0.1')
+    neuroglancer.set_static_content_source(neuroglancer.LocalStaticContentSource())
     
     if args.debug:
         neuroglancer.set_server_bind_address('127.0.0.1')
@@ -271,11 +285,13 @@ def main():
         
         print("\nServer is running. Press Ctrl+C to exit...")
         try:
-            # neuroglancer.stop_web_server()
-            signal.pause()
-            # viewer.ready.wait()
+            signal.signal(signal.SIGINT, lambda signal, frame: neuroglancer.stop_web_server())
+            while True:
+                sleep_time = 1000000  # Keep main thread alive
+                time.sleep(sleep_time)
         except KeyboardInterrupt:
             print("\nShutting down viewer server...")
+            neuroglancer.stop_web_server()
         except Exception as e:
             print(f"\nError during viewer execution: {str(e)}")
             if args.debug:

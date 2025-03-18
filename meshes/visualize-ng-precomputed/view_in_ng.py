@@ -239,9 +239,25 @@ def main():
         print(url)
         
         print("\nViewer State:")
-        print(json.dumps(json.loads(viewer.state.to_json()), indent=2))
+        try:
+            state_json = viewer.state.to_json()
+            # Handle both dict and string formats
+            if isinstance(state_json, dict):
+                print(json.dumps(state_json, indent=2))
+            else:
+                print(json.dumps(json.loads(state_json), indent=2))
+        except Exception as e:
+            print(f"Could not display viewer state: {str(e)}")
+            if args.debug:
+                import traceback
+                traceback.print_exc()
         
-        webbrowser.open(url)
+        try:
+            webbrowser.open(url)
+            print("Opened viewer in web browser")
+        except Exception as e:
+            print(f"Could not open browser automatically: {str(e)}")
+            print("Please copy and paste the URL into your browser manually.")
         
         print("\nControls:")
         print("- Right mouse button: Rotate")
@@ -249,10 +265,20 @@ def main():
         print("- Mouse wheel: Zoom")
         print("- 'r' key: Reset view")
         print("- 'h' key: Show help")
+        print("- In the 'meshes' layer's settings (gear icon), you can change which meshes are visible")
+        print("- You can toggle visibility of individual meshes in the segmentation tab")
         
-        print("\nPress Ctrl+C to exit...")
-        neuroglancer.stop_web_server()
-        viewer.ready.wait()
+        print("\nServer is running. Press Ctrl+C to exit...")
+        try:
+            neuroglancer.stop_web_server()
+            viewer.ready.wait()
+        except KeyboardInterrupt:
+            print("\nShutting down viewer server...")
+        except Exception as e:
+            print(f"\nError during viewer execution: {str(e)}")
+            if args.debug:
+                import traceback
+                traceback.print_exc()
         
     except Exception as e:
         print(f"\nError: {str(e)}")

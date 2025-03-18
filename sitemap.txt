@@ -74,6 +74,11 @@ Description: A 3D swarm simulation using energy dynamics, collision handling, an
 URL: https://atrium.kyleharrington.com/alife/evolving-swarm
 
 Group: alife
+Name: Lambda Chemistry Simulation
+Description: Implements a minimal lambda chemistry and plots reproducer frequency over time.
+URL: https://atrium.kyleharrington.com/alife/lambda-chemistry
+
+Group: alife
 Name: Langton's Ant
 Description: Simulates Langton's Ant using napari for visualization.
 URL: https://atrium.kyleharrington.com/alife/langtons-ant

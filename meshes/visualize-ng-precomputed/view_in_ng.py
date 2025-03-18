@@ -165,9 +165,13 @@ def setup_viewer(precomputed_dir: Path):
             print("\nInvalid meshes:")
             for mesh_id, message in validation_results["invalid_meshes"].items():
                 print(f"- Mesh {mesh_id}: {message}")
+        
+        print("\nTip: If using 'minimal-ng-precomputed', ensure you've generated the meshes with sequential IDs.")
+        print("     The meshes should be generated in the 'precomputed' directory.")
         sys.exit(1)
         
     print(f"\nFound {len(validation_results['valid_meshes'])} valid meshes")
+    print(f"Valid mesh IDs: {sorted(validation_results['valid_meshes'])}")
     
     # Initialize viewer with validated meshes
     viewer = neuroglancer.Viewer()

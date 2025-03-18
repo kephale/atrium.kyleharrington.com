@@ -189,26 +189,35 @@ def create_proxy_mesh(positions: np.ndarray, scale: float, grid_origin: np.ndarr
     min_pos = grid_origin + positions.min(axis=0) * scale
     max_pos = grid_origin + (positions.max(axis=0) + 1) * scale  # +1 because positions are indices
     
-    # Create a box representing the volume
+    # Create 8 corners of the bounding box
     vertices = np.array([
-        [min_pos[0], min_pos[1], min_pos[2]],
-        [max_pos[0], min_pos[1], min_pos[2]],
-        [min_pos[0], max_pos[1], min_pos[2]],
-        [max_pos[0], max_pos[1], min_pos[2]],
-        [min_pos[0], min_pos[1], max_pos[2]],
-        [max_pos[0], min_pos[1], max_pos[2]],
-        [min_pos[0], max_pos[1], max_pos[2]],
-        [max_pos[0], max_pos[1], max_pos[2]],
+        [min_pos[0], min_pos[1], min_pos[2]],  # 0: front bottom left
+        [max_pos[0], min_pos[1], min_pos[2]],  # 1: front bottom right
+        [max_pos[0], max_pos[1], min_pos[2]],  # 2: front top right
+        [min_pos[0], max_pos[1], min_pos[2]],  # 3: front top left
+        [min_pos[0], min_pos[1], max_pos[2]],  # 4: back bottom left
+        [max_pos[0], min_pos[1], max_pos[2]],  # 5: back bottom right
+        [max_pos[0], max_pos[1], max_pos[2]],  # 6: back top right
+        [min_pos[0], max_pos[1], max_pos[2]],  # 7: back top left
     ])
     
-    # Define the edges of the box
-    edges = np.array([
-        [0, 1], [1, 3], [3, 2], [2, 0],  # Bottom face
-        [4, 5], [5, 7], [7, 6], [6, 4],  # Top face
-        [0, 4], [1, 5], [2, 6], [3, 7],  # Connecting edges
+    # Define the faces of the box (12 triangles forming 6 sides)
+    faces = np.array([
+        # Front face
+        [0, 1, 2], [0, 2, 3],
+        # Right face
+        [1, 5, 6], [1, 6, 2],
+        # Back face
+        [5, 4, 7], [5, 7, 6],
+        # Left face
+        [4, 0, 3], [4, 3, 7],
+        # Top face
+        [3, 2, 6], [3, 6, 7],
+        # Bottom face
+        [0, 4, 5], [0, 5, 1]
     ])
     
-    return vertices, edges
+    return vertices, faces
 
 def main():
     parser = argparse.ArgumentParser(description="View precomputed mesh data in napari")
@@ -284,19 +293,21 @@ def main():
                     manifest["grid_origin"]
                 )
                 
-                # Add as shapes layer (box outlines)
-                lines = []
-                for i in range(len(edges)):
-                    lines.append(np.array([vertices[edges[i, 0]], vertices[edges[i, 1]]]))
+                # Add as mesh layer
+                vertices, faces = create_proxy_mesh(
+                    fragments["positions"], 
+                    manifest["lod_scales"][lod],
+                    manifest["grid_origin"]
+                )
                 
-                # Convert color tuple to string format '#RRGGBB'
-                color_hex = f'#{int(mesh_colors[mesh_id][0]*255):02x}{int(mesh_colors[mesh_id][1]*255):02x}{int(mesh_colors[mesh_id][2]*255):02x}'
+                # Convert to RGB color
+                rgb_color = np.array([mesh_colors[mesh_id][0], mesh_colors[mesh_id][1], mesh_colors[mesh_id][2]])
                 
-                viewer.add_shapes(
-                    lines,
-                    shape_type='line',
-                    edge_width=2,
-                    edge_color=color_hex,
+                # Add mesh layer
+                viewer.add_surface(
+                    (vertices, faces),
+                    colormap='gray',
+                    opacity=0.7,
                     name=f"Mesh {mesh_id} - LOD {lod}"
                 )
         

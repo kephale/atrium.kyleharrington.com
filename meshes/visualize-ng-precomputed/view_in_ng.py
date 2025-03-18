@@ -57,15 +57,15 @@ class PrecomputedMeshValidator:
                 info = json.load(f)
                 
             # Validate required info file fields
-            required_fields = ["@type", "data_type", "num_channels", "scales"]
+            required_fields = ["data_type", "num_channels", "scales"]
             missing_fields = [field for field in required_fields if field not in info]
             if missing_fields:
                 return False, f"Info file missing required fields: {missing_fields}"
                 
-            # Check for Neuroglancer compatibility
-            if info.get("@type") != "neuroglancer_multilod_draco":
+            # Check for Neuroglancer compatibility - be more lenient about type
+            if "@type" in info and info["@type"] != "neuroglancer_multilod_draco":
                 print(f"Warning: Info file has @type '{info.get('@type')}', expected 'neuroglancer_multilod_draco'")
-                
+                # But continue anyway, as different @type values might still work
         except json.JSONDecodeError:
             return False, f"Invalid JSON in info file: {info_path}"
         except Exception as e:

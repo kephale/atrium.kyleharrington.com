@@ -269,10 +269,20 @@ def main():
         print("- Mouse wheel: Zoom")
         print("- 'r' key: Reset view")
         print("- 'h' key: Show help")
+        print("- In the 'meshes' layer's settings (gear icon), you can change which meshes are visible")
+        print("- You can toggle visibility of individual meshes in the segmentation tab")
         
-        print("\nPress Ctrl+C to exit...")
-        neuroglancer.stop_web_server()
-        viewer.ready.wait()
+        print("\nServer is running. Press Ctrl+C to exit...")
+        try:
+            neuroglancer.stop_web_server()
+            viewer.ready.wait()
+        except KeyboardInterrupt:
+            print("\nShutting down viewer server...")
+        except Exception as e:
+            print(f"\nError during viewer execution: {str(e)}")
+            if args.debug:
+                import traceback
+                traceback.print_exc()
         
     except Exception as e:
         print(f"\nError: {str(e)}")

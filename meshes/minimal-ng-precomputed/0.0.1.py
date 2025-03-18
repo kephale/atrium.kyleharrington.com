@@ -465,8 +465,10 @@ def main():
     writer = NeuroglancerMeshWriter(
         output_dir,
         box_size=64,
-        vertex_quantization_bits=10
+        vertex_quantization_bits=10,
+        clean_output=True  # Clean existing output to avoid issues
     )
+    print(f"Creating meshes in: {output_dir.absolute()}")
     
     # Generate sample data using binary blobs
     blobs = data.binary_blobs(length=256, n_dim=3, volume_fraction=0.2)

@@ -34,9 +34,21 @@ class PrecomputedMeshValidator:
         if not self.precomputed_dir.exists():
             return False, f"Directory does not exist: {self.precomputed_dir}"
         
+        print(f"Checking precomputed directory: {self.precomputed_dir}")
+        if not os.path.isdir(self.precomputed_dir):
+            return False, f"Path exists but is not a directory: {self.precomputed_dir}"
+            
         info_path = self.precomputed_dir / "info"
         if not info_path.exists():
-            return False, f"Missing info file at: {info_path}"
+            # Try to provide helpful diagnostics about the directory content
+            files = list(self.precomputed_dir.iterdir())
+            if files:
+                file_list = ", ".join([f.name for f in files[:10]])
+                if len(files) > 10:
+                    file_list += f", ... (and {len(files)-10} more)"
+                return False, f"Missing info file at: {info_path}. Directory contains: {file_list}"
+            else:
+                return False, f"Missing info file at: {info_path}. Directory is empty."
             
         try:
             with open(info_path, 'r') as f:
@@ -47,6 +59,10 @@ class PrecomputedMeshValidator:
             missing_fields = [field for field in required_fields if field not in info]
             if missing_fields:
                 return False, f"Info file missing required fields: {missing_fields}"
+                
+            # Check for Neuroglancer compatibility
+            if info.get("@type") != "neuroglancer_multilod_draco":
+                print(f"Warning: Info file has @type '{info.get('@type')}', expected 'neuroglancer_multilod_draco'")
                 
         except json.JSONDecodeError:
             return False, f"Invalid JSON in info file: {info_path}"

@@ -347,13 +347,14 @@ class NeuroglancerMeshWriter:
             # Add required fields for viewer compatibility
             "data_type": "uint64",  # Standard for segmentation data
             "num_channels": 1,      # Single channel for mesh data
+            "type": "segmentation",  # Important for Neuroglancer to recognize as meshes
             "scales": [
                 {
                     "chunk_sizes": [[64, 64, 64]],
                     "encoding": "compressed_segmentation",
                     "key": "64_64_64",
                     "resolution": [1, 1, 1],
-                    "size": [64, 64, 64],
+                    "size": [256, 256, 256],  # Match the size of our data
                     "voxel_offset": [0, 0, 0]
                 }
             ]
@@ -361,6 +362,9 @@ class NeuroglancerMeshWriter:
         
         with open(self.output_dir / "info", "w") as f:
             json.dump(info, f)
+            
+        print(f"Created info file: {self.output_dir / 'info'}")
+        print(f"Info file content: {json.dumps(info, indent=2)}")
 
     def write_binary_manifest(self, mesh_id: int, fragments_by_lod: Dict[int, List[Fragment]], 
                             grid_origin: np.ndarray, num_lods: int):

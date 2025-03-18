@@ -207,9 +207,14 @@ def setup_viewer(precomputed_dir: Path):
     
     # Initialize viewer with validated meshes
     viewer = neuroglancer.Viewer()
+    
+    # Ensure the path is properly formatted
+    absolute_path = str(precomputed_dir.absolute())
+    print(f"Using data source: precomputed://{absolute_path}")
+    
     with viewer.txn() as s:
         s.layers['meshes'] = neuroglancer.SegmentationLayer(
-            source=f'precomputed://{precomputed_dir.absolute()}',
+            source=f'precomputed://{absolute_path}',
             segments=validation_results["valid_meshes"]
         )
         s.layout = '3d'

@@ -208,11 +208,15 @@ def setup_viewer(precomputed_dir: Path):
     viewer = neuroglancer.Viewer()
     with viewer.txn() as s:
         s.layers['meshes'] = neuroglancer.SegmentationLayer(
-            source=f'precomputed+file://{precomputed_dir.absolute()}',
+            source=f'precomputed://{precomputed_dir.absolute()}',
             segments=validation_results["valid_meshes"]
         )
         s.layout = '3d'
         s.show_axis_lines = True
+        
+        # Set some reasonable defaults for the view
+        s.perspective_zoom = 1024
+        s.perspective_orientation = [0.5, 0.5, 0.5, 0.5]
                 
     return viewer
 

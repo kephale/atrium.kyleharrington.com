@@ -256,7 +256,12 @@ def main():
                 import traceback
                 traceback.print_exc()
         
-        webbrowser.open(url)
+        try:
+            webbrowser.open(url)
+            print("Opened viewer in web browser")
+        except Exception as e:
+            print(f"Could not open browser automatically: {str(e)}")
+            print("Please copy and paste the URL into your browser manually.")
         
         print("\nControls:")
         print("- Right mouse button: Rotate")

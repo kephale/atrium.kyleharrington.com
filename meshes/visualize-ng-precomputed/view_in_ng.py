@@ -34,9 +34,21 @@ class PrecomputedMeshValidator:
         if not self.precomputed_dir.exists():
             return False, f"Directory does not exist: {self.precomputed_dir}"
         
+        print(f"Checking precomputed directory: {self.precomputed_dir}")
+        if not os.path.isdir(self.precomputed_dir):
+            return False, f"Path exists but is not a directory: {self.precomputed_dir}"
+            
         info_path = self.precomputed_dir / "info"
         if not info_path.exists():
-            return False, f"Missing info file at: {info_path}"
+            # Try to provide helpful diagnostics about the directory content
+            files = list(self.precomputed_dir.iterdir())
+            if files:
+                file_list = ", ".join([f.name for f in files[:10]])
+                if len(files) > 10:
+                    file_list += f", ... (and {len(files)-10} more)"
+                return False, f"Missing info file at: {info_path}. Directory contains: {file_list}"
+            else:
+                return False, f"Missing info file at: {info_path}. Directory is empty."
             
         try:
             with open(info_path, 'r') as f:
@@ -47,6 +59,10 @@ class PrecomputedMeshValidator:
             missing_fields = [field for field in required_fields if field not in info]
             if missing_fields:
                 return False, f"Info file missing required fields: {missing_fields}"
+                
+            # Check for Neuroglancer compatibility
+            if info.get("@type") != "neuroglancer_multilod_draco":
+                print(f"Warning: Info file has @type '{info.get('@type')}', expected 'neuroglancer_multilod_draco'")
                 
         except json.JSONDecodeError:
             return False, f"Invalid JSON in info file: {info_path}"
@@ -63,11 +79,21 @@ class PrecomputedMeshValidator:
             "missing_data": []
         }
         
-        # Get all numerical files (potential mesh data)
-        all_files = list(self.precomputed_dir.glob("*[0-9]"))
-        mesh_files = {p.stem: p for p in all_files if not p.name.endswith('.index')}
-        index_files = {p.stem: p for p in all_files if p.name.endswith('.index')}
+        # Get all files in the directory for better diagnostics
+        all_files = list(self.precomputed_dir.iterdir())
+        print(f"Found {len(all_files)} total files in {self.precomputed_dir}")
         
+        # Filter for numerical files (potential mesh data)
+        numeric_files = [f for f in all_files if f.name.split('.')[0].isdigit()]
+        print(f"Found {len(numeric_files)} numeric files")
+        
+        # Separate mesh data and index files
+        mesh_files = {p.stem: p for p in numeric_files if not p.name.endswith('.index')}
+        index_files = {p.stem: p for p in numeric_files if p.name.endswith('.index')}
+        
+        print(f"Found {len(mesh_files)} mesh data files and {len(index_files)} index files")
+        
+        # Check for complete mesh sets (both data and index)
         for mesh_id in mesh_files:
             if mesh_id in index_files:
                 try:
@@ -86,7 +112,11 @@ class PrecomputedMeshValidator:
                     result["missing_data"].append(int(index_id))
                 except ValueError:
                     continue
-                    
+        
+        # Provide more diagnostics
+        if result["complete_meshes"]:
+            print(f"Complete meshes found: {sorted(result['complete_meshes'])}")
+        
         return result
         
     def validate_mesh_data(self, mesh_id: int) -> Tuple[bool, str]:
@@ -165,9 +195,13 @@ def setup_viewer(precomputed_dir: Path):
             print("\nInvalid meshes:")
             for mesh_id, message in validation_results["invalid_meshes"].items():
                 print(f"- Mesh {mesh_id}: {message}")
+        
+        print("\nTip: If using 'minimal-ng-precomputed', ensure you've generated the meshes with sequential IDs.")
+        print("     The meshes should be generated in the 'precomputed' directory.")
         sys.exit(1)
         
     print(f"\nFound {len(validation_results['valid_meshes'])} valid meshes")
+    print(f"Valid mesh IDs: {sorted(validation_results['valid_meshes'])}")
     
     # Initialize viewer with validated meshes
     viewer = neuroglancer.Viewer()

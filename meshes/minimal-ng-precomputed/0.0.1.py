@@ -61,7 +61,8 @@ class Fragment(NamedTuple):
 class NeuroglancerMeshWriter:
     def __init__(self, output_dir: str, box_size: int = 64, 
                  vertex_quantization_bits: int = 10,
-                 transform: Optional[List[float]] = None):
+                 transform: Optional[List[float]] = None,
+                 clean_output: bool = False):
         """Initialize the mesh writer with output directory and parameters.
         
         Args:
@@ -69,6 +70,7 @@ class NeuroglancerMeshWriter:
             box_size: Size of the smallest (LOD 0) chunks
             vertex_quantization_bits: Number of bits for vertex quantization (10 or 16)
             transform: Optional 4x3 homogeneous transform matrix (12 values)
+            clean_output: If True, remove existing directory before starting
         """
         if vertex_quantization_bits not in (10, 16):
             raise ValueError("vertex_quantization_bits must be 10 or 16")
@@ -78,6 +80,12 @@ class NeuroglancerMeshWriter:
         self.vertex_quantization_bits = vertex_quantization_bits
         self.transform = transform or [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]
         self.lod_scale_multiplier = 1.0
+        
+        # Clean output directory if requested
+        if clean_output and self.output_dir.exists():
+            import shutil
+            print(f"Cleaning existing output directory: {self.output_dir}")
+            shutil.rmtree(self.output_dir)
         
         # Create directory structure
         self.output_dir.mkdir(parents=True, exist_ok=True)

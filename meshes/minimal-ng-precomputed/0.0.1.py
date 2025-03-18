@@ -468,11 +468,14 @@ def main():
     mesher = Mesher((1,1,1))
     mesher.mesh(labels, close=True)
     
-    # Process each mesh
+    # Process each mesh - map to sequential IDs starting from 1
+    # This ensures we have a clean sequence of mesh IDs that can be found by the viewer
+    mesh_id = 1
     for obj_id in mesher.ids():
         mesh = mesher.get(obj_id, normals=True)
         trimesh_mesh = trimesh.Trimesh(vertices=mesh.vertices, faces=mesh.faces)
-        writer.process_mesh(obj_id, trimesh_mesh, num_lods=3)
+        writer.process_mesh(mesh_id, trimesh_mesh, num_lods=3)
+        mesh_id += 1
         mesher.erase(obj_id)
     
     # Write info file

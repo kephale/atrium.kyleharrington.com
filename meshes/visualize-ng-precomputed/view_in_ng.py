@@ -20,6 +20,7 @@ from pathlib import Path
 import json
 import webbrowser
 import sys
+import signal
 import os
 from pathlib import Path
 import json
@@ -270,8 +271,9 @@ def main():
         
         print("\nServer is running. Press Ctrl+C to exit...")
         try:
-            neuroglancer.stop_web_server()
-            viewer.ready.wait()
+            # neuroglancer.stop_web_server()
+            signal.pause()
+            # viewer.ready.wait()
         except KeyboardInterrupt:
             print("\nShutting down viewer server...")
         except Exception as e:

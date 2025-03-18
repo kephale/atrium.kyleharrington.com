@@ -279,11 +279,13 @@ def main():
         
         print("\nServer is running. Press Ctrl+C to exit...")
         try:
-            # neuroglancer.stop_web_server()
-            signal.pause()
-            # viewer.ready.wait()
+            signal.signal(signal.SIGINT, lambda signal, frame: neuroglancer.stop_web_server())
+            while True:
+                sleep_time = 1000000  # Keep main thread alive
+                time.sleep(sleep_time)
         except KeyboardInterrupt:
             print("\nShutting down viewer server...")
+            neuroglancer.stop_web_server()
         except Exception as e:
             print(f"\nError during viewer execution: {str(e)}")
             if args.debug:

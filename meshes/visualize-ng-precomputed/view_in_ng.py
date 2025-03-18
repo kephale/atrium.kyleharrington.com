@@ -212,10 +212,6 @@ def setup_viewer(precomputed_dir: Path):
         )
         s.layout = '3d'
         s.show_axis_lines = True
-        
-        # Set some reasonable defaults for the view
-        s.perspective_zoom = 1024
-        s.perspective_orientation = [0.5, 0.5, 0.5, 0.5]
                 
     return viewer
 

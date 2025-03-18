@@ -257,8 +257,7 @@ def main():
             mesh_colors[mesh_id] = (
                 color_seed[0] / 255, 
                 color_seed[1] / 255, 
-                color_seed[2] / 255, 
-                0.7  # Alpha
+                color_seed[2] / 255
             )
             
             # Read the manifest
@@ -286,11 +285,18 @@ def main():
                 )
                 
                 # Add as shapes layer (box outlines)
+                lines = []
+                for i in range(len(edges)):
+                    lines.append(np.array([vertices[edges[i, 0]], vertices[edges[i, 1]]]))
+                
+                # Convert color tuple to string format '#RRGGBB'
+                color_hex = f'#{int(mesh_colors[mesh_id][0]*255):02x}{int(mesh_colors[mesh_id][1]*255):02x}{int(mesh_colors[mesh_id][2]*255):02x}'
+                
                 viewer.add_shapes(
-                    np.column_stack([vertices[edges[:, 0]], vertices[edges[:, 1]]]),
+                    lines,
                     shape_type='line',
                     edge_width=2,
-                    edge_color=mesh_colors[mesh_id],
+                    edge_color=color_hex,
                     name=f"Mesh {mesh_id} - LOD {lod}"
                 )
         

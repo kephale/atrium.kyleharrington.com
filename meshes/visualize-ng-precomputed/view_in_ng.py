@@ -208,12 +208,37 @@ def setup_viewer(precomputed_dir: Path):
     # Initialize viewer with validated meshes
     viewer = neuroglancer.Viewer()
     
-    # Ensure the path is properly formatted for Neuroglancer
-    # Try using a direct filesystem: URL which has a different format
-    absolute_path = str(precomputed_dir.absolute())
+    # Set up a local server to serve the precomputed data
+    from http.server import HTTPServer, SimpleHTTPRequestHandler
+    import threading
+    import os
+    import tempfile
+    import webbrowser
+    import random
     
-    # Format for direct filesystem access
-    source_url = f"neuroglancer://filesystem/{absolute_path}"
+    # Choose an available port
+    http_port = random.randint(8000, 9000)
+    
+    # Remember original working directory
+    original_cwd = os.getcwd()
+    
+    # Create symlink in a temp directory to serve the files
+    temp_dir = tempfile.mkdtemp()
+    precomputed_symlink = os.path.join(temp_dir, 'precomputed_data')
+    os.symlink(str(precomputed_dir.absolute()), precomputed_symlink)
+    
+    # Set up HTTP server in a separate thread
+    class Handler(SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=temp_dir, **kwargs)
+            
+    httpd = HTTPServer(('localhost', http_port), Handler)
+    server_thread = threading.Thread(target=httpd.serve_forever)
+    server_thread.daemon = True
+    server_thread.start()
+    
+    print(f"\nServing precomputed data via HTTP on http://localhost:{http_port}/precomputed_data")
+    source_url = f"precomputed://http://localhost:{http_port}/precomputed_data"
     print(f"Using data source: {source_url}")
     
     with viewer.txn() as s:

@@ -749,6 +749,14 @@ def main():
     for obj_id in mesher.ids():
         mesh = mesher.get(obj_id, normals=True)
         trimesh_mesh = trimesh.Trimesh(vertices=mesh.vertices, faces=mesh.faces)
+        
+        # Apply Laplacian smoothing to get better blob-like shapes
+        trimesh_mesh = trimesh_mesh.smoothed(lamb=0.5, iterations=5)
+        
+        # Calculate normals for better visualization
+        trimesh_mesh.fix_normals()
+        
+        # Process the mesh with multiple LODs
         writer.process_mesh(mesh_id, trimesh_mesh, num_lods=3)
         mesh_id += 1
         mesher.erase(obj_id)

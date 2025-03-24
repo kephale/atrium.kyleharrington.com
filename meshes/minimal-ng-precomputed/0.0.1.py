@@ -479,8 +479,9 @@ def main():
     labels = label(blobs)
     
     # Create initial meshes
-    mesher = Mesher((1,1,1))
-    mesher.mesh(labels, close=True)
+    # Use a proper voxel scaling to avoid cube-like meshes
+    mesher = Mesher((1.0, 1.0, 1.0))
+    mesher.mesh(labels, close=True, simplify_ratio=0.05)
     
     # Process each mesh - map to sequential IDs starting from 1
     # This ensures we have a clean sequence of mesh IDs that can be found by the viewer

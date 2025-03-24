@@ -693,18 +693,55 @@ class NeuroglancerMeshWriter:
 
     def decimate_mesh(self, mesh: trimesh.Trimesh, target_ratio: float) -> trimesh.Trimesh:
         """Decimate a mesh to a target ratio of original faces."""
-        simplifier = pyfqmr.Simplify()
-        simplifier.setMesh(mesh.vertices, mesh.faces)
-        target_count = max(int(len(mesh.faces) * target_ratio), 4)
-        simplifier.simplify_mesh(target_count=target_count, 
-                               aggressiveness=5,  # Less aggressive to preserve shape
-                               preserve_border=True)
-        vertices, faces, _ = simplifier.getMesh()
-        # Create a new trimesh with the decimated mesh
-        result = trimesh.Trimesh(vertices=vertices, faces=faces)
-        # Recalculate normals to ensure smooth shading
-        result.fix_normals()
-        return result
+        # Skip tiny meshes as they can't be simplified well
+        if len(mesh.faces) < 20:
+            return mesh
+            
+        # Handle meshes with potential issues
+        try:
+            # Make a copy to avoid modifying the original
+            mesh_copy = mesh.copy()
+            
+            # Try to fix any potential issues with the mesh before simplification
+            if not mesh_copy.is_watertight:
+                mesh_copy.fill_holes()
+            mesh_copy.remove_duplicate_faces()
+            mesh_copy.remove_degenerate_faces()
+            mesh_copy.fix_normals()
+            
+            # Set up simplifier
+            simplifier = pyfqmr.Simplify()
+            simplifier.setMesh(mesh_copy.vertices, mesh_copy.faces)
+            
+            # Calculate target face count, ensuring we keep at least 10 faces
+            target_count = max(int(len(mesh_copy.faces) * target_ratio), 10)
+            
+            # Simplify with more conservative settings for better quality
+            simplifier.simplify_mesh(target_count=target_count, 
+                                   aggressiveness=3,  # Less aggressive (was 5)
+                                   preserve_border=True,
+                                   preserve_normal=True,
+                                   verbose=False)
+                                   
+            vertices, faces, _ = simplifier.getMesh()
+            
+            # Check if we got valid results
+            if len(vertices) < 3 or len(faces) < 1:
+                print(f"Warning: Simplification produced invalid mesh, using original")
+                return mesh
+                
+            # Create a new trimesh with the decimated mesh
+            result = trimesh.Trimesh(vertices=vertices, faces=faces)
+            
+            # Post-process the simplified mesh
+            result.remove_degenerate_faces()
+            result.fix_normals()
+            
+            return result
+            
+        except Exception as e:
+            print(f"Error during mesh decimation: {str(e)}")
+            return mesh  # Return original mesh on error
 
     def generate_lods(self, mesh: trimesh.Trimesh, num_lods: int) -> List[trimesh.Trimesh]:
         """Generate levels of detail for a mesh."""

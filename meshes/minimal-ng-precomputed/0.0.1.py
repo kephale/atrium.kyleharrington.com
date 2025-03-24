@@ -495,7 +495,7 @@ def main():
     # Create initial meshes
     # Use a proper voxel scaling to avoid cube-like meshes
     mesher = Mesher((1.0, 1.0, 1.0))
-    mesher.mesh(labels, close=True, simplify_ratio=0.05)
+    mesher.mesh(labels, close=True)
     
     # Process each mesh - map to sequential IDs starting from 1
     # This ensures we have a clean sequence of mesh IDs that can be found by the viewer

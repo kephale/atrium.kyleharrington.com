@@ -722,7 +722,15 @@ def main():
     print(f"Creating meshes in: {output_dir.absolute()}")
     
     # Generate sample data using binary blobs
-    blobs = data.binary_blobs(length=256, n_dim=3, volume_fraction=0.2)
+    # Increase seed size for smoother blobs
+    blobs = data.binary_blobs(length=128, n_dim=3, volume_fraction=0.3, seed=42)
+    # Apply smoothing to the binary volume to reduce voxelization artifacts
+    from scipy import ndimage
+    blobs = ndimage.binary_closing(blobs, iterations=2)
+    blobs = ndimage.binary_opening(blobs, iterations=1)
+    # Apply a slight Gaussian filter to smooth edges
+    blobs = ndimage.gaussian_filter(blobs.astype(float), sigma=0.8) > 0.5
+    # Label the connected components
     labels = label(blobs)
     
     # Create initial meshes

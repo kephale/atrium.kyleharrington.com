@@ -468,8 +468,14 @@ def setup_viewer(precomputed_dir: Path):
         s.show_axis_lines = True
         
         # Set some reasonable defaults for the view
-        s.perspective_zoom = 1024
-        s.perspective_orientation = [0.5, 0.5, 0.5, 0.5]
+        # Use camera settings that are compatible with current Neuroglancer version
+        s.dimensions = neuroglancer.CoordinateSpace(
+            names=['x', 'y', 'z'],
+            units=['nm', 'nm', 'nm'],
+            scales=[1, 1, 1]
+        )
+        # Initialize the view to a standard orientation
+        s.position = [0, 0, 0]
                 
     return viewer
 

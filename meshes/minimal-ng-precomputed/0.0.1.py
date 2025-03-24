@@ -482,7 +482,7 @@ def main():
     
     # Generate sample data using binary blobs
     # Increase seed size for smoother blobs
-    blobs = data.binary_blobs(length=128, n_dim=3, volume_fraction=0.3, seed=42)
+    blobs = data.binary_blobs(length=128, n_dim=3, volume_fraction=0.3, rng=42)
     # Apply smoothing to the binary volume to reduce voxelization artifacts
     from scipy import ndimage
     blobs = ndimage.binary_closing(blobs, iterations=2)

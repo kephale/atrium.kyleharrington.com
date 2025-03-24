@@ -475,11 +475,23 @@ def setup_viewer(precomputed_dir: Path):
     os.symlink(str(precomputed_dir.absolute()), precomputed_symlink)
     
     # Set up HTTP server in a separate thread
-    class Handler(SimpleHTTPRequestHandler):
+    class CORSHTTPRequestHandler(SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, directory=temp_dir, **kwargs)
+        
+        def end_headers(self):
+            # Add CORS headers
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+            SimpleHTTPRequestHandler.end_headers(self)
             
-    httpd = HTTPServer(('localhost', http_port), Handler)
+        def do_OPTIONS(self):
+            # Handle OPTIONS request for CORS preflight
+            self.send_response(200)
+            self.end_headers()
+            
+    httpd = HTTPServer(('localhost', http_port), CORSHTTPRequestHandler)
     server_thread = threading.Thread(target=httpd.serve_forever)
     server_thread.daemon = True
     server_thread.start()

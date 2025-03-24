@@ -485,7 +485,8 @@ def setup_viewer(precomputed_dir: Path):
     server_thread.start()
     
     print(f"\nServing precomputed data via HTTP on http://localhost:{http_port}/precomputed_data")
-    source_url = f"precomputed://http://localhost:{http_port}/precomputed_data"
+    # Use direct HTTP URL without the precomputed:// prefix
+    source_url = f"http://localhost:{http_port}/precomputed_data"
     print(f"Using data source: {source_url}")
     
     with viewer.txn() as s:

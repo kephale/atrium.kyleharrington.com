@@ -565,18 +565,19 @@ def main():
         
         print("\nServer is running. Press Ctrl+C to exit...")
         try:
-            signal.signal(signal.SIGINT, lambda signal, frame: neuroglancer.stop_web_server())
+            signal.signal(signal.SIGINT, lambda signal, frame: shutdown())
             while True:
                 sleep_time = 1000000  # Keep main thread alive
                 time.sleep(sleep_time)
         except KeyboardInterrupt:
-            print("\nShutting down viewer server...")
-            neuroglancer.stop_web_server()
+            print("\nShutting down...")
+            shutdown()
         except Exception as e:
             print(f"\nError during viewer execution: {str(e)}")
             if args.debug:
                 import traceback
                 traceback.print_exc()
+            shutdown()
         
     except Exception as e:
         print(f"\nError: {str(e)}")
@@ -584,6 +585,26 @@ def main():
             import traceback
             traceback.print_exc()
         sys.exit(1)
+
+def shutdown():
+    """Clean up resources when shutting down"""
+    print("\nShutting down viewer server...")
+    neuroglancer.stop_web_server()
+    
+    # Clean up temp directory if it exists
+    global httpd, temp_dir, original_cwd
+    if 'httpd' in globals() and httpd:
+        print("Shutting down HTTP server...")
+        httpd.shutdown()
+        httpd.server_close()
+    
+    if 'temp_dir' in globals() and temp_dir and os.path.exists(temp_dir):
+        try:
+            print(f"Cleaning up temporary directory: {temp_dir}")
+            import shutil
+            shutil.rmtree(temp_dir)
+        except Exception as e:
+            print(f"Error cleaning up: {str(e)}")
 
 if __name__ == '__main__':
     main()

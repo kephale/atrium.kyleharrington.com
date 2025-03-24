@@ -563,7 +563,9 @@ def main():
     # Write info file
     writer.write_info_file()
     
-    print(f"Generated Neuroglancer Precomputed meshes in {output_dir}")
+    print(f"Generated {mesh_object_count} Neuroglancer Precomputed meshes in {output_dir}")
+    print("\nTo view the meshes, run:")
+    print("uv run meshes/visualize-ng-precomputed/view_in_ng.py --mesh-dir precomputed")
 
 if __name__ == "__main__":
     main()

@@ -238,11 +238,9 @@ def main():
     
     # Setup local server to allow access to local files
     neuroglancer.set_server_bind_address('127.0.0.1')
-    neuroglancer.set_static_content_source(neuroglancer.LocalStaticContentSource())
     
     if args.debug:
         neuroglancer.set_server_bind_address('127.0.0.1')
-        neuroglancer.set_static_content_source(neuroglancer.LocalStaticContentSource())
         
     neuroglancer.cli.handle_server_arguments(args)
     

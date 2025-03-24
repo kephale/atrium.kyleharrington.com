@@ -22,7 +22,8 @@
 # "trimesh",
 # "pyfqmr",
 # "shapely",
-# "mapbox-earcut"
+# "mapbox-earcut",
+# "scipy"
 # ]
 # ///
 

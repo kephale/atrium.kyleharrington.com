@@ -481,38 +481,83 @@ def main():
     print(f"Creating meshes in: {output_dir.absolute()}")
     
     # Generate sample data using binary blobs
-    # Increase seed size for smoother blobs
-    blobs = data.binary_blobs(length=128, n_dim=3, volume_fraction=0.3, rng=42)
+    # Increase volume size for better resolution
+    volume_size = 192  # Larger size for more detailed blobs
+    print(f"Generating 3D blobs with size {volume_size}")
+    blobs = data.binary_blobs(length=volume_size, n_dim=3, 
+                             volume_fraction=0.2,  # Less crowded
+                             rng=42)
+    
     # Apply smoothing to the binary volume to reduce voxelization artifacts
     from scipy import ndimage
-    blobs = ndimage.binary_closing(blobs, iterations=2)
-    blobs = ndimage.binary_opening(blobs, iterations=1)
-    # Apply a slight Gaussian filter to smooth edges
-    blobs = ndimage.gaussian_filter(blobs.astype(float), sigma=0.8) > 0.5
+    print("Applying morphological operations and smoothing...")
+    # More aggressive morphological operations to separate blobs better
+    blobs = ndimage.binary_closing(blobs, iterations=3)  # Increased from 2
+    blobs = ndimage.binary_opening(blobs, iterations=2)  # Increased from 1
+    # Apply a stronger Gaussian filter to smooth edges better
+    blobs = ndimage.gaussian_filter(blobs.astype(float), sigma=1.2) > 0.5  # Increased from 0.8
+    
     # Label the connected components
+    print("Labeling connected components...")
     labels = label(blobs)
+    num_labels = labels.max()
+    print(f"Found {num_labels} separate blob objects")
+    
+    # Filter out very small blobs that might cause rendering issues
+    from scipy import ndimage
+    sizes = ndimage.sum(blobs, labels, range(1, num_labels+1))
+    mask = sizes > 100  # Only keep blobs with more than 100 voxels
+    filtered_labels = np.zeros_like(labels)
+    for i, keep in enumerate(mask, 1):
+        if keep:
+            filtered_labels[labels == i] = i
+    
+    num_filtered_labels = len(np.unique(filtered_labels)) - 1  # Subtract 1 for background
+    print(f"After filtering small blobs: {num_filtered_labels} objects remain")
+    labels = filtered_labels
     
     # Create initial meshes
-    # Use a proper voxel scaling to avoid cube-like meshes
+    # Use isotropic voxel scaling for better quality
+    print("Generating meshes...")
     mesher = Mesher((1.0, 1.0, 1.0))
     mesher.mesh(labels, close=True)
     
     # Process each mesh - map to sequential IDs starting from 1
     # This ensures we have a clean sequence of mesh IDs that can be found by the viewer
     mesh_id = 1
-    for obj_id in mesher.ids():
+    mesh_object_count = 0
+    
+    # Get all object IDs first to count them
+    object_ids = list(mesher.ids())
+    print(f"Processing {len(object_ids)} meshes...")
+    
+    for obj_id in object_ids:
         mesh = mesher.get(obj_id, normals=True)
+        
+        # Skip meshes with too few vertices or faces
+        if len(mesh.vertices) < 10 or len(mesh.faces) < 10:
+            print(f"Skipping small mesh {obj_id} with only {len(mesh.vertices)} vertices and {len(mesh.faces)} faces")
+            mesher.erase(obj_id)
+            continue
+            
         trimesh_mesh = trimesh.Trimesh(vertices=mesh.vertices, faces=mesh.faces)
         
-        # Apply Laplacian smoothing to get better blob-like shapes
-        trimesh_mesh = trimesh_mesh.smoothed(lamb=0.5, iterations=5)
+        # Apply more iterations of Laplacian smoothing for smoother blobs
+        print(f"Smoothing mesh {mesh_id} ({len(trimesh_mesh.vertices)} vertices)...")
+        trimesh_mesh = trimesh_mesh.smoothed(lamb=0.75, iterations=10)  # More aggressive smoothing
         
-        # Calculate normals for better visualization
+        # Fix any mesh issues
+        if not trimesh_mesh.is_watertight:
+            print(f"Fixing non-watertight mesh {mesh_id}...")
+            trimesh_mesh.fill_holes()
+            
+        # Ensure the mesh has the correct winding and normals
         trimesh_mesh.fix_normals()
         
         # Process the mesh with multiple LODs
         writer.process_mesh(mesh_id, trimesh_mesh, num_lods=3)
         mesh_id += 1
+        mesh_object_count += 1
         mesher.erase(obj_id)
     
     # Write info file

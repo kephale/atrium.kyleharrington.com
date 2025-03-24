@@ -449,10 +449,14 @@ class NeuroglancerMeshWriter:
         simplifier.setMesh(mesh.vertices, mesh.faces)
         target_count = max(int(len(mesh.faces) * target_ratio), 4)
         simplifier.simplify_mesh(target_count=target_count, 
-                               aggressiveness=7,
+                               aggressiveness=5,  # Less aggressive to preserve shape
                                preserve_border=True)
         vertices, faces, _ = simplifier.getMesh()
-        return trimesh.Trimesh(vertices=vertices, faces=faces)
+        # Create a new trimesh with the decimated mesh
+        result = trimesh.Trimesh(vertices=vertices, faces=faces)
+        # Recalculate normals to ensure smooth shading
+        result.fix_normals()
+        return result
 
     def generate_lods(self, mesh: trimesh.Trimesh, num_lods: int) -> List[trimesh.Trimesh]:
         """Generate levels of detail for a mesh."""

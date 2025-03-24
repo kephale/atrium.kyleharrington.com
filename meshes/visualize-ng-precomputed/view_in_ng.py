@@ -209,13 +209,11 @@ def setup_viewer(precomputed_dir: Path):
     viewer = neuroglancer.Viewer()
     
     # Ensure the path is properly formatted for Neuroglancer
-    # Create a proper file:/// URL for local files
+    # Try using a direct filesystem: URL which has a different format
     absolute_path = str(precomputed_dir.absolute())
-    # Ensure absolute_path begins with a slash for file:/// URLs
-    if not absolute_path.startswith('/'):
-        absolute_path = '/' + absolute_path
-        
-    source_url = f"precomputed://file://{absolute_path}"
+    
+    # Format for direct filesystem access
+    source_url = f"neuroglancer://filesystem/{absolute_path}"
     print(f"Using data source: {source_url}")
     
     with viewer.txn() as s:

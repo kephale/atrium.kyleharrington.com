@@ -468,8 +468,9 @@ def main():
     output_dir = Path("precomputed")
     writer = NeuroglancerMeshWriter(
         output_dir,
-        box_size=64,
-        vertex_quantization_bits=10,
+        box_size=32,  # Smaller box size for better detail
+        vertex_quantization_bits=16,  # Higher vertex precision
+        transform=[4.0, 0, 0, 0, 0, 4.0, 0, 0, 0, 0, 4.0, 0],  # Scale up meshes 
         clean_output=True  # Clean existing output to avoid issues
     )
     print(f"Creating meshes in: {output_dir.absolute()}")

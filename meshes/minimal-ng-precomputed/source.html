@@ -705,8 +705,10 @@ class NeuroglancerMeshWriter:
             # Try to fix any potential issues with the mesh before simplification
             if not mesh_copy.is_watertight:
                 mesh_copy.fill_holes()
-            mesh_copy.remove_duplicate_faces()
-            mesh_copy.remove_degenerate_faces()
+                
+            # Use updated methods instead of deprecated ones
+            mesh_copy.update_faces(mesh_copy.unique_faces())
+            mesh_copy.update_faces(mesh_copy.nondegenerate_faces())
             mesh_copy.fix_normals()
             
             # Set up simplifier
@@ -717,10 +719,10 @@ class NeuroglancerMeshWriter:
             target_count = max(int(len(mesh_copy.faces) * target_ratio), 10)
             
             # Simplify with more conservative settings for better quality
+            # Remove the preserve_normal parameter which isn't supported
             simplifier.simplify_mesh(target_count=target_count, 
                                    aggressiveness=3,  # Less aggressive (was 5)
                                    preserve_border=True,
-                                   preserve_normal=True,
                                    verbose=False)
                                    
             vertices, faces, _ = simplifier.getMesh()
@@ -733,8 +735,8 @@ class NeuroglancerMeshWriter:
             # Create a new trimesh with the decimated mesh
             result = trimesh.Trimesh(vertices=vertices, faces=faces)
             
-            # Post-process the simplified mesh
-            result.remove_degenerate_faces()
+            # Post-process the simplified mesh using updated methods
+            result.update_faces(result.nondegenerate_faces())
             result.fix_normals()
             
             return result

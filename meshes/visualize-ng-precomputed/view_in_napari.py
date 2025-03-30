@@ -375,12 +375,11 @@ class MultiscaleMeshRenderer:
         if color is None:
             import hashlib
             color_seed = hashlib.md5(str(mesh_id).encode()).digest()
-            color = (
+            color = np.array([
                 color_seed[0] / 255, 
                 color_seed[1] / 255, 
-                color_seed[2] / 255, 
-                0.8  # Add alpha channel
-            )
+                color_seed[2] / 255
+            ])
             
         # Initialize layer storage
         self.mesh_layers[mesh_id] = {}
@@ -428,11 +427,14 @@ class MultiscaleMeshRenderer:
         vertices = mesh.vertices
         faces = mesh.faces
         
-        # Add as a surface layer
+        # Add as a surface layer - use values_rgb parameter instead of color
+        # This is compatible with napari API
+        values = np.ones((len(vertices), 3)) * color.reshape(1, 3)  # Color per vertex
+        
         layer = self.viewer.add_surface(
-            (vertices, faces),
+            (vertices, faces, values),
             name=f"Mesh {mesh_id} - LOD {lod}",
-            color=color,
+            opacity=0.7,  # Using opacity instead of alpha in color
             blending='translucent',
             visible=False  # Start hidden, we'll control visibility
         )
@@ -461,9 +463,22 @@ class MultiscaleMeshRenderer:
                 
                 # Check if target LOD is already loaded
                 if target_lod not in self.mesh_layers[mesh_id]:
-                    # Get the color from any existing layer
+                    # Get the color from an existing layer if possible
                     existing_lod = next(iter(self.mesh_layers[mesh_id].values()))
-                    color = existing_lod.color
+                    
+                    # Extract color from the values array if available
+                    if hasattr(existing_lod, 'values') and existing_lod.values is not None:
+                        # Get the first color from values
+                        color = np.mean(existing_lod.values, axis=0)[0:3]
+                    else:
+                        # Fallback to a default color
+                        import hashlib
+                        color_seed = hashlib.md5(str(mesh_id).encode()).digest()
+                        color = np.array([
+                            color_seed[0] / 255, 
+                            color_seed[1] / 255, 
+                            color_seed[2] / 255
+                        ])
                     
                     # Try to load the target LOD
                     success = self._load_and_add_lod(mesh_id, target_lod, color)
@@ -519,9 +534,20 @@ def main():
         # Initialize the multiscale renderer
         renderer = MultiscaleMeshRenderer(viewer, mesh_loader, debug=args.debug)
         
-        # Load each mesh
-        for mesh_id in valid_meshes:
-            renderer.load_mesh(mesh_id)
+        # Load each mesh - limiting to first 10 meshes for better performance
+        # This is important with large mesh collections
+        if len(valid_meshes) > 10:
+            print(f"Loading first 10 of {len(valid_meshes)} meshes for better performance")
+            print("You can edit the script to load more meshes if needed")
+            load_meshes = valid_meshes[:10]
+        else:
+            load_meshes = valid_meshes
+            
+        for mesh_id in load_meshes:
+            try:
+                renderer.load_mesh(mesh_id)
+            except Exception as e:
+                print(f"Error loading mesh {mesh_id}: {e}")
         
         # Reset the view to show all meshes
         renderer.reset_view()

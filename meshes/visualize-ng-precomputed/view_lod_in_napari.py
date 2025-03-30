@@ -62,14 +62,15 @@ def main():
     # Show menu for LOD selection
     print("====== Neuroglancer Mesh LOD Viewer ======")
     print(f"Mesh directory: {mesh_dir}")
-    print("\nPlease select an LOD level to view:")
+    print("\nPlease select a viewing option:")
     print(" 0: Highest detail (LOD 0)")
     print(" 1: Medium detail (LOD 1)")
     print(" 2: Lowest detail (LOD 2)")
     print(" a: View all mesh LODs together (one per mesh)")
     print(" s: Show all LOD levels simultaneously")
+    print(" d: Adaptive LOD viewer (changes detail based on camera distance)")
     
-    choice = input("\nEnter your choice (0/1/2/a/s): ").strip().lower()
+    choice = input("\nEnter your choice (0/1/2/a/s/d): ").strip().lower()
     
     # Prepare command
     if choice == "s":
@@ -82,6 +83,16 @@ def main():
         cmd = [sys.executable, str(view_script), "--mesh-dir", str(mesh_dir)]
         print("\nLaunching napari viewer with all LOD levels...")
         print("(LODs will be shown color-coded: LOD 0 = Red, LOD 1 = Green, LOD 2 = Blue)")
+    elif choice == "d":
+        # Use the adaptive LOD viewer
+        view_script = script_dir / "adaptive_lod_viewer.py"
+        if not view_script.exists():
+            print(f"Error: Cannot find the adaptive LOD viewer script at {view_script}")
+            sys.exit(1)
+            
+        cmd = [sys.executable, str(view_script), "--mesh-dir", str(mesh_dir)]
+        print("\nLaunching adaptive LOD viewer...")
+        print("The viewer will automatically switch LOD levels based on camera distance.")
     else:
         # Use the regular view_in_napari script
         cmd = [sys.executable, str(view_script), "--mesh-dir", str(mesh_dir)]

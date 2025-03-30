@@ -1070,43 +1070,50 @@ SOLUTION_TEMPLATE = """
 
         <div class="links-section">
             {% if repository %}
-            <a href="{{ repository }}/blob/main/{{ link }}/{{ script_source | basename }}" target="_blank" class="link-item">
-                <i class="fab fa-github"></i>
-                View Source Code on GitHub
-            </a>
+                {% if link is defined %}
+                    <a href="{{ repository }}/blob/main/{{ link.split('/')[-2] if '/' in link else '' }}/{{ link.split('/')[-1] if '/' in link else '' }}/{{ script_source.split('/')[-1] }}" target="_blank" class="link-item">
+                        <i class="fab fa-github"></i>
+                        View Source Code on GitHub
+                    </a>
+                {% else %}
+                    <a href="{{ repository }}" target="_blank" class="link-item">
+                        <i class="fab fa-github"></i>
+                        View Source Code on GitHub
+                    </a>
+                {% endif %}
             {% else %}
-            <a href="./source.html" class="link-item">
-                <i class="fas fa-code"></i>
-                View Source Code
-            </a>
+                <a href="./source.html" class="link-item">
+                    <i class="fas fa-code"></i>
+                    View Source Code
+                </a>
             {% endif %}
 
             {% if repository %}
-            <a href="{{ repository }}" target="_blank" class="link-item">
-                <i class="fab fa-github"></i>
-                Repository
-            </a>
+                <a href="{{ repository }}" target="_blank" class="link-item">
+                    <i class="fab fa-github"></i>
+                    Repository
+                </a>
             {% endif %}
 
             {% if documentation %}
-            <a href="{{ documentation }}" target="_blank" class="link-item">
-                <i class="fas fa-book"></i>
-                Documentation
-            </a>
+                <a href="{{ documentation }}" target="_blank" class="link-item">
+                    <i class="fas fa-book"></i>
+                    Documentation
+                </a>
             {% endif %}
 
             {% if homepage %}
-            <a href="{{ homepage }}" target="_blank" class="link-item">
-                <i class="fas fa-home"></i>
-                Homepage
-            </a>
+                <a href="{{ homepage }}" target="_blank" class="link-item">
+                    <i class="fas fa-home"></i>
+                    Homepage
+                </a>
             {% endif %}
 
             {% if external_source %}
-            <a href="{{ external_source }}" target="_blank" class="link-item">
-                <i class="fas fa-external-link-alt"></i>
-                View Source
-            </a>
+                <a href="{{ external_source }}" target="_blank" class="link-item">
+                    <i class="fas fa-external-link-alt"></i>
+                    View Source
+                </a>
             {% endif %}
         </div>
     </main>
@@ -1850,7 +1857,7 @@ def extract_typer_args(file_path):
     return args
 
 def generate_static_site(base_dir, static_dir):
-    """Generate the static site with proper site_config handling."""
+    """Generate the static site with proper site_config handling and error checking."""
     os.makedirs(static_dir, exist_ok=True)
     solutions = []
 
@@ -1861,69 +1868,40 @@ def generate_static_site(base_dir, static_dir):
 
             for solution_entry in os.scandir(entry.path):
                 if solution_entry.is_dir():
-                    solution_name = solution_entry.name
-                    solution_files = sorted(
-                        [f for f in os.listdir(solution_entry.path) if f.endswith(".py")],
-                        reverse=True,
-                    )
-                    if not solution_files:
-                        continue
+                    try:
+                        solution_name = solution_entry.name
+                        solution_files = sorted(
+                            [f for f in os.listdir(solution_entry.path) if f.endswith(".py")],
+                            reverse=True,
+                        )
+                        if not solution_files:
+                            continue
 
-                    most_recent_file = solution_files[0]
-                    file_path = os.path.join(solution_entry.path, most_recent_file)
-                    metadata = extract_metadata(file_path)
+                        most_recent_file = solution_files[0]
+                        file_path = os.path.join(solution_entry.path, most_recent_file)
+                        metadata = extract_metadata(file_path)
 
-                    solution_output = os.path.join(group_path, solution_name)
-                    os.makedirs(solution_output, exist_ok=True)
+                        solution_output = os.path.join(group_path, solution_name)
+                        os.makedirs(solution_output, exist_ok=True)
 
-                    # Copy local files including cover image
-                    copy_files(solution_entry.path, solution_output, extensions=[".py", ".png"])
+                        # Copy local files including cover image
+                        copy_files(solution_entry.path, solution_output, extensions=[".py", ".png"])
 
-                    # Get cover image path consistently
-                    cover_image_path = get_cover_image_path(
-                        solution_entry, entry, solution_name, metadata, SITE_CONFIG
-                    )
-                    
-                    base_url = SITE_CONFIG['base_url']
-                    script_path = f"{entry.name}/{solution_name}/{most_recent_file}"
-                    
-                    # Get GitHub repository information
-                    repo_url = metadata.get("repository", "")
-                    
-                    # For source page, create a simple redirect to GitHub instead of embedding code
-                    if repo_url:
-                        # Extract repository owner and name from URL
-                        repo_parts = repo_url.replace("https://github.com/", "").split("/")
-                        if len(repo_parts) >= 2:
-                            owner = repo_parts[0]
-                            repo_name = repo_parts[1]
-                            
-                            # Create path to file in repository - adjust as needed for your repo structure
-                            file_relative_path = f"{entry.name}/{solution_name}/{most_recent_file}"
-                            github_file_url = f"{repo_url}/blob/main/{file_relative_path}"
-                            
-                            # Create a simple HTML redirect page
-                            redirect_html = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0;url={github_file_url}">
-    <title>Redirecting to GitHub</title>
-</head>
-<body>
-    <p>Redirecting to <a href="{github_file_url}">GitHub source code</a>...</p>
-    <script>
-        window.location.href = "{github_file_url}";
-    </script>
-</body>
-</html>
-"""
-                            with open(os.path.join(solution_output, "source.html"), "w") as f:
-                                f.write(redirect_html)
-                        else:
-                            # If we can't parse the repo URL properly, create a link-only page
-                            link_html = f"""
+                        # Get cover image path consistently
+                        cover_image_path = get_cover_image_path(
+                            solution_entry, entry, solution_name, metadata, SITE_CONFIG
+                        )
+                        
+                        base_url = SITE_CONFIG['base_url']
+                        script_path = f"{entry.name}/{solution_name}/{most_recent_file}"
+                        
+                        # Get GitHub repository information
+                        repo_url = metadata.get("repository", "")
+                        
+                        # Create a simpler fallback source page
+                        if repo_url:
+                            # Create a link only page
+                            simple_html = f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1942,10 +1920,10 @@ def generate_static_site(base_dir, static_dir):
 </html>
 """
                             with open(os.path.join(solution_output, "source.html"), "w") as f:
-                                f.write(link_html)
-                    else:
-                        # No repository URL, create a simple page with a message
-                        no_repo_html = f"""
+                                f.write(simple_html)
+                        else:
+                            # No repository URL, create a simple page with a message
+                            no_repo_html = f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1961,65 +1939,77 @@ def generate_static_site(base_dir, static_dir):
 </body>
 </html>
 """
-                        with open(os.path.join(solution_output, "source.html"), "w") as f:
-                            f.write(no_repo_html)
-                    
-                    solution_metadata = {
-                        "name": metadata.get("title", solution_name),
-                        "description": metadata.get("description", "No description provided."),
-                        "link": f"{entry.name}/{solution_name}",
-                        "cover": cover_image_path,
-                        "author": metadata.get("author", ""),
-                        "version": metadata.get("version", ""),
-                        "external_source": metadata.get("external_source", ""),
-                        "script_source": f"{base_url}/{script_path}",
-                    }
-
-                    # Update solution page template to point "View Source" to GitHub if available
-                    solution_template = SOLUTION_TEMPLATE
-                    
-                    # Generate solution page with consistent cover image path
-                    template_vars = {
-                        'title': solution_metadata["name"],
-                        'project_name': SITE_CONFIG['project_name'],
-                        'site_config': SITE_CONFIG,
-                        'cover_image': cover_image_path,
-                        'description': solution_metadata["description"],
-                        'author': metadata.get("author", ""),
-                        'version': metadata.get("version", ""),
-                        'license': metadata.get("license", ""),
-                        'dependencies': metadata.get("dependencies", []),
-                        'external_source': solution_metadata["external_source"],
-                        'script_source': solution_metadata["script_source"],
-                        'keywords': metadata.get("keywords", []),
-                        'requires_python': metadata.get("requires_python", ""),
-                        'repository': metadata.get("repository", ""),
-                        'cli_args': extract_typer_args(file_path),
-                        'documentation': metadata.get("documentation", ""),
-                        'homepage': metadata.get("homepage", "")
-                    }
-                    
-                    with open(os.path.join(solution_output, "index.html"), "w") as f:
-                        f.write(Template(SOLUTION_TEMPLATE).render(**template_vars))
-                    solutions.append(solution_metadata)
+                            with open(os.path.join(solution_output, "source.html"), "w") as f:
+                                f.write(no_repo_html)
+                        
+                        solution_metadata = {
+                            "name": metadata.get("title", solution_name),
+                            "description": metadata.get("description", "No description provided."),
+                            "link": f"{entry.name}/{solution_name}",
+                            "cover": cover_image_path,
+                            "author": metadata.get("author", ""),
+                            "version": metadata.get("version", ""),
+                            "external_source": metadata.get("external_source", ""),
+                            "script_source": f"{base_url}/{script_path}",
+                        }
+                        
+                        # Generate solution page with consistent cover image path
+                        template_vars = {
+                            'title': solution_metadata["name"],
+                            'project_name': SITE_CONFIG['project_name'],
+                            'site_config': SITE_CONFIG,
+                            'cover_image': cover_image_path,
+                            'description': solution_metadata["description"],
+                            'link': solution_metadata["link"],  # Ensure link is always provided
+                            'author': metadata.get("author", ""),
+                            'version': metadata.get("version", ""),
+                            'license': metadata.get("license", ""),
+                            'dependencies': metadata.get("dependencies", []),
+                            'external_source': solution_metadata["external_source"],
+                            'script_source': solution_metadata["script_source"],
+                            'keywords': metadata.get("keywords", []),
+                            'requires_python': metadata.get("requires_python", ""),
+                            'repository': metadata.get("repository", ""),
+                            'cli_args': extract_typer_args(file_path),
+                            'documentation': metadata.get("documentation", ""),
+                            'homepage': metadata.get("homepage", "")
+                        }
+                        
+                        with open(os.path.join(solution_output, "index.html"), "w") as f:
+                            f.write(Template(SOLUTION_TEMPLATE).render(**template_vars))
+                        solutions.append(solution_metadata)
+                    except Exception as e:
+                        print(f"Error processing solution {entry.name}/{solution_entry.name}: {e}")
+                        continue
 
     # Generate index page and sitemap
-    with open(os.path.join(static_dir, "index.html"), "w") as f:
-        context = {
-            'solutions': solutions,
-            'site_config': SITE_CONFIG,
-            'categories': list(set(s["link"].split("/")[0] for s in solutions))
-        }
-        f.write(Template(INDEX_TEMPLATE).render(**context))
-    
-    generate_sitemap_txt(solutions, static_dir)
-
-    # Copy CNAME if it exists
-    cname_path = "./CNAME"
-    if os.path.exists(cname_path):
-        shutil.copy(cname_path, static_dir)
-    else:
-        print(f"Warning: {cname_path} not found. Skipping CNAME copy.")
+    try:
+        with open(os.path.join(static_dir, "index.html"), "w") as f:
+            context = {
+                'solutions': solutions,
+                'site_config': SITE_CONFIG,
+                'categories': list(set(s["link"].split("/")[0] for s in solutions if "link" in s and "/" in s["link"]))
+            }
+            f.write(Template(INDEX_TEMPLATE).render(**context))
+        
+        generate_sitemap_txt(solutions, static_dir)
+        
+        # Copy CNAME if it exists
+        cname_path = "./CNAME"
+        if os.path.exists(cname_path):
+            shutil.copy(cname_path, static_dir)
+        else:
+            print(f"Warning: {cname_path} not found. Skipping CNAME copy.")
+            
+        # Copy icon_transparent.png if it exists
+        icon_path = "./icon_transparent.png"
+        if os.path.exists(icon_path):
+            shutil.copy(icon_path, static_dir)
+        else:
+            print(f"Warning: {icon_path} not found. Site may be missing its logo.")
+            
+    except Exception as e:
+        print(f"Error generating index or sitemap: {e}")
 
 if __name__ == "__main__":
     generate_static_site(BASE_DIR, STATIC_DIR)

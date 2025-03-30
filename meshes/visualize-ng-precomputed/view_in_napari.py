@@ -336,177 +336,64 @@ class PrecomputedMeshLoader:
                 return meshes[0] if meshes else None
 
 
-class MultiscaleMeshRenderer:
-    """Handles dynamic LOD switching based on camera position for Napari."""
+def create_simple_proxy_mesh(manifest, mesh_id, lod):
+    """Create a simple proxy mesh to represent a fragment without loading the full mesh."""
+    if lod not in manifest["fragments"]:
+        return None
+        
+    fragments = manifest["fragments"][lod]
+    positions = fragments["positions"]
     
-    def __init__(self, viewer: napari.Viewer, mesh_loader: PrecomputedMeshLoader, debug: bool = False):
-        self.viewer = viewer
-        self.loader = mesh_loader
-        self.debug = debug
-        self.mesh_layers = {}  # Map of mesh_id to dict of LOD layers
-        self.current_lod = {}  # Map of mesh_id to current visible LOD
-        self.mesh_manifests = {}  # Store manifests to avoid reloading
-        
-        # Set up camera callbacks for LOD switching
-        self.viewer.camera.events.zoom.connect(self._handle_camera_change)
-        self.viewer.reset_view()  # Ensure camera is initialized
-        
-    def _log(self, *args, **kwargs):
-        """Debug logging helper."""
-        if self.debug:
-            print(*args, **kwargs)
+    if len(positions) == 0:
+        return None
     
-    def load_mesh(self, mesh_id: int, color=None):
-        """Load a mesh with all its LOD levels and add to the viewer."""
-        # Read the manifest once
-        if mesh_id not in self.mesh_manifests:
-            manifest = self.loader.read_manifest(mesh_id)
-            if not manifest or "num_lods" not in manifest:
-                print(f"Could not load manifest for mesh {mesh_id}")
-                return
-            self.mesh_manifests[mesh_id] = manifest
-        else:
-            manifest = self.mesh_manifests[mesh_id]
-            
-        num_lods = manifest["num_lods"]
-        print(f"Mesh {mesh_id} has {num_lods} LOD levels")
-        
-        # Generate a consistent color for this mesh if not provided
-        if color is None:
-            import hashlib
-            color_seed = hashlib.md5(str(mesh_id).encode()).digest()
-            color = np.array([
-                color_seed[0] / 255, 
-                color_seed[1] / 255, 
-                color_seed[2] / 255
-            ])
-            
-        # Initialize layer storage
-        self.mesh_layers[mesh_id] = {}
-        
-        # Start with the highest LOD (lowest detail), which loads fastest
-        highest_available_lod = -1
-        for lod in range(num_lods-1, -1, -1):
-            if lod in manifest["fragments"] and manifest["fragments_per_lod"][lod] > 0:
-                highest_available_lod = lod
-                break
-                
-        if highest_available_lod == -1:
-            print(f"No valid LOD levels found for mesh {mesh_id}")
-            return
-            
-        # Load the highest LOD first
-        self._log(f"Loading initial LOD {highest_available_lod} for mesh {mesh_id}")
-        self._load_and_add_lod(mesh_id, highest_available_lod, color)
-        
-        # Set the current visible LOD
-        self.current_lod[mesh_id] = highest_available_lod
-        
-        # Schedule loading of other LODs in the background
-        # In a real application, this would be done in a separate thread
-        # For simplicity, we'll load them sequentially but keep the viewer responsive
-        self.viewer.update()  # Update the viewer once with the initial LOD
+    # Get the grid origin and scale for this LOD
+    grid_origin = manifest["grid_origin"]
+    scale = manifest["lod_scales"][lod]
     
-    def _load_and_add_lod(self, mesh_id: int, lod: int, color):
-        """Load a specific LOD level and add it to the viewer."""
-        # Skip if this LOD is already loaded
-        if lod in self.mesh_layers[mesh_id]:
-            return True
-            
-        start_time = time.time()
-        mesh = self.loader.load_lod_mesh(mesh_id, lod)
-        if mesh is None:
-            self._log(f"Failed to load mesh {mesh_id} at LOD {lod}")
-            return False
-            
-        load_time = time.time() - start_time
-        self._log(f"Loaded mesh {mesh_id} LOD {lod} in {load_time:.2f}s - " +
-                f"{len(mesh.vertices)} vertices, {len(mesh.faces)} faces")
-        
-        # Convert to the format required by napari
-        vertices = mesh.vertices
-        faces = mesh.faces
-        
-        # Add as a surface layer - use values_rgb parameter instead of color
-        # This is compatible with napari API
-        values = np.ones((len(vertices), 3)) * color.reshape(1, 3)  # Color per vertex
-        
-        layer = self.viewer.add_surface(
-            (vertices, faces, values),
-            name=f"Mesh {mesh_id} - LOD {lod}",
-            opacity=0.7,  # Using opacity instead of alpha in color
-            blending='translucent',
-            visible=False  # Start hidden, we'll control visibility
-        )
-        
-        # Store the layer
-        self.mesh_layers[mesh_id][lod] = layer
-        return True
+    # Create a simple box representing the extents of all fragments
+    min_pos = np.min(positions, axis=0) * scale + grid_origin
+    max_pos = np.max(positions, axis=0) * scale + grid_origin + scale
     
-    def _handle_camera_change(self, event=None):
-        """Handle camera changes to update LOD levels."""
-        # Get current camera zoom level
-        zoom = self.viewer.camera.zoom
-        
-        # Simple heuristic for LOD selection based on zoom
-        for mesh_id in self.mesh_layers:
-            manifest = self.mesh_manifests[mesh_id]
-            num_lods = manifest["num_lods"]
-            
-            # Determine appropriate LOD based on zoom
-            # Higher zoom = need more detail = lower LOD number
-            target_lod = max(0, min(num_lods - 1, int(num_lods - 1 - (zoom / 2))))
-            
-            # If the target is different than current, try to switch
-            if target_lod != self.current_lod.get(mesh_id):
-                self._log(f"Camera zoom {zoom:.2f}, switching mesh {mesh_id} from LOD {self.current_lod.get(mesh_id)} to {target_lod}")
-                
-                # Check if target LOD is already loaded
-                if target_lod not in self.mesh_layers[mesh_id]:
-                    # Get the color from an existing layer if possible
-                    existing_lod = next(iter(self.mesh_layers[mesh_id].values()))
-                    
-                    # Extract color from the values array if available
-                    if hasattr(existing_lod, 'values') and existing_lod.values is not None:
-                        # Get the first color from values
-                        color = np.mean(existing_lod.values, axis=0)[0:3]
-                    else:
-                        # Fallback to a default color
-                        import hashlib
-                        color_seed = hashlib.md5(str(mesh_id).encode()).digest()
-                        color = np.array([
-                            color_seed[0] / 255, 
-                            color_seed[1] / 255, 
-                            color_seed[2] / 255
-                        ])
-                    
-                    # Try to load the target LOD
-                    success = self._load_and_add_lod(mesh_id, target_lod, color)
-                    if not success:
-                        # If we couldn't load the target, skip changing
-                        continue
-                
-                # Update visibility
-                for lod, layer in self.mesh_layers[mesh_id].items():
-                    layer.visible = (lod == target_lod)
-                
-                # Update current LOD
-                self.current_lod[mesh_id] = target_lod
-                
-                # Force update of the viewer
-                self.viewer.update()
+    # Create 8 corners of the bounding box
+    vertices = np.array([
+        [min_pos[0], min_pos[1], min_pos[2]],  # 0: front bottom left
+        [max_pos[0], min_pos[1], min_pos[2]],  # 1: front bottom right
+        [max_pos[0], max_pos[1], min_pos[2]],  # 2: front top right
+        [min_pos[0], max_pos[1], min_pos[2]],  # 3: front top left
+        [min_pos[0], min_pos[1], max_pos[2]],  # 4: back bottom left
+        [max_pos[0], min_pos[1], max_pos[2]],  # 5: back bottom right
+        [max_pos[0], max_pos[1], max_pos[2]],  # 6: back top right
+        [min_pos[0], max_pos[1], max_pos[2]],  # 7: back top left
+    ])
     
-    def reset_view(self):
-        """Reset the view to show all meshes."""
-        self.viewer.reset_view()
+    # Define the faces of the box (12 triangles forming 6 sides)
+    faces = np.array([
+        # Front face
+        [0, 1, 2], [0, 2, 3],
+        # Right face
+        [1, 5, 6], [1, 6, 2],
+        # Back face
+        [5, 4, 7], [5, 7, 6],
+        # Left face
+        [4, 0, 3], [4, 3, 7],
+        # Top face
+        [3, 2, 6], [3, 6, 7],
+        # Bottom face
+        [0, 4, 5], [0, 5, 1]
+    ])
+    
+    return vertices, faces
 
 
 def main():
     parser = argparse.ArgumentParser(description="View precomputed mesh data in napari with dynamic LOD switching")
     parser.add_argument("--mesh-dir", type=str, required=True,
                        help="Directory containing precomputed mesh data")
-    parser.add_argument("--initial-lod", type=int, default=None,
-                       help="Initial LOD level to load (default: highest available)")
+    parser.add_argument("--proxy-mode", action="store_true",
+                       help="Use simplified proxy meshes instead of loading full meshes")
+    parser.add_argument("--num-meshes", type=int, default=5,
+                       help="Number of meshes to load (default: 5, use 0 for all)")
     parser.add_argument("--debug", action="store_true",
                        help="Enable debug logging")
     
@@ -526,35 +413,114 @@ def main():
             sys.exit(1)
             
         print(f"\nFound {len(valid_meshes)} valid meshes in {args.mesh_dir}")
-        print(f"Valid mesh IDs: {valid_meshes}")
+        
+        # Decide how many meshes to load
+        if args.num_meshes > 0 and args.num_meshes < len(valid_meshes):
+            load_meshes = valid_meshes[:args.num_meshes]
+            print(f"Loading first {args.num_meshes} of {len(valid_meshes)} meshes")
+            print(f"Loading mesh IDs: {load_meshes}")
+            print("To load more meshes, use --num-meshes parameter")
+        else:
+            load_meshes = valid_meshes
+            print(f"Loading all {len(valid_meshes)} meshes")
+            print(f"Valid mesh IDs: {valid_meshes}")
         
         # Initialize napari viewer with 3D mode
         viewer = napari.Viewer(ndisplay=3)
         
-        # Initialize the multiscale renderer
-        renderer = MultiscaleMeshRenderer(viewer, mesh_loader, debug=args.debug)
+        # Store created layers for reference
+        layers = {}
         
-        # Load each mesh - limiting to first 10 meshes for better performance
-        # This is important with large mesh collections
-        if len(valid_meshes) > 10:
-            print(f"Loading first 10 of {len(valid_meshes)} meshes for better performance")
-            print("You can edit the script to load more meshes if needed")
-            load_meshes = valid_meshes[:10]
-        else:
-            load_meshes = valid_meshes
-            
+        # Process each mesh
         for mesh_id in load_meshes:
             try:
-                renderer.load_mesh(mesh_id)
+                # Read the manifest once
+                manifest = mesh_loader.read_manifest(mesh_id)
+                if not manifest or "num_lods" not in manifest:
+                    print(f"Could not load manifest for mesh {mesh_id}")
+                    continue
+                    
+                num_lods = manifest["num_lods"]
+                print(f"Mesh {mesh_id} has {num_lods} LOD levels")
+                
+                # Generate a deterministic color for this mesh
+                import hashlib
+                color_seed = hashlib.md5(str(mesh_id).encode()).digest()
+                base_color = np.array([
+                    color_seed[0] / 255, 
+                    color_seed[1] / 255, 
+                    color_seed[2] / 255
+                ])
+                
+                # Choose the highest LOD level available (lowest detail)
+                highest_available_lod = -1
+                for lod in range(num_lods-1, -1, -1):
+                    if lod in manifest["fragments"] and manifest["fragments_per_lod"][lod] > 0:
+                        highest_available_lod = lod
+                        break
+                        
+                if highest_available_lod == -1:
+                    print(f"No valid LOD levels found for mesh {mesh_id}")
+                    continue
+                
+                # Create the mesh
+                lod = highest_available_lod  # Use the highest LOD (lowest detail) for better performance
+                
+                if args.proxy_mode:
+                    # Create a proxy mesh (simple bounding box) for better performance
+                    mesh_data = create_simple_proxy_mesh(manifest, mesh_id, lod)
+                    if mesh_data is None:
+                        print(f"Could not create proxy mesh for mesh {mesh_id} at LOD {lod}")
+                        continue
+                        
+                    vertices, faces = mesh_data
+                else:
+                    # Load the actual mesh - this can be slow for complex meshes
+                    mesh = mesh_loader.load_lod_mesh(mesh_id, lod)
+                    if mesh is None:
+                        print(f"Could not load mesh {mesh_id} at LOD {lod}")
+                        continue
+                        
+                    vertices, faces = mesh.vertices, mesh.faces
+                
+                # Create a vertex color array (one color per vertex)
+                values = np.ones((len(vertices), 3)) * base_color.reshape(1, 3)
+                
+                # Create a unique name for this layer
+                layer_name = f"Mesh {mesh_id} - LOD {lod}"
+                
+                # Add the surface layer with specified properties
+                surface = viewer.add_surface(
+                    data=(vertices, faces, values),
+                    name=layer_name,
+                    opacity=0.7,
+                    blending='translucent'
+                )
+                
+                # Store the layer for future reference
+                layers[mesh_id] = surface
+                
+                print(f"Added mesh {mesh_id} with {len(vertices)} vertices and {len(faces)} faces")
+                
             except Exception as e:
-                print(f"Error loading mesh {mesh_id}: {e}")
+                import traceback
+                print(f"Error processing mesh {mesh_id}: {e}")
+                if args.debug:
+                    traceback.print_exc()
         
-        # Reset the view to show all meshes
-        renderer.reset_view()
+        if not layers:
+            print("No meshes could be loaded. Try using --debug for more information.")
+            sys.exit(1)
+            
+        # Reset view to show all objects
+        viewer.reset_view()
         
-        print("\nNapari viewer launched with dynamic LOD switching.")
-        print("Zoom in/out to automatically switch between resolution levels.")
+        print("\nNapari viewer launched.")
+        print("Use mouse to navigate: right-click and drag to rotate, middle-click to pan, scroll to zoom.")
         
+        if args.proxy_mode:
+            print("NOTE: Running in proxy mode with simplified meshes. Use --proxy-mode=False for full detail.")
+            
         # Start the napari event loop
         napari.run()
         

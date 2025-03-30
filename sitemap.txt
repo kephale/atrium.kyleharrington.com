@@ -50,7 +50,7 @@ URL: https://atrium.kyleharrington.com/meshes/visualize-ng-precomputed
 
 Group: meshes
 Name: Napari Precomputed Mesh Viewer (view_in_napari)
-Description: A Python script to view precomputed mesh data in napari with each resolution as a separate layer
+Description: A Python script to view precomputed mesh data in napari with proper multiscale mesh rendering
 URL: https://atrium.kyleharrington.com/meshes/visualize-ng-precomputed
 
 Group: visualization

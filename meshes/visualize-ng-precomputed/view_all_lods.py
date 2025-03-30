@@ -45,8 +45,8 @@ def main():
                       help="Color meshes by LOD level (default: True)")
     parser.add_argument("--opacity", type=float, default=0.5,
                       help="Opacity for meshes (default: 0.5)")
-    parser.add_argument("--position-offset", type=float, default=0.0,
-                      help="Position offset between LOD levels in visualization (default: 0.0)")
+    parser.add_argument("--position-offset", type=float, default=10.0,
+                      help="Position offset between LOD levels in visualization (default: 10.0)")
     
     args = parser.parse_args()
     
@@ -111,7 +111,7 @@ def main():
                     print(f"Could not load mesh {mesh_id} at LOD {lod}")
                     continue
                 
-                # Apply offset based on LOD level if requested
+                # Apply offset based on LOD level
                 if args.position_offset != 0:
                     offset_vector = np.array([lod * args.position_offset, 
                                             lod * args.position_offset, 
@@ -135,20 +135,20 @@ def main():
                         color_seed[2] / 255
                     ]
                 
-                # Create vertex colors
-                vertex_colors = np.ones((len(mesh.vertices), 3))
-                vertex_colors[:, 0] = color[0]
-                vertex_colors[:, 1] = color[1]
-                vertex_colors[:, 2] = color[2]
-                
                 # Add the surface
                 try:
+                    # Use a simpler approach without per-vertex colors
                     surface = viewer.add_surface(
-                        data=(mesh.vertices, mesh.faces, vertex_colors),
+                        data=(mesh.vertices, mesh.faces),
                         name=layer_name,
                         opacity=args.opacity,
-                        blending='translucent'
+                        blending='translucent',
+                        colormap='gray',
+                        contrast_limits=[0, 1]
                     )
+                    
+                    # Set the color manually for the entire surface
+                    surface.color = color
                     
                     # Store the layer
                     layer_key = f"{mesh_id}_{lod}"

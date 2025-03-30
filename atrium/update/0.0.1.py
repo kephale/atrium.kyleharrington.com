@@ -1,5 +1,6 @@
 # /// script
 # title = "Update an atrium in a repository"
+# Modified to link source code directly to GitHub rather than using embedded source viewer
 # description = "Updates an atrium configuration in a repository for GH pages"
 # author = "Kyle Harrington"
 # license = "MIT"
@@ -374,7 +375,7 @@ INDEX_TEMPLATE = """
                     <p class="card-description">{{ solution.description }}</p>
 
                     <div class="card-source">
-                        <a href="{{ solution.link }}/source.html">View Source</a>
+                        <a href="{{ site_config.github_repo }}/blob/main/{{ solution.link }}/{{ solution.filename }}" target="_blank">View Source on GitHub</a>
                     </div>
                 </div>
             </div>
@@ -1069,9 +1070,9 @@ SOLUTION_TEMPLATE = """
             {% endif %}
 
             <div class="links-section">
-                <a href="./source.html" class="link-item">
+                <a href="{{ repository }}/blob/main/{{ file_path_github }}" target="_blank" class="link-item">
                     <i class="fas fa-code"></i>
-                    View Source Code
+                    View Source on GitHub
                 </a>
 
                 {% if repository %}
@@ -1880,20 +1881,7 @@ def generate_static_site(base_dir, static_dir):
                     base_url = SITE_CONFIG['base_url']
                     script_path = f"{entry.name}/{solution_name}/{most_recent_file}"
                     
-                    # Generate source code viewer page
-                    with open(file_path, 'r') as f:
-                        source_code = f.read()
-                    
-                    source_template_vars = {
-                        'title': metadata.get("title", solution_name),
-                        'filename': most_recent_file,
-                        'source_code': source_code,
-                        'script_source': f"{base_url}/{script_path}",
-                        'site_config': SITE_CONFIG
-                    }
-                    
-                    with open(os.path.join(solution_output, "source.html"), "w") as f:
-                        f.write(Template(SOURCE_TEMPLATE).render(**source_template_vars))
+                    # No longer generating source code viewer page since we're linking directly to GitHub
                     
                     solution_metadata = {
                         "name": metadata.get("title", solution_name),
@@ -1904,6 +1892,7 @@ def generate_static_site(base_dir, static_dir):
                         "version": metadata.get("version", ""),
                         "external_source": metadata.get("external_source", ""),
                         "script_source": f"{base_url}/{script_path}",
+                        "filename": most_recent_file
                     }
 
                     # Generate solution page with consistent cover image path
@@ -1921,7 +1910,8 @@ def generate_static_site(base_dir, static_dir):
                         'script_source': solution_metadata["script_source"],
                         'keywords': metadata.get("keywords", []),
                         'requires_python': metadata.get("requires_python", ""),
-                        'repository': metadata.get("repository", ""),
+                        'repository': metadata.get("repository", SITE_CONFIG["github_repo"]),
+                        'file_path_github': f"{entry.name}/{solution_name}/{most_recent_file}",
                         'cli_args': extract_typer_args(file_path),
                         'documentation': metadata.get("documentation", ""),
                         'homepage': metadata.get("homepage", "")

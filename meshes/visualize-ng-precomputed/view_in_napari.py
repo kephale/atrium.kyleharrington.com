@@ -52,17 +52,17 @@ class PrecomputedMeshLoader:
             with open(info_path, 'r') as f:
                 info = json.load(f)
                 
-            self._log(f"Loaded info file: {info_path}")
-            self._log(f"Info content: {json.dumps(info, indent=2)}")
+            print(f"Loaded info file: {info_path}")
+            print(f"Info content: {json.dumps(info, indent=2)}")
             
             # Extract transformation matrix and other parameters
             if "transform" in info:
                 self.transform = np.array(info["transform"]).reshape(3, 4)
-                self._log(f"Found transform: {self.transform}")
+                print(f"Found transform: {self.transform}")
             
             if "vertex_quantization_bits" in info:
                 self.vertex_quantization_bits = info["vertex_quantization_bits"]
-                self._log(f"Found vertex_quantization_bits: {self.vertex_quantization_bits}")
+                print(f"Found vertex_quantization_bits: {self.vertex_quantization_bits}")
                 
             # Store the whole info object for reference
             self.info = info
@@ -111,7 +111,7 @@ class PrecomputedMeshLoader:
     def _find_meshes(self) -> Tuple[List[int], List[int], List[int]]:
         """Find all valid meshes in the directory."""
         all_files = list(self.precomputed_dir.iterdir())
-        self._log(f"Found {len(all_files)} files in directory")
+        print(f"Found {len(all_files)} files in directory")
         
         # Find potential mesh files (those with numeric names)
         numeric_files = [f for f in all_files if f.name.split('.')[0].isdigit()]
@@ -120,14 +120,14 @@ class PrecomputedMeshLoader:
         mesh_files = {int(p.stem): p for p in numeric_files if not p.name.endswith('.index')}
         index_files = {int(p.stem): p for p in numeric_files if p.name.endswith('.index')}
         
-        self._log(f"Found {len(mesh_files)} mesh data files and {len(index_files)} index files")
+        print(f"Found {len(mesh_files)} mesh data files and {len(index_files)} index files")
         
         # Find complete mesh sets
         valid_meshes = sorted(set(mesh_files.keys()) & set(index_files.keys()))
         missing_index = sorted(set(mesh_files.keys()) - set(index_files.keys()))
         missing_data = sorted(set(index_files.keys()) - set(mesh_files.keys()))
         
-        self._log(f"Valid meshes: {valid_meshes}")
+        print(f"Valid meshes: {valid_meshes}")
         self._log(f"Meshes missing index: {missing_index}")
         self._log(f"Index files missing data: {missing_data}")
         
@@ -188,7 +188,7 @@ class PrecomputedMeshLoader:
                             "offsets": offsets
                         }
             
-            self._log(f"Manifest for mesh {mesh_id}: {manifest['num_lods']} LODs, {total_fragments} total fragments")
+            print(f"Manifest for mesh {mesh_id}: {manifest['num_lods']} LODs, {total_fragments} total fragments")
             return manifest
             
         except Exception as e:
@@ -309,7 +309,7 @@ class PrecomputedMeshLoader:
             self._log(f"Loading {len(indices)} of {num_fragments} fragments for LOD {lod}")
         else:
             indices = range(num_fragments)
-            self._log(f"Loading all {num_fragments} fragments for LOD {lod}")
+            print(f"Loading all {num_fragments} fragments for LOD {lod}")
             
         # Load and combine fragments
         meshes = []
@@ -328,7 +328,7 @@ class PrecomputedMeshLoader:
         else:
             try:
                 combined = trimesh.util.concatenate(meshes)
-                self._log(f"Combined {len(meshes)} fragments into a mesh with {len(combined.vertices)} vertices")
+                print(f"Combined {len(meshes)} fragments into a mesh with {len(combined.vertices)} vertices")
                 return combined
             except Exception as e:
                 self._log(f"Error combining fragments: {str(e)}")
@@ -483,20 +483,40 @@ def main():
                         
                     vertices, faces = mesh.vertices, mesh.faces
                 
-                # Create a vertex color array with the correct shape (num_vertices, 3)
-                # The key fix here is to ensure we have one color per vertex
-                values = np.tile(base_color, (len(vertices), 1))
-                
                 # Create a unique name for this layer
                 layer_name = f"Mesh {mesh_id} - LOD {lod}"
                 
-                # Add the surface layer with specified properties
-                surface = viewer.add_surface(
-                    data=(vertices, faces, values),  # Include values for per-vertex coloring
-                    name=layer_name,
-                    opacity=0.7,
-                    blending='translucent'
-                )
+                # Create vertex-colored data or data without colors
+                # First try without vertex colors, which is simpler
+                try:
+                    surface = viewer.add_surface(
+                        data=(vertices, faces),
+                        name=layer_name,
+                        colormap='turbo',
+                        opacity=0.7,
+                        blending='translucent'
+                    )
+                except Exception as e:
+                    print(f"Falling back to vertex colors for mesh {mesh_id}")
+                    # If that fails, try with explicit vertex colors
+                    try:
+                        # Make sure to create a vertex color array with NUM_VERTICES rows
+                        vertex_colors = np.ones((len(vertices), 3))
+                        # Apply the base color to all vertices
+                        vertex_colors[:, 0] = base_color[0]
+                        vertex_colors[:, 1] = base_color[1]
+                        vertex_colors[:, 2] = base_color[2]
+                        
+                        surface = viewer.add_surface(
+                            data=(vertices, faces, vertex_colors),
+                            name=layer_name,
+                            opacity=0.7,
+                            blending='translucent'
+                        )
+                    except Exception as e2:
+                        print(f"Both color approaches failed for mesh {mesh_id}: {e2}")
+                        print(f"Vertices shape: {vertices.shape}, Faces shape: {faces.shape}")
+                        raise e2
                 
                 # Store the layer for future reference
                 layers[mesh_id] = surface

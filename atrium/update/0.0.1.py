@@ -1070,7 +1070,7 @@ SOLUTION_TEMPLATE = """
 
         <div class="links-section">
             {% if repository %}
-            <a href="{{ repository }}/blob/main/{{ link }}/{{ script_source | basename }}" target="_blank" class="link-item">
+            <a href="{{ repository }}/blob/main/{{ link.split('/')[-2] }}/{{ link.split('/')[-1] }}/{{ script_source.split('/')[-1] }}" target="_blank" class="link-item">
                 <i class="fab fa-github"></i>
                 View Source Code on GitHub
             </a>
@@ -1900,7 +1900,13 @@ def generate_static_site(base_dir, static_dir):
                             
                             # Create path to file in repository - adjust as needed for your repo structure
                             file_relative_path = f"{entry.name}/{solution_name}/{most_recent_file}"
+                            
+                            # For GitHub URLs, use 'blob/main' pattern which is most common
+                            # You might need to adjust this if your repos use 'master' or other branch names
                             github_file_url = f"{repo_url}/blob/main/{file_relative_path}"
+                            
+                            # Alternative approach - just link to the repository root if path structure is uncertain
+                            # github_file_url = repo_url
                             
                             # Create a simple HTML redirect page
                             redirect_html = f"""

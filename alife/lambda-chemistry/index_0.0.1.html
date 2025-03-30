@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D evolving swarm - atrium.kyleharrington.com</title>
+    <title>Lambda Chemistry Simulation - atrium.kyleharrington.com</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
@@ -530,11 +530,7 @@
     <main class="container">
         <section class="script-section">
             <div class="script-header">
-                <h1 class="script-title">3D evolving swarm</h1>
-                <div class="cover-image-container">
-                    <img src="https://atrium.kyleharrington.com/alife/evolving-swarm/cover.png" alt="3D evolving swarm cover image" class="card-image">
-                </div>
-                <div class="description-section">
+                <h1 class="script-title">Lambda Chemistry Simulation</h1><div class="description-section">
                     <p class="description-content"></p>
                 </div>
 
@@ -544,7 +540,7 @@
                             <i class="fas fa-code-branch"></i>
                             Version
                         </div>
-                        <div class="metadata-value">0.0.3</div>
+                        <div class="metadata-value">0.0.1</div>
                     </div>
                     
 
@@ -578,13 +574,15 @@
                         </div>
                         <div class="tags-container">
                             
-                            <span class="tag">swarm simulation</span>
+                            <span class="tag">artificial chemistry</span>
                             
-                            <span class="tag">genetic algorithms</span>
+                            <span class="tag">lambda chemistry</span>
                             
-                            <span class="tag">napari</span>
+                            <span class="tag">reproducer</span>
                             
-                            <span class="tag">3D visualization</span>
+                            <span class="tag">artificial life</span>
+                            
+                            <span class="tag">simulation</span>
                             
                         </div>
                     </div>
@@ -595,7 +593,7 @@
             <div class="command-section">
                 <h2 class="command-title">Run this script</h2>
                 <div class="command-box">
-                    <code>uv run https://atrium.kyleharrington.com/alife/evolving-swarm/0.0.3.py</code>
+                    <code>uv run https://atrium.kyleharrington.com/alife/lambda-chemistry/0.0.1.py</code>
                 </div>
                 <button class="copy-button" onclick="copyCommand()">
                     <i class="fas fa-copy"></i>
@@ -604,19 +602,111 @@
             </div>
 
             
+            <div class="cli-arguments-section">
+                <h2>Command Line Arguments</h2>
+                
+                <div class="cli-arg-item">
+                    <code>--population_size</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Initial population size.</p>
+                    
+                    
+                    <p class="arg-default">Default: 500</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--steps</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Number of simulation steps.</p>
+                    
+                    
+                    <p class="arg-default">Default: 200</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--reaction_pool</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Size of reaction pool each step.</p>
+                    
+                    
+                    <p class="arg-default">Default: 50</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--mutation_rate</code>
+                    
+                    <span class="arg-type">(float)</span>
+                    
+                    
+                    <p class="arg-help">Probability of mutation.</p>
+                    
+                    
+                    <p class="arg-default">Default: 0.05</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--max_reductions</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Maximum reduction steps per reaction.</p>
+                    
+                    
+                    <p class="arg-default">Default: 10</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--seed</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Random seed for reproducibility.</p>
+                    
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--verbose</code>
+                    
+                    <span class="arg-type">(bool)</span>
+                    
+                    
+                    <p class="arg-help">Print progress information.</p>
+                    
+                    
+                    <p class="arg-default">Default: True</p>
+                    
+                </div>
+                
+            </div>
+            
 
             
             <div class="dependencies-section">
                 <h2>Dependencies</h2>
                 <ul class="dependencies-list">
                     
-                    <li class="dependency-item">napari[all]>=0.5.4</li>
-                    
-                    <li class="dependency-item">numpy</li>
-                    
-                    <li class="dependency-item">scipy</li>
+                    <li class="dependency-item">numpy>=1.24.0</li>
                     
                     <li class="dependency-item">matplotlib</li>
+                    
+                    <li class="dependency-item">typer</li>
                     
                 </ul>
             </div>
@@ -624,7 +714,7 @@
 
         <div class="links-section">
             
-                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/alife/evolving-swarm/0.0.3.py" target="_blank" class="link-item">
+                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/alife/lambda-chemistry/0.0.1.py" target="_blank" class="link-item">
                     <i class="fab fa-github"></i>
                     View Source Code on GitHub
                 </a>

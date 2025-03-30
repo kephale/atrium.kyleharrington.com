@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D evolving swarm - atrium.kyleharrington.com</title>
+    <title>Mandelbrot Set - atrium.kyleharrington.com</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
@@ -530,9 +530,9 @@
     <main class="container">
         <section class="script-section">
             <div class="script-header">
-                <h1 class="script-title">3D evolving swarm</h1>
+                <h1 class="script-title">Mandelbrot Set</h1>
                 <div class="cover-image-container">
-                    <img src="https://atrium.kyleharrington.com/alife/evolving-swarm/cover.png" alt="3D evolving swarm cover image" class="card-image">
+                    <img src="https://atrium.kyleharrington.com/fractals/napari-mandelbrot/cover.png" alt="Mandelbrot Set cover image" class="card-image">
                 </div>
                 <div class="description-section">
                     <p class="description-content"></p>
@@ -544,7 +544,7 @@
                             <i class="fas fa-code-branch"></i>
                             Version
                         </div>
-                        <div class="metadata-value">0.0.3</div>
+                        <div class="metadata-value">0.0.2</div>
                     </div>
                     
 
@@ -554,7 +554,7 @@
                             <i class="fas fa-user"></i>
                             Author
                         </div>
-                        <div class="metadata-value">Kyle Harrington <atrium@kyleharrington.com></div>
+                        <div class="metadata-value">Kyle Harrington <napari@kyleharrington.com></div>
                     </div>
                     
 
@@ -578,13 +578,13 @@
                         </div>
                         <div class="tags-container">
                             
-                            <span class="tag">swarm simulation</span>
+                            <span class="tag">mandelbrot</span>
                             
-                            <span class="tag">genetic algorithms</span>
+                            <span class="tag">visualization</span>
                             
                             <span class="tag">napari</span>
                             
-                            <span class="tag">3D visualization</span>
+                            <span class="tag">interactive</span>
                             
                         </div>
                     </div>
@@ -595,7 +595,7 @@
             <div class="command-section">
                 <h2 class="command-title">Run this script</h2>
                 <div class="command-box">
-                    <code>uv run https://atrium.kyleharrington.com/alife/evolving-swarm/0.0.3.py</code>
+                    <code>uv run https://atrium.kyleharrington.com/fractals/napari-mandelbrot/0.0.2.py</code>
                 </div>
                 <button class="copy-button" onclick="copyCommand()">
                     <i class="fas fa-copy"></i>
@@ -603,6 +603,102 @@
                 </button>
             </div>
 
+            
+            <div class="cli-arguments-section">
+                <h2>Command Line Arguments</h2>
+                
+                <div class="cli-arg-item">
+                    <code>--xmin</code>
+                    
+                    <span class="arg-type">(float)</span>
+                    
+                    
+                    <p class="arg-help">Minimum x-coordinate of the range.</p>
+                    
+                    
+                    <p class="arg-default">Default: -2.0</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--xmax</code>
+                    
+                    <span class="arg-type">(float)</span>
+                    
+                    
+                    <p class="arg-help">Maximum x-coordinate of the range.</p>
+                    
+                    
+                    <p class="arg-default">Default: 1.0</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--ymin</code>
+                    
+                    <span class="arg-type">(float)</span>
+                    
+                    
+                    <p class="arg-help">Minimum y-coordinate of the range.</p>
+                    
+                    
+                    <p class="arg-default">Default: -1.5</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--ymax</code>
+                    
+                    <span class="arg-type">(float)</span>
+                    
+                    
+                    <p class="arg-help">Maximum y-coordinate of the range.</p>
+                    
+                    
+                    <p class="arg-default">Default: 1.5</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--width</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Width of the image.</p>
+                    
+                    
+                    <p class="arg-default">Default: 800</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--height</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Height of the image.</p>
+                    
+                    
+                    <p class="arg-default">Default: 800</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--max_iter</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Maximum number of iterations.</p>
+                    
+                    
+                    <p class="arg-default">Default: 100</p>
+                    
+                </div>
+                
+            </div>
             
 
             
@@ -614,9 +710,9 @@
                     
                     <li class="dependency-item">numpy</li>
                     
-                    <li class="dependency-item">scipy</li>
+                    <li class="dependency-item">typer</li>
                     
-                    <li class="dependency-item">matplotlib</li>
+                    <li class="dependency-item">magicgui</li>
                     
                 </ul>
             </div>
@@ -624,7 +720,7 @@
 
         <div class="links-section">
             
-                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/alife/evolving-swarm/0.0.3.py" target="_blank" class="link-item">
+                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/fractals/napari-mandelbrot/0.0.2.py" target="_blank" class="link-item">
                     <i class="fab fa-github"></i>
                     View Source Code on GitHub
                 </a>

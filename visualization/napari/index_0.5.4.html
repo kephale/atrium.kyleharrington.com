@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D evolving swarm - atrium.kyleharrington.com</title>
+    <title>napari - atrium.kyleharrington.com</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
@@ -530,9 +530,9 @@
     <main class="container">
         <section class="script-section">
             <div class="script-header">
-                <h1 class="script-title">3D evolving swarm</h1>
+                <h1 class="script-title">napari</h1>
                 <div class="cover-image-container">
-                    <img src="https://atrium.kyleharrington.com/alife/evolving-swarm/cover.png" alt="3D evolving swarm cover image" class="card-image">
+                    <img src="https://atrium.kyleharrington.com/visualization/napari/cover.png" alt="napari cover image" class="card-image">
                 </div>
                 <div class="description-section">
                     <p class="description-content"></p>
@@ -544,7 +544,7 @@
                             <i class="fas fa-code-branch"></i>
                             Version
                         </div>
-                        <div class="metadata-value">0.0.3</div>
+                        <div class="metadata-value">0.5.4</div>
                     </div>
                     
 
@@ -554,7 +554,7 @@
                             <i class="fas fa-user"></i>
                             Author
                         </div>
-                        <div class="metadata-value">Kyle Harrington <atrium@kyleharrington.com></div>
+                        <div class="metadata-value">Kyle Harrington <napari@kyleharrington.com></div>
                     </div>
                     
 
@@ -578,13 +578,11 @@
                         </div>
                         <div class="tags-container">
                             
-                            <span class="tag">swarm simulation</span>
-                            
-                            <span class="tag">genetic algorithms</span>
-                            
                             <span class="tag">napari</span>
                             
-                            <span class="tag">3D visualization</span>
+                            <span class="tag">viewer</span>
+                            
+                            <span class="tag">visualization</span>
                             
                         </div>
                     </div>
@@ -595,7 +593,7 @@
             <div class="command-section">
                 <h2 class="command-title">Run this script</h2>
                 <div class="command-box">
-                    <code>uv run https://atrium.kyleharrington.com/alife/evolving-swarm/0.0.3.py</code>
+                    <code>uv run https://atrium.kyleharrington.com/visualization/napari/0.5.4.py</code>
                 </div>
                 <button class="copy-button" onclick="copyCommand()">
                     <i class="fas fa-copy"></i>
@@ -604,19 +602,44 @@
             </div>
 
             
+            <div class="cli-arguments-section">
+                <h2>Command Line Arguments</h2>
+                
+                <div class="cli-arg-item">
+                    <code>--files</code>
+                    
+                    <span class="arg-type">(Optional[List[str]])</span>
+                    
+                    
+                    <p class="arg-help">Paths to files to load into the viewer.</p>
+                    
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--display_mode</code>
+                    
+                    <span class="arg-type">(str)</span>
+                    
+                    
+                    <p class="arg-help">Set viewer mode: '2d' or '3d'.</p>
+                    
+                    
+                    <p class="arg-default">Default: 2d</p>
+                    
+                </div>
+                
+            </div>
+            
 
             
             <div class="dependencies-section">
                 <h2>Dependencies</h2>
                 <ul class="dependencies-list">
                     
-                    <li class="dependency-item">napari[all]>=0.5.4</li>
+                    <li class="dependency-item">napari[all]==0.5.4</li>
                     
-                    <li class="dependency-item">numpy</li>
-                    
-                    <li class="dependency-item">scipy</li>
-                    
-                    <li class="dependency-item">matplotlib</li>
+                    <li class="dependency-item">typer</li>
                     
                 </ul>
             </div>
@@ -624,16 +647,31 @@
 
         <div class="links-section">
             
-                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/alife/evolving-swarm/0.0.3.py" target="_blank" class="link-item">
+                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/visualization/napari/0.5.4.py" target="_blank" class="link-item">
                     <i class="fab fa-github"></i>
                     View Source Code on GitHub
                 </a>
             
 
             
-
+                <a href="https://github.com/napari/napari" target="_blank" class="link-item">
+                    <i class="fab fa-github"></i>
+                    Repository
+                </a>
             
 
+            
+                <a href="https://github.com/napari/napari#readme" target="_blank" class="link-item">
+                    <i class="fas fa-book"></i>
+                    Documentation
+                </a>
+            
+
+            
+                <a href="https://napari.org" target="_blank" class="link-item">
+                    <i class="fas fa-home"></i>
+                    Homepage
+                </a>
             
 
             

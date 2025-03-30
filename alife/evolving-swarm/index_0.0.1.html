@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D evolving swarm - atrium.kyleharrington.com</title>
+    <title>3D Swarm Simulation with Genetic Algorithms in Napari (0.0.1) - atrium.kyleharrington.com</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
@@ -530,9 +530,9 @@
     <main class="container">
         <section class="script-section">
             <div class="script-header">
-                <h1 class="script-title">3D evolving swarm</h1>
+                <h1 class="script-title">3D Swarm Simulation with Genetic Algorithms in Napari (0.0.1)</h1>
                 <div class="cover-image-container">
-                    <img src="https://atrium.kyleharrington.com/alife/evolving-swarm/cover.png" alt="3D evolving swarm cover image" class="card-image">
+                    <img src="https://atrium.kyleharrington.com/alife/evolving-swarm/cover.png" alt="3D Swarm Simulation with Genetic Algorithms in Napari (0.0.1) cover image" class="card-image">
                 </div>
                 <div class="description-section">
                     <p class="description-content"></p>
@@ -544,7 +544,7 @@
                             <i class="fas fa-code-branch"></i>
                             Version
                         </div>
-                        <div class="metadata-value">0.0.3</div>
+                        <div class="metadata-value">0.0.1</div>
                     </div>
                     
 
@@ -595,7 +595,7 @@
             <div class="command-section">
                 <h2 class="command-title">Run this script</h2>
                 <div class="command-box">
-                    <code>uv run https://atrium.kyleharrington.com/alife/evolving-swarm/0.0.3.py</code>
+                    <code>uv run https://atrium.kyleharrington.com/alife/evolving-swarm/0.0.1.py</code>
                 </div>
                 <button class="copy-button" onclick="copyCommand()">
                     <i class="fas fa-copy"></i>
@@ -603,6 +603,63 @@
                 </button>
             </div>
 
+            
+            <div class="cli-arguments-section">
+                <h2>Command Line Arguments</h2>
+                
+                <div class="cli-arg-item">
+                    <code>--num_agents</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Initial number of agents in the simulation.</p>
+                    
+                    
+                    <p class="arg-default">Default: 100</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--num_sources</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Number of energy sources in the simulation.</p>
+                    
+                    
+                    <p class="arg-default">Default: 20</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--bounds</code>
+                    
+                    <span class="arg-type">(float)</span>
+                    
+                    
+                    <p class="arg-help">Size of the simulation space (cube side length).</p>
+                    
+                    
+                    <p class="arg-default">Default: 100.0</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--update_interval</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Update interval in milliseconds.</p>
+                    
+                    
+                    <p class="arg-default">Default: 100</p>
+                    
+                </div>
+                
+            </div>
             
 
             
@@ -616,7 +673,7 @@
                     
                     <li class="dependency-item">scipy</li>
                     
-                    <li class="dependency-item">matplotlib</li>
+                    <li class="dependency-item">typer</li>
                     
                 </ul>
             </div>
@@ -624,7 +681,7 @@
 
         <div class="links-section">
             
-                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/alife/evolving-swarm/0.0.3.py" target="_blank" class="link-item">
+                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/alife/evolving-swarm/0.0.1.py" target="_blank" class="link-item">
                     <i class="fab fa-github"></i>
                     View Source Code on GitHub
                 </a>

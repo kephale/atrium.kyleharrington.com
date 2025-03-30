@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D evolving swarm - atrium.kyleharrington.com</title>
+    <title>Neuroglancer Precomputed Mesh Viewer - atrium.kyleharrington.com</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
@@ -530,11 +530,7 @@
     <main class="container">
         <section class="script-section">
             <div class="script-header">
-                <h1 class="script-title">3D evolving swarm</h1>
-                <div class="cover-image-container">
-                    <img src="https://atrium.kyleharrington.com/alife/evolving-swarm/cover.png" alt="3D evolving swarm cover image" class="card-image">
-                </div>
-                <div class="description-section">
+                <h1 class="script-title">Neuroglancer Precomputed Mesh Viewer</h1><div class="description-section">
                     <p class="description-content"></p>
                 </div>
 
@@ -544,7 +540,7 @@
                             <i class="fas fa-code-branch"></i>
                             Version
                         </div>
-                        <div class="metadata-value">0.0.3</div>
+                        <div class="metadata-value">0.1.0</div>
                     </div>
                     
 
@@ -554,7 +550,7 @@
                             <i class="fas fa-user"></i>
                             Author
                         </div>
-                        <div class="metadata-value">Kyle Harrington <atrium@kyleharrington.com></div>
+                        <div class="metadata-value">Kyle Harrington</div>
                     </div>
                     
 
@@ -578,13 +574,13 @@
                         </div>
                         <div class="tags-container">
                             
-                            <span class="tag">swarm simulation</span>
+                            <span class="tag">mesh</span>
                             
-                            <span class="tag">genetic algorithms</span>
+                            <span class="tag">3D</span>
                             
-                            <span class="tag">napari</span>
+                            <span class="tag">visualization</span>
                             
-                            <span class="tag">3D visualization</span>
+                            <span class="tag">neuroglancer</span>
                             
                         </div>
                     </div>
@@ -595,7 +591,7 @@
             <div class="command-section">
                 <h2 class="command-title">Run this script</h2>
                 <div class="command-box">
-                    <code>uv run https://atrium.kyleharrington.com/alife/evolving-swarm/0.0.3.py</code>
+                    <code>uv run https://atrium.kyleharrington.com/meshes/visualize-ng-precomputed/view_in_ng.py</code>
                 </div>
                 <button class="copy-button" onclick="copyCommand()">
                     <i class="fas fa-copy"></i>
@@ -610,13 +606,9 @@
                 <h2>Dependencies</h2>
                 <ul class="dependencies-list">
                     
-                    <li class="dependency-item">napari[all]>=0.5.4</li>
+                    <li class="dependency-item">neuroglancer[webdriver]</li>
                     
                     <li class="dependency-item">numpy</li>
-                    
-                    <li class="dependency-item">scipy</li>
-                    
-                    <li class="dependency-item">matplotlib</li>
                     
                 </ul>
             </div>
@@ -624,7 +616,7 @@
 
         <div class="links-section">
             
-                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/alife/evolving-swarm/0.0.3.py" target="_blank" class="link-item">
+                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/meshes/visualize-ng-precomputed/view_in_ng.py" target="_blank" class="link-item">
                     <i class="fab fa-github"></i>
                     View Source Code on GitHub
                 </a>
@@ -632,6 +624,11 @@
 
             
 
+            
+                <a href="https://github.com/google/neuroglancer" target="_blank" class="link-item">
+                    <i class="fas fa-book"></i>
+                    Documentation
+                </a>
             
 
             

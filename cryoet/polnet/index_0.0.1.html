@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D evolving swarm - atrium.kyleharrington.com</title>
+    <title>Generate Synthetic CryoET Data with Polnet - atrium.kyleharrington.com</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
@@ -530,11 +530,7 @@
     <main class="container">
         <section class="script-section">
             <div class="script-header">
-                <h1 class="script-title">3D evolving swarm</h1>
-                <div class="cover-image-container">
-                    <img src="https://atrium.kyleharrington.com/alife/evolving-swarm/cover.png" alt="3D evolving swarm cover image" class="card-image">
-                </div>
-                <div class="description-section">
+                <h1 class="script-title">Generate Synthetic CryoET Data with Polnet</h1><div class="description-section">
                     <p class="description-content"></p>
                 </div>
 
@@ -544,7 +540,7 @@
                             <i class="fas fa-code-branch"></i>
                             Version
                         </div>
-                        <div class="metadata-value">0.0.3</div>
+                        <div class="metadata-value">0.1.0</div>
                     </div>
                     
 
@@ -554,7 +550,7 @@
                             <i class="fas fa-user"></i>
                             Author
                         </div>
-                        <div class="metadata-value">Kyle Harrington <atrium@kyleharrington.com></div>
+                        <div class="metadata-value">Kyle Harrington and Jonathan Schwartz</div>
                     </div>
                     
 
@@ -578,13 +574,15 @@
                         </div>
                         <div class="tags-container">
                             
-                            <span class="tag">swarm simulation</span>
+                            <span class="tag">synthetic data</span>
                             
-                            <span class="tag">genetic algorithms</span>
+                            <span class="tag">deep learning</span>
                             
-                            <span class="tag">napari</span>
+                            <span class="tag">cryoet</span>
                             
-                            <span class="tag">3D visualization</span>
+                            <span class="tag">tomogram</span>
+                            
+                            <span class="tag">protein structure</span>
                             
                         </div>
                     </div>
@@ -595,7 +593,7 @@
             <div class="command-section">
                 <h2 class="command-title">Run this script</h2>
                 <div class="command-box">
-                    <code>uv run https://atrium.kyleharrington.com/alife/evolving-swarm/0.0.3.py</code>
+                    <code>uv run https://atrium.kyleharrington.com/cryoet/polnet/0.0.1.py</code>
                 </div>
                 <button class="copy-button" onclick="copyCommand()">
                     <i class="fas fa-copy"></i>
@@ -604,19 +602,150 @@
             </div>
 
             
+            <div class="cli-arguments-section">
+                <h2>Command Line Arguments</h2>
+                
+                <div class="cli-arg-item">
+                    <code>--config_path</code>
+                    
+                    <span class="arg-type">(str)</span>
+                    
+                    
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--proteins_list</code>
+                    
+                    <span class="arg-type">(str)</span>
+                    
+                    
+                    <p class="arg-help">Comma-separated list of protein file paths</p>
+                    
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--num_tomos_per_snr</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Number of tomograms to produce per SNR</p>
+                    
+                    
+                    <p class="arg-default">Default: 1</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--snr</code>
+                    
+                    <span class="arg-type">(str)</span>
+                    
+                    
+                    <p class="arg-help">Comma-separated list of SNRs to simulate</p>
+                    
+                    
+                    <p class="arg-default">Default: 0.5</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--tilt_range</code>
+                    
+                    <span class="arg-type">(str)</span>
+                    
+                    
+                    <p class="arg-help">Min,Max,Delta for tilt range</p>
+                    
+                    
+                    <p class="arg-default">Default: -60,60,3</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--tomo_shape</code>
+                    
+                    <span class="arg-type">(str)</span>
+                    
+                    
+                    <p class="arg-help">Dimensions of tomogram in pixels (X,Y,Z)</p>
+                    
+                    
+                    <p class="arg-default">Default: 630,630,200</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--misalignment</code>
+                    
+                    <span class="arg-type">(str)</span>
+                    
+                    
+                    <p class="arg-help">Min,Max,Sigma for tilt misalignments</p>
+                    
+                    
+                    <p class="arg-default">Default: 1,5,0.5</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--voxel_size</code>
+                    
+                    <span class="arg-type">(float)</span>
+                    
+                    
+                    <p class="arg-help">Voxel size for simulated tomograms</p>
+                    
+                    
+                    <p class="arg-default">Default: 10.0</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--mb_proteins_list</code>
+                    
+                    <span class="arg-type">(Optional[str])</span>
+                    
+                    
+                    <p class="arg-help">Comma-separated list of membrane protein file paths</p>
+                    
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--membranes_list</code>
+                    
+                    <span class="arg-type">(Optional[str])</span>
+                    
+                    
+                    <p class="arg-help">Comma-separated list of membrane file paths</p>
+                    
+                    
+                </div>
+                
+            </div>
+            
 
             
             <div class="dependencies-section">
                 <h2>Dependencies</h2>
                 <ul class="dependencies-list">
                     
-                    <li class="dependency-item">napari[all]>=0.5.4</li>
+                    <li class="dependency-item">mrcfile</li>
                     
                     <li class="dependency-item">numpy</li>
                     
-                    <li class="dependency-item">scipy</li>
+                    <li class="dependency-item">pandas</li>
                     
-                    <li class="dependency-item">matplotlib</li>
+                    <li class="dependency-item">copick</li>
+                    
+                    <li class="dependency-item">typer</li>
+                    
+                    <li class="dependency-item">polnet @ git+https://github.com/kephale/polnet@scaling</li>
+                    
+                    <li class="dependency-item">copick-utils @ git+https://github.com/copick/copick-utils</li>
                     
                 </ul>
             </div>
@@ -624,14 +753,24 @@
 
         <div class="links-section">
             
-                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/alife/evolving-swarm/0.0.3.py" target="_blank" class="link-item">
+                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/cryoet/polnet/0.0.1.py" target="_blank" class="link-item">
                     <i class="fab fa-github"></i>
                     View Source Code on GitHub
                 </a>
             
 
             
+                <a href="https://github.com/anmartinezs/polnet" target="_blank" class="link-item">
+                    <i class="fab fa-github"></i>
+                    Repository
+                </a>
+            
 
+            
+                <a href="https://github.com/anmartinezs/polnet#readme" target="_blank" class="link-item">
+                    <i class="fas fa-book"></i>
+                    Documentation
+                </a>
             
 
             

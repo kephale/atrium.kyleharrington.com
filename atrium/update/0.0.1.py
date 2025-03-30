@@ -1652,8 +1652,18 @@ def extract_typer_commands_with_ast(file_path):
 def generate_mcp_tool_definitions_with_ast(solutions):
     tool_definitions = []
     base_url = SITE_CONFIG['base_url']
+    processed_scripts = set()  # Track which scripts we've already processed
 
     for solution in solutions:
+        # Create a unique identifier for this script
+        script_id = f"{solution['link']}_{solution.get('script_filename', '')}"
+        
+        # Skip if we've already processed this script
+        if script_id in processed_scripts:
+            continue
+        
+        processed_scripts.add(script_id)
+        
         if 'external_source' in solution and solution['external_source']:
             solution_name = os.path.basename(os.path.dirname(solution['link']))
             sanitized_function_name = sanitize_function_name(solution_name)
@@ -1691,30 +1701,31 @@ def {sanitized_function_name}_run():
             tool_definitions.append(tool_definition)
             continue
 
-        # Use script_source instead of uv_command
+        # Use script_source from solution
         solution_dir = os.path.dirname(solution["script_source"].replace(f"{base_url}/", ""))
+        script_file = os.path.basename(solution["script_source"])
         solution_path = os.path.join(BASE_DIR, solution_dir)
         
         if not os.path.exists(solution_path):
             print(f"Directory not found: {solution_path}. Skipping.")
             continue
 
-        python_files = sorted(
-            [f for f in os.listdir(solution_path) if f.endswith(".py")],
-            reverse=True,
-        )
-        if not python_files:
+        script_path = os.path.join(solution_path, script_file)
+        if not os.path.exists(script_path):
+            print(f"Script not found: {script_path}. Skipping.")
             continue
-
-        latest_python_file = os.path.join(solution_path, python_files[0])
         
         try:
-            metadata = extract_metadata(latest_python_file)
+            metadata = extract_metadata(script_path)
             script_title = metadata.get("title", "Untitled Script")
             script_description = metadata.get("description", "No description provided.")
             solution_name = os.path.basename(solution_dir)
-            sanitized_function_name = sanitize_function_name(solution_name)
-            typer_commands = extract_typer_commands_with_ast(latest_python_file)
+            
+            # Include script filename in the function name to avoid collisions
+            script_identifier = solution.get('script_filename', os.path.splitext(script_file)[0])
+            sanitized_function_name = f"{sanitize_function_name(solution_name)}_{sanitize_function_name(script_identifier)}"
+            
+            typer_commands = extract_typer_commands_with_ast(script_path)
 
             for command in typer_commands:
                 command_name = command["command_name"]
@@ -1754,7 +1765,7 @@ def {sanitized_function_name}_{command_name}({args_def}):
 """
                 tool_definitions.append(tool_definition)
         except Exception as e:
-            print(f"Error processing {latest_python_file}: {e}")
+            print(f"Error processing {script_path}: {e}")
             continue
 
     return "\n".join(tool_definitions)
@@ -1871,39 +1882,39 @@ def generate_static_site(base_dir, static_dir):
 
             for solution_entry in os.scandir(entry.path):
                 if solution_entry.is_dir():
-                    try:
-                        solution_name = solution_entry.name
-                        solution_files = sorted(
-                            [f for f in os.listdir(solution_entry.path) if f.endswith(".py")],
-                            reverse=True,
-                        )
-                        if not solution_files:
-                            continue
+                    solution_name = solution_entry.name
+                    solution_files = [f for f in os.listdir(solution_entry.path) if f.endswith(".py")]
+                    
+                    if not solution_files:
+                        continue
+                    
+                    solution_output = os.path.join(group_path, solution_name)
+                    os.makedirs(solution_output, exist_ok=True)
 
-                        most_recent_file = solution_files[0]
-                        file_path = os.path.join(solution_entry.path, most_recent_file)
-                        metadata = extract_metadata(file_path)
-
-                        solution_output = os.path.join(group_path, solution_name)
-                        os.makedirs(solution_output, exist_ok=True)
-
-                        # Copy local files including cover image
-                        copy_files(solution_entry.path, solution_output, extensions=[".py", ".png"])
-
-                        # Get cover image path consistently
-                        cover_image_path = get_cover_image_path(
-                            solution_entry, entry, solution_name, metadata, SITE_CONFIG
-                        )
-                        
-                        base_url = SITE_CONFIG['base_url']
-                        script_path = f"{entry.name}/{solution_name}/{most_recent_file}"
-                        
-                        # Direct link to specific file in the main repository
-                        github_file_url = f"{main_repo_url}/blob/{main_repo_branch}/{entry.name}/{solution_name}/{most_recent_file}"
-                        print(f"Creating GitHub source URL: {github_file_url}")
-                        
-                        # Create a direct redirect to the GitHub source file
-                        source_redirect_html = f"""
+                    # Copy local files including cover image
+                    copy_files(solution_entry.path, solution_output, extensions=[".py", ".png"])
+                    
+                    # Process each Python file in the directory
+                    for script_file in solution_files:
+                        try:
+                            file_path = os.path.join(solution_entry.path, script_file)
+                            metadata = extract_metadata(file_path)
+                            
+                            # Get cover image path consistently
+                            cover_image_path = get_cover_image_path(
+                                solution_entry, entry, solution_name, metadata, SITE_CONFIG
+                            )
+                            
+                            base_url = SITE_CONFIG['base_url']
+                            script_path = f"{entry.name}/{solution_name}/{script_file}"
+                            
+                            # Direct link to specific file in the main repository
+                            github_file_url = f"{main_repo_url}/blob/{main_repo_branch}/{entry.name}/{solution_name}/{script_file}"
+                            print(f"Creating GitHub source URL: {github_file_url}")
+                            
+                            # Create a version-specific redirect for each script
+                            script_filename = os.path.splitext(script_file)[0]
+                            source_redirect_html = f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1925,50 +1936,66 @@ def generate_static_site(base_dir, static_dir):
 </body>
 </html>
 """
-                        with open(os.path.join(solution_output, "source.html"), "w") as f:
-                            f.write(source_redirect_html)
-                        
-                        solution_metadata = {
-                            "name": metadata.get("title", solution_name),
-                            "description": metadata.get("description", "No description provided."),
-                            "link": f"{entry.name}/{solution_name}",
-                            "cover": cover_image_path,
-                            "author": metadata.get("author", ""),
-                            "version": metadata.get("version", ""),
-                            "external_source": metadata.get("external_source", ""),
-                            "script_source": f"{base_url}/{script_path}",
-                            "github_source_url": github_file_url,  # Add direct GitHub URL for both solution and index page
-                        }
-                        
-                        # Generate solution page with consistent cover image path and GitHub source URL
-                        template_vars = {
-                            'title': solution_metadata["name"],
-                            'project_name': SITE_CONFIG['project_name'],
-                            'site_config': SITE_CONFIG,
-                            'cover_image': cover_image_path,
-                            'description': solution_metadata["description"],
-                            'link': solution_metadata["link"],
-                            'author': metadata.get("author", ""),
-                            'version': metadata.get("version", ""),
-                            'license': metadata.get("license", ""),
-                            'dependencies': metadata.get("dependencies", []),
-                            'external_source': solution_metadata["external_source"],
-                            'script_source': solution_metadata["script_source"],
-                            'github_source_url': solution_metadata["github_source_url"],  # Add to template vars
-                            'keywords': metadata.get("keywords", []),
-                            'requires_python': metadata.get("requires_python", ""),
-                            'repository': metadata.get("repository", ""),
-                            'cli_args': extract_typer_args(file_path),
-                            'documentation': metadata.get("documentation", ""),
-                            'homepage': metadata.get("homepage", "")
-                        }
-                        
-                        with open(os.path.join(solution_output, "index.html"), "w") as f:
-                            f.write(Template(SOLUTION_TEMPLATE).render(**template_vars))
-                        solutions.append(solution_metadata)
-                    except Exception as e:
-                        print(f"Error processing solution {entry.name}/{solution_entry.name}: {e}")
-                        continue
+                            # Create version-specific source.html file
+                            with open(os.path.join(solution_output, f"source_{script_filename}.html"), "w") as f:
+                                f.write(source_redirect_html)
+                            
+                            # Use the script filename to create a unique version identifier
+                            version_suffix = f" ({script_filename})" if script_file != solution_files[0] else ""
+                            
+                            solution_metadata = {
+                                "name": metadata.get("title", solution_name) + version_suffix,
+                                "description": metadata.get("description", "No description provided."),
+                                "link": f"{entry.name}/{solution_name}",
+                                "cover": cover_image_path,
+                                "author": metadata.get("author", ""),
+                                "version": metadata.get("version", ""),
+                                "external_source": metadata.get("external_source", ""),
+                                "script_source": f"{base_url}/{script_path}",
+                                "github_source_url": github_file_url,
+                                "script_filename": script_filename,
+                            }
+                            
+                            # Generate solution page with consistent cover image path and GitHub source URL
+                            template_vars = {
+                                'title': solution_metadata["name"],
+                                'project_name': SITE_CONFIG['project_name'],
+                                'site_config': SITE_CONFIG,
+                                'cover_image': cover_image_path,
+                                'description': solution_metadata["description"],
+                                'link': solution_metadata["link"],
+                                'author': metadata.get("author", ""),
+                                'version': metadata.get("version", ""),
+                                'license': metadata.get("license", ""),
+                                'dependencies': metadata.get("dependencies", []),
+                                'external_source': solution_metadata["external_source"],
+                                'script_source': solution_metadata["script_source"],
+                                'github_source_url': solution_metadata["github_source_url"],
+                                'keywords': metadata.get("keywords", []),
+                                'requires_python': metadata.get("requires_python", ""),
+                                'repository': metadata.get("repository", ""),
+                                'cli_args': extract_typer_args(file_path),
+                                'documentation': metadata.get("documentation", ""),
+                                'homepage': metadata.get("homepage", "")
+                            }
+                            
+                            # Create a unique HTML file for each script version
+                            with open(os.path.join(solution_output, f"index_{script_filename}.html"), "w") as f:
+                                f.write(Template(SOLUTION_TEMPLATE).render(**template_vars))
+                            
+                            # For the main/default index.html, use the first file
+                            if script_file == solution_files[0]:
+                                with open(os.path.join(solution_output, "index.html"), "w") as f:
+                                    f.write(Template(SOLUTION_TEMPLATE).render(**template_vars))
+                                with open(os.path.join(solution_output, "source.html"), "w") as f:
+                                    f.write(source_redirect_html)
+                            
+                            # Add each script version to the solutions list
+                            solutions.append(solution_metadata)
+                            
+                        except Exception as e:
+                            print(f"Error processing script {entry.name}/{solution_entry.name}/{script_file}: {e}")
+                            continue
 
     # Generate index page and sitemap with direct GitHub links for each card
     try:

@@ -45,8 +45,10 @@ def main():
                       help="Color meshes by LOD level (default: True)")
     parser.add_argument("--opacity", type=float, default=0.5,
                       help="Opacity for meshes (default: 0.5)")
+    parser.add_argument("--view-mode", type=str, choices=["aligned", "separated"], default="aligned",
+                      help="View mode: 'aligned' for perfectly aligned LODs, 'separated' for spatially separated LODs (default: aligned)")
     parser.add_argument("--position-offset", type=float, default=10.0,
-                      help="Position offset between LOD levels in visualization (default: 10.0)")
+                      help="Position offset between LOD levels in 'separated' mode (default: 10.0)")
     
     args = parser.parse_args()
     
@@ -111,15 +113,21 @@ def main():
                     print(f"Could not load mesh {mesh_id} at LOD {lod}")
                     continue
                 
-                # Apply offset based on LOD level
-                if args.position_offset != 0:
+                # Apply offset based on LOD level if in separated mode
+                if args.view_mode == "separated" and args.position_offset != 0:
                     offset_vector = np.array([lod * args.position_offset, 
                                             lod * args.position_offset, 
                                             lod * args.position_offset])
                     mesh.vertices = mesh.vertices + offset_vector
                 
-                # Create a unique name for this layer
-                layer_name = f"Mesh {mesh_id} - LOD {lod}"
+    # Add a helpful indicator to the layer name to show LOD level
+    prefix_by_lod = {
+        0: "🔴 LOD0", 
+        1: "🟢 LOD1", 
+        2: "🔵 LOD2"
+    }
+    prefix = prefix_by_lod.get(lod, f"LOD{lod}")
+    layer_name = f"{prefix}: Mesh {mesh_id}"
                 
                 # Choose color based on LOD level or mesh ID
                 if args.color_by_lod:
@@ -175,18 +183,17 @@ def main():
     # Reset view to show all objects
     viewer.reset_view()
     
-    print("\nNapari viewer launched with all LOD levels.")
+    print(f"\nNapari viewer launched with all LOD levels in '{args.view_mode}' mode.")
     print("LOD visualization colors:")
     print("- LOD 0 (highest detail): Red")
     print("- LOD 1 (medium detail): Green") 
     print("- LOD 2 (lowest detail): Blue")
-    print("\nControls:")
-    print("- Right-click and drag to rotate")
-    print("- Middle-click to pan")
-    print("- Scroll to zoom")
     
-    if args.position_offset != 0:
-        print(f"\nNOTE: LOD levels are offset from each other by {args.position_offset} units for better visualization")
+    if args.view_mode == "aligned":
+        print("\nMeshes are perfectly aligned to verify LOD quality.")
+        print("You can toggle visibility of different LOD levels using the layer list on the left.")
+    elif args.view_mode == "separated" and args.position_offset != 0:
+        print(f"\nNOTE: LOD levels are offset by {args.position_offset} units for easier visual inspection.")
     
     # Start the napari event loop
     napari.run()

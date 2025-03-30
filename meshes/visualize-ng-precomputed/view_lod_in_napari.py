@@ -67,12 +67,13 @@ def main():
     print(" 1: Medium detail (LOD 1)")
     print(" 2: Lowest detail (LOD 2)")
     print(" a: View all mesh LODs together (one per mesh)")
-    print(" s: Show all LOD levels simultaneously (color-coded)")
+    print(" s1: Show all LOD levels simultaneously (aligned)")
+    print(" s2: Show all LOD levels simultaneously (separated)")
     
-    choice = input("\nEnter your choice (0/1/2/a/s): ").strip().lower()
+    choice = input("\nEnter your choice (0/1/2/a/s1/s2): ").strip().lower()
     
     # Prepare command
-    if choice == "s":
+    if choice in ["s1", "s2"]:
         # Use the special view_all_lods script
         view_script = script_dir / "view_all_lods.py"
         if not view_script.exists():
@@ -80,8 +81,16 @@ def main():
             sys.exit(1)
             
         cmd = [sys.executable, str(view_script), "--mesh-dir", str(mesh_dir)]
-        print("\nLaunching napari viewer with all LOD levels simultaneously...")
-        print("(LODs will be shown color-coded: LOD 0 = Red, LOD 1 = Green, LOD 2 = Blue)")
+        
+        # Set view mode based on choice
+        if choice == "s1":
+            cmd.extend(["--view-mode", "aligned"])
+            print("\nLaunching napari viewer with all LOD levels aligned...")
+            print("(LODs will be shown color-coded: LOD 0 = Red, LOD 1 = Green, LOD 2 = Blue)")
+        else:  # s2
+            cmd.extend(["--view-mode", "separated"])
+            print("\nLaunching napari viewer with all LOD levels spatially separated...")
+            print("(LODs will be shown color-coded: LOD 0 = Red, LOD 1 = Green, LOD 2 = Blue)")
     else:
         # Use the regular view_in_napari script
         cmd = [sys.executable, str(view_script), "--mesh-dir", str(mesh_dir)]

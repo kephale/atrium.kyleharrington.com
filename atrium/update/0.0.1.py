@@ -1068,40 +1068,47 @@ SOLUTION_TEMPLATE = """
             </div>
             {% endif %}
 
-            <div class="links-section">
-                <a href="./source.html" class="link-item">
-                    <i class="fas fa-code"></i>
-                    View Source Code
-                </a>
+        <div class="links-section">
+            {% if repository %}
+            <a href="{{ repository }}/blob/main/{{ link }}/{{ script_source | basename }}" target="_blank" class="link-item">
+                <i class="fab fa-github"></i>
+                View Source Code on GitHub
+            </a>
+            {% else %}
+            <a href="./source.html" class="link-item">
+                <i class="fas fa-code"></i>
+                View Source Code
+            </a>
+            {% endif %}
 
-                {% if repository %}
-                <a href="{{ repository }}" target="_blank" class="link-item">
-                    <i class="fab fa-github"></i>
-                    Repository
-                </a>
-                {% endif %}
+            {% if repository %}
+            <a href="{{ repository }}" target="_blank" class="link-item">
+                <i class="fab fa-github"></i>
+                Repository
+            </a>
+            {% endif %}
 
-                {% if documentation %}
-                <a href="{{ documentation }}" target="_blank" class="link-item">
-                    <i class="fas fa-book"></i>
-                    Documentation
-                </a>
-                {% endif %}
+            {% if documentation %}
+            <a href="{{ documentation }}" target="_blank" class="link-item">
+                <i class="fas fa-book"></i>
+                Documentation
+            </a>
+            {% endif %}
 
-                {% if homepage %}
-                <a href="{{ homepage }}" target="_blank" class="link-item">
-                    <i class="fas fa-home"></i>
-                    Homepage
-                </a>
-                {% endif %}
+            {% if homepage %}
+            <a href="{{ homepage }}" target="_blank" class="link-item">
+                <i class="fas fa-home"></i>
+                Homepage
+            </a>
+            {% endif %}
 
-                {% if external_source %}
-                <a href="{{ external_source }}" target="_blank" class="link-item">
-                    <i class="fas fa-external-link-alt"></i>
-                    View Source
-                </a>
-                {% endif %}
-            </div></section>
+            {% if external_source %}
+            <a href="{{ external_source }}" target="_blank" class="link-item">
+                <i class="fas fa-external-link-alt"></i>
+                View Source
+            </a>
+            {% endif %}
+        </div>
     </main>
 
     <script>
@@ -1880,20 +1887,82 @@ def generate_static_site(base_dir, static_dir):
                     base_url = SITE_CONFIG['base_url']
                     script_path = f"{entry.name}/{solution_name}/{most_recent_file}"
                     
-                    # Generate source code viewer page
-                    with open(file_path, 'r') as f:
-                        source_code = f.read()
+                    # Get GitHub repository information
+                    repo_url = metadata.get("repository", "")
                     
-                    source_template_vars = {
-                        'title': metadata.get("title", solution_name),
-                        'filename': most_recent_file,
-                        'source_code': source_code,
-                        'script_source': f"{base_url}/{script_path}",
-                        'site_config': SITE_CONFIG
-                    }
-                    
-                    with open(os.path.join(solution_output, "source.html"), "w") as f:
-                        f.write(Template(SOURCE_TEMPLATE).render(**source_template_vars))
+                    # For source page, create a simple redirect to GitHub instead of embedding code
+                    if repo_url:
+                        # Extract repository owner and name from URL
+                        repo_parts = repo_url.replace("https://github.com/", "").split("/")
+                        if len(repo_parts) >= 2:
+                            owner = repo_parts[0]
+                            repo_name = repo_parts[1]
+                            
+                            # Create path to file in repository - adjust as needed for your repo structure
+                            file_relative_path = f"{entry.name}/{solution_name}/{most_recent_file}"
+                            github_file_url = f"{repo_url}/blob/main/{file_relative_path}"
+                            
+                            # Create a simple HTML redirect page
+                            redirect_html = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="0;url={github_file_url}">
+    <title>Redirecting to GitHub</title>
+</head>
+<body>
+    <p>Redirecting to <a href="{github_file_url}">GitHub source code</a>...</p>
+    <script>
+        window.location.href = "{github_file_url}";
+    </script>
+</body>
+</html>
+"""
+                            with open(os.path.join(solution_output, "source.html"), "w") as f:
+                                f.write(redirect_html)
+                        else:
+                            # If we can't parse the repo URL properly, create a link-only page
+                            link_html = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>View Source on GitHub</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 2rem; }}
+        a {{ color: #2563eb; text-decoration: none; }}
+        a:hover {{ text-decoration: underline; }}
+    </style>
+</head>
+<body>
+    <h1>View Source on GitHub</h1>
+    <p>The source code for this script is available on <a href="{repo_url}">GitHub</a>.</p>
+</body>
+</html>
+"""
+                            with open(os.path.join(solution_output, "source.html"), "w") as f:
+                                f.write(link_html)
+                    else:
+                        # No repository URL, create a simple page with a message
+                        no_repo_html = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Source Not Available</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 2rem; }}
+    </style>
+</head>
+<body>
+    <h1>Source Code</h1>
+    <p>Source code viewing is not available for this script.</p>
+</body>
+</html>
+"""
+                        with open(os.path.join(solution_output, "source.html"), "w") as f:
+                            f.write(no_repo_html)
                     
                     solution_metadata = {
                         "name": metadata.get("title", solution_name),
@@ -1906,6 +1975,9 @@ def generate_static_site(base_dir, static_dir):
                         "script_source": f"{base_url}/{script_path}",
                     }
 
+                    # Update solution page template to point "View Source" to GitHub if available
+                    solution_template = SOLUTION_TEMPLATE
+                    
                     # Generate solution page with consistent cover image path
                     template_vars = {
                         'title': solution_metadata["name"],

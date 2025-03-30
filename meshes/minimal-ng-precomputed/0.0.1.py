@@ -279,7 +279,7 @@ class NeuroglancerMeshWriter:
         return answer
 
     def generate_fragments(self, mesh: trimesh.Trimesh, lod: int,
-                            enforce_grid_partition: bool = True) -> List[Fragment]:
+                            enforce_grid_partition: bool = False) -> List[Fragment]:  # Changed default to False for better LOD compatibility
         """Generate mesh fragments for a given LOD level."""
         if len(mesh.vertices) == 0 or len(mesh.faces) == 0:
             return []
@@ -350,6 +350,9 @@ class NeuroglancerMeshWriter:
                             bounds_min,
                             current_box_size
                         )
+                        
+                        # Debug message to help diagnose LOD issues
+                        print(f"LOD {lod}: Generated fragment at position {pos} with {len(fragment_mesh.vertices)} vertices, {len(fragment_mesh.faces)} faces, {len(draco_bytes)} bytes")
                         
                         if len(draco_bytes) > 12:
                             fragments.append(Fragment(
@@ -500,11 +503,26 @@ class NeuroglancerMeshWriter:
 
     def generate_lods(self, mesh: trimesh.Trimesh, num_lods: int) -> List[trimesh.Trimesh]:
         """Generate levels of detail for a mesh."""
-        lods = [mesh]
+        lods = [mesh]  # LOD 0 is the highest detail
+        current_mesh = mesh
+        
         for i in range(1, num_lods):
-            target_ratio = 1.0 / (2 ** i)
-            decimated = self.decimate_mesh(mesh, target_ratio)
+            # Progressive decimation from previous LOD level for smoother transition
+            target_ratio = 0.5  # Each level is about half the detail of previous level
+            decimated = self.decimate_mesh(current_mesh, target_ratio)
+            
+            # Ensure each LOD has at least 10% fewer vertices than the previous
+            if len(decimated.vertices) > 0.9 * len(current_mesh.vertices):
+                # If decimation didn't reduce enough, force more reduction
+                decimated = self.decimate_mesh(current_mesh, 0.3)
+                
+            # Add diagnostic info    
+            print(f"LOD {i}: Original {len(current_mesh.vertices)} vertices → {len(decimated.vertices)} vertices" + 
+                 f" ({len(decimated.vertices)/len(current_mesh.vertices):.2f}x)")
+                 
             lods.append(decimated)
+            current_mesh = decimated  # Use this LOD as base for next level
+            
         return lods
 
 def main():

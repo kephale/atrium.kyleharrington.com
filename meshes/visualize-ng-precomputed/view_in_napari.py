@@ -170,15 +170,21 @@ class PrecomputedMeshLoader:
                         
                         # Calculate offsets for each fragment in the data file
                         offsets = np.zeros(num_fragments, dtype=np.uint64)
+                        
+                        # Start offset is the sum of all previous LOD fragments sizes
+                        base_offset = 0
                         if lod > 0:
                             # For LOD > 0, we need to sum up all previous LOD fragment sizes
                             for prev_lod in range(lod):
                                 if prev_lod in manifest["fragments"]:
-                                    offsets += np.sum(manifest["fragments"][prev_lod]["sizes"])
-                            
+                                    base_offset += np.sum(manifest["fragments"][prev_lod]["sizes"])
+                        
+                        # All offsets start at the base offset for this LOD
+                        offsets[:] = base_offset
+                        
                         # For fragments within this LOD, add cumulative offsets
                         if num_fragments > 1:
-                            # First fragment starts at current offset
+                            # First fragment starts at current base_offset
                             # Subsequent fragments start after the preceding ones
                             offsets[1:] += np.cumsum(sizes[:-1])
                         
@@ -394,6 +400,8 @@ def main():
                        help="Use simplified proxy meshes instead of loading full meshes")
     parser.add_argument("--num-meshes", type=int, default=5,
                        help="Number of meshes to load (default: 5, use 0 for all)")
+    parser.add_argument("--lod", type=int, default=None,
+                       help="Specific LOD level to load (default: None for all available levels)")
     parser.add_argument("--debug", action="store_true",
                        help="Enable debug logging")
     
@@ -452,19 +460,32 @@ def main():
                     color_seed[2] / 255
                 ])
                 
-                # Choose the highest LOD level available (lowest detail)
-                highest_available_lod = -1
-                for lod in range(num_lods-1, -1, -1):
-                    if lod in manifest["fragments"] and manifest["fragments_per_lod"][lod] > 0:
-                        highest_available_lod = lod
-                        break
-                        
-                if highest_available_lod == -1:
+                # Determine which LOD to use
+                if args.lod is not None and args.lod < num_lods:
+                    # Use the user-specified LOD if valid
+                    target_lod = args.lod
+                    print(f"Using user-specified LOD {target_lod} for mesh {mesh_id}")
+                else:
+                    # Choose the lowest LOD level available (highest detail)
+                    target_lod = -1
+                    for lod in range(num_lods):
+                        if lod in manifest["fragments"] and manifest["fragments_per_lod"][lod] > 0:
+                            target_lod = lod
+                            break
+                    
+                    if target_lod == -1:
+                        # Fallback to highest LOD if needed
+                        for lod in range(num_lods-1, -1, -1):
+                            if lod in manifest["fragments"] and manifest["fragments_per_lod"][lod] > 0:
+                                target_lod = lod
+                                break
+                            
+                if target_lod == -1:
                     print(f"No valid LOD levels found for mesh {mesh_id}")
                     continue
                 
                 # Create the mesh
-                lod = highest_available_lod  # Use the highest LOD (lowest detail) for better performance
+                lod = target_lod  # Use the selected LOD level
                 
                 if args.proxy_mode:
                     # Create a proxy mesh (simple bounding box) for better performance

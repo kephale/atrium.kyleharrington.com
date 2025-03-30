@@ -53,6 +53,11 @@ Name: Napari Precomputed Mesh Viewer (view_in_napari)
 Description: A Python script to view precomputed mesh data in napari with proper multiscale mesh rendering
 URL: https://atrium.kyleharrington.com/meshes/visualize-ng-precomputed
 
+Group: meshes
+Name: Napari Precomputed Mesh LOD Viewer (view_lod_in_napari)
+Description: A Python script to view precomputed mesh data in napari with specific LOD levels
+URL: https://atrium.kyleharrington.com/meshes/visualize-ng-precomputed
+
 Group: visualization
 Name: napari tiled zarr
 Description: Open a multiscale zarr with napari and use multiscale tiled loading

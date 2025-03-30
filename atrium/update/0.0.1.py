@@ -374,7 +374,11 @@ INDEX_TEMPLATE = """
                     <p class="card-description">{{ solution.description }}</p>
 
                     <div class="card-source">
+                        {% if solution.github_source_url %}
+                        <a href="{{ solution.github_source_url }}" target="_blank">View Source on GitHub</a>
+                        {% else %}
                         <a href="{{ solution.link }}/source.html">View Source</a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -1850,13 +1854,15 @@ def extract_typer_args(file_path):
     return args
 
 def generate_static_site(base_dir, static_dir):
-    """Generate the static site with direct links to GitHub source files."""
+    """Generate the static site with direct links to GitHub source files on both solution pages and index."""
     os.makedirs(static_dir, exist_ok=True)
     solutions = []
     
     # Get the main repository URL from site config or use a default
     main_repo_url = SITE_CONFIG.get('repository_url', 'https://github.com/kephale/atrium.kyleharrington.com')
     main_repo_branch = SITE_CONFIG.get('repository_branch', 'main')
+    
+    print(f"Using repository: {main_repo_url}, branch: {main_repo_branch}")
 
     for entry in os.scandir(base_dir):
         if entry.is_dir() and not entry.name.startswith(".") and entry.name != "docs":
@@ -1894,6 +1900,7 @@ def generate_static_site(base_dir, static_dir):
                         
                         # Direct link to specific file in the main repository
                         github_file_url = f"{main_repo_url}/blob/{main_repo_branch}/{entry.name}/{solution_name}/{most_recent_file}"
+                        print(f"Creating GitHub source URL: {github_file_url}")
                         
                         # Create a direct redirect to the GitHub source file
                         source_redirect_html = f"""
@@ -1930,7 +1937,7 @@ def generate_static_site(base_dir, static_dir):
                             "version": metadata.get("version", ""),
                             "external_source": metadata.get("external_source", ""),
                             "script_source": f"{base_url}/{script_path}",
-                            "github_source_url": github_file_url,  # Add direct GitHub URL
+                            "github_source_url": github_file_url,  # Add direct GitHub URL for both solution and index page
                         }
                         
                         # Generate solution page with consistent cover image path and GitHub source URL
@@ -1963,8 +1970,9 @@ def generate_static_site(base_dir, static_dir):
                         print(f"Error processing solution {entry.name}/{solution_entry.name}: {e}")
                         continue
 
-    # Generate index page and sitemap
+    # Generate index page and sitemap with direct GitHub links for each card
     try:
+        print(f"Generating index with {len(solutions)} solutions")
         with open(os.path.join(static_dir, "index.html"), "w") as f:
             context = {
                 'solutions': solutions,
@@ -1991,6 +1999,8 @@ def generate_static_site(base_dir, static_dir):
             
     except Exception as e:
         print(f"Error generating index or sitemap: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     generate_static_site(BASE_DIR, STATIC_DIR)

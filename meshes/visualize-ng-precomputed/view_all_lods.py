@@ -45,8 +45,8 @@ def main():
                       help="Color meshes by LOD level (default: True)")
     parser.add_argument("--opacity", type=float, default=0.5,
                       help="Opacity for meshes (default: 0.5)")
-    parser.add_argument("--position-offset", type=float, default=0.0,
-                      help="Position offset between LOD levels in visualization (default: 0.0)")
+    parser.add_argument("--position-offset", type=float, default=10.0,
+                      help="Position offset between LOD levels in visualization (default: 10.0)")
     
     args = parser.parse_args()
     
@@ -111,7 +111,7 @@ def main():
                     print(f"Could not load mesh {mesh_id} at LOD {lod}")
                     continue
                 
-                # Apply offset based on LOD level if requested
+                # Apply offset based on LOD level
                 if args.position_offset != 0:
                     offset_vector = np.array([lod * args.position_offset, 
                                             lod * args.position_offset, 

@@ -120,8 +120,14 @@ def main():
                                             lod * args.position_offset])
                     mesh.vertices = mesh.vertices + offset_vector
                 
-                # Create a unique name for this layer
-                layer_name = f"Mesh {mesh_id} - LOD {lod}"
+    # Add a helpful indicator to the layer name to show LOD level
+    prefix_by_lod = {
+        0: "🔴 LOD0", 
+        1: "🟢 LOD1", 
+        2: "🔵 LOD2"
+    }
+    prefix = prefix_by_lod.get(lod, f"LOD{lod}")
+    layer_name = f"{prefix}: Mesh {mesh_id}"
                 
                 # Choose color based on LOD level or mesh ID
                 if args.color_by_lod:

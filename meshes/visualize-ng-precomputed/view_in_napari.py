@@ -483,15 +483,16 @@ def main():
                         
                     vertices, faces = mesh.vertices, mesh.faces
                 
-                # Create a vertex color array (one color per vertex)
-                values = np.ones((len(vertices), 3)) * base_color.reshape(1, 3)
+                # Create a vertex color array with the correct shape (num_vertices, 3)
+                # The key fix here is to ensure we have one color per vertex
+                values = np.tile(base_color, (len(vertices), 1))
                 
                 # Create a unique name for this layer
                 layer_name = f"Mesh {mesh_id} - LOD {lod}"
                 
                 # Add the surface layer with specified properties
                 surface = viewer.add_surface(
-                    data=(vertices, faces, values),
+                    data=(vertices, faces, values),  # Include values for per-vertex coloring
                     name=layer_name,
                     opacity=0.7,
                     blending='translucent'

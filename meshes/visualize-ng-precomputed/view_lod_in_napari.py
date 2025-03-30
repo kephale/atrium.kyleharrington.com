@@ -60,37 +60,50 @@ def main():
         sys.exit(1)
     
     # Show menu for LOD selection
-    print("\n====== Neuroglancer Mesh LOD Viewer ======")
+    print("====== Neuroglancer Mesh LOD Viewer ======")
     print(f"Mesh directory: {mesh_dir}")
     print("\nPlease select an LOD level to view:")
     print(" 0: Highest detail (LOD 0)")
     print(" 1: Medium detail (LOD 1)")
     print(" 2: Lowest detail (LOD 2)")
-    print(" a: View all mesh LODs together")
+    print(" a: View all mesh LODs together (one per mesh)")
+    print(" s: Show all LOD levels simultaneously (color-coded)")
     
-    choice = input("\nEnter your choice (0/1/2/a): ").strip().lower()
+    choice = input("\nEnter your choice (0/1/2/a/s): ").strip().lower()
     
     # Prepare command
-    cmd = [sys.executable, str(view_script), "--mesh-dir", str(mesh_dir)]
-    
-    if args.debug:
-        cmd.append("--debug")
-    
-    if args.proxy_mode:
-        cmd.append("--proxy-mode")
-    
-    if args.num_meshes > 0:
-        cmd.extend(["--num-meshes", str(args.num_meshes)])
-    
-    # Add LOD parameter based on user choice
-    if choice in ["0", "1", "2"]:
-        cmd.extend(["--lod", choice])
-        print(f"\nLaunching napari viewer with LOD level {choice}...")
-    elif choice == "a":
-        print("\nLaunching napari viewer with all LOD levels...")
+    if choice == "s":
+        # Use the special view_all_lods script
+        view_script = script_dir / "view_all_lods.py"
+        if not view_script.exists():
+            print(f"Error: Cannot find the all-LODs viewer script at {view_script}")
+            sys.exit(1)
+            
+        cmd = [sys.executable, str(view_script), "--mesh-dir", str(mesh_dir)]
+        print("\nLaunching napari viewer with all LOD levels simultaneously...")
+        print("(LODs will be shown color-coded: LOD 0 = Red, LOD 1 = Green, LOD 2 = Blue)")
     else:
-        print(f"\nInvalid choice '{choice}'. Defaulting to LOD 0...")
-        cmd.extend(["--lod", "0"])
+        # Use the regular view_in_napari script
+        cmd = [sys.executable, str(view_script), "--mesh-dir", str(mesh_dir)]
+
+        if args.debug:
+            cmd.append("--debug")
+        
+        if args.proxy_mode:
+            cmd.append("--proxy-mode")
+        
+        if args.num_meshes > 0:
+            cmd.extend(["--num-meshes", str(args.num_meshes)])
+        
+        # Add LOD parameter based on user choice
+        if choice in ["0", "1", "2"]:
+            cmd.extend(["--lod", choice])
+            print(f"\nLaunching napari viewer with LOD level {choice}...")
+        elif choice == "a":
+            print("\nLaunching napari viewer with all LOD levels...")
+        else:
+            print(f"\nInvalid choice '{choice}'. Defaulting to LOD 0...")
+            cmd.extend(["--lod", "0"])
     
     # Execute view_in_napari.py with appropriate arguments
     try:

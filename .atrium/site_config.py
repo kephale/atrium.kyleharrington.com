@@ -10,3 +10,9 @@ SITE_CONFIG = {
         "email": "atrium@kyleharrington.com"
     }
 }
+
+# Main repository URL for source code links
+repository_url = "https://github.com/kephale/atrium.kyleharrington.com"
+
+# Main branch name (typically 'main' or 'master')
+repository_branch = "main"

@@ -1069,18 +1069,11 @@ SOLUTION_TEMPLATE = """
             {% endif %}
 
         <div class="links-section">
-            {% if repository %}
-                {% if link is defined %}
-                    <a href="{{ repository }}/blob/main/{{ link.split('/')[-2] if '/' in link else '' }}/{{ link.split('/')[-1] if '/' in link else '' }}/{{ script_source.split('/')[-1] }}" target="_blank" class="link-item">
-                        <i class="fab fa-github"></i>
-                        View Source Code on GitHub
-                    </a>
-                {% else %}
-                    <a href="{{ repository }}" target="_blank" class="link-item">
-                        <i class="fab fa-github"></i>
-                        View Source Code on GitHub
-                    </a>
-                {% endif %}
+            {% if github_source_url is defined %}
+                <a href="{{ github_source_url }}" target="_blank" class="link-item">
+                    <i class="fab fa-github"></i>
+                    View Source Code on GitHub
+                </a>
             {% else %}
                 <a href="./source.html" class="link-item">
                     <i class="fas fa-code"></i>
@@ -1112,7 +1105,7 @@ SOLUTION_TEMPLATE = """
             {% if external_source %}
                 <a href="{{ external_source }}" target="_blank" class="link-item">
                     <i class="fas fa-external-link-alt"></i>
-                    View Source
+                    External Source
                 </a>
             {% endif %}
         </div>
@@ -1857,9 +1850,13 @@ def extract_typer_args(file_path):
     return args
 
 def generate_static_site(base_dir, static_dir):
-    """Generate the static site with proper site_config handling and error checking."""
+    """Generate the static site with direct links to GitHub source files."""
     os.makedirs(static_dir, exist_ok=True)
     solutions = []
+    
+    # Get the main repository URL from site config or use a default
+    main_repo_url = SITE_CONFIG.get('repository_url', 'https://github.com/kephale/atrium.kyleharrington.com')
+    main_repo_branch = SITE_CONFIG.get('repository_branch', 'main')
 
     for entry in os.scandir(base_dir):
         if entry.is_dir() and not entry.name.startswith(".") and entry.name != "docs":
@@ -1895,18 +1892,17 @@ def generate_static_site(base_dir, static_dir):
                         base_url = SITE_CONFIG['base_url']
                         script_path = f"{entry.name}/{solution_name}/{most_recent_file}"
                         
-                        # Get GitHub repository information
-                        repo_url = metadata.get("repository", "")
+                        # Direct link to specific file in the main repository
+                        github_file_url = f"{main_repo_url}/blob/{main_repo_branch}/{entry.name}/{solution_name}/{most_recent_file}"
                         
-                        # Create a simpler fallback source page
-                        if repo_url:
-                            # Create a link only page
-                            simple_html = f"""
+                        # Create a direct redirect to the GitHub source file
+                        source_redirect_html = f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>View Source on GitHub</title>
+    <meta http-equiv="refresh" content="0;url={github_file_url}">
+    <title>Redirecting to GitHub Source</title>
     <style>
         body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 2rem; }}
         a {{ color: #2563eb; text-decoration: none; }}
@@ -1915,32 +1911,15 @@ def generate_static_site(base_dir, static_dir):
 </head>
 <body>
     <h1>View Source on GitHub</h1>
-    <p>The source code for this script is available on <a href="{repo_url}">GitHub</a>.</p>
+    <p>Redirecting to <a href="{github_file_url}">source code on GitHub</a>...</p>
+    <script>
+        window.location.href = "{github_file_url}";
+    </script>
 </body>
 </html>
 """
-                            with open(os.path.join(solution_output, "source.html"), "w") as f:
-                                f.write(simple_html)
-                        else:
-                            # No repository URL, create a simple page with a message
-                            no_repo_html = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Source Not Available</title>
-    <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 2rem; }}
-    </style>
-</head>
-<body>
-    <h1>Source Code</h1>
-    <p>Source code viewing is not available for this script.</p>
-</body>
-</html>
-"""
-                            with open(os.path.join(solution_output, "source.html"), "w") as f:
-                                f.write(no_repo_html)
+                        with open(os.path.join(solution_output, "source.html"), "w") as f:
+                            f.write(source_redirect_html)
                         
                         solution_metadata = {
                             "name": metadata.get("title", solution_name),
@@ -1951,22 +1930,24 @@ def generate_static_site(base_dir, static_dir):
                             "version": metadata.get("version", ""),
                             "external_source": metadata.get("external_source", ""),
                             "script_source": f"{base_url}/{script_path}",
+                            "github_source_url": github_file_url,  # Add direct GitHub URL
                         }
                         
-                        # Generate solution page with consistent cover image path
+                        # Generate solution page with consistent cover image path and GitHub source URL
                         template_vars = {
                             'title': solution_metadata["name"],
                             'project_name': SITE_CONFIG['project_name'],
                             'site_config': SITE_CONFIG,
                             'cover_image': cover_image_path,
                             'description': solution_metadata["description"],
-                            'link': solution_metadata["link"],  # Ensure link is always provided
+                            'link': solution_metadata["link"],
                             'author': metadata.get("author", ""),
                             'version': metadata.get("version", ""),
                             'license': metadata.get("license", ""),
                             'dependencies': metadata.get("dependencies", []),
                             'external_source': solution_metadata["external_source"],
                             'script_source': solution_metadata["script_source"],
+                            'github_source_url': solution_metadata["github_source_url"],  # Add to template vars
                             'keywords': metadata.get("keywords", []),
                             'requires_python': metadata.get("requires_python", ""),
                             'repository': metadata.get("repository", ""),

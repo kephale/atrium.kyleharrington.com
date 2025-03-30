@@ -54,8 +54,8 @@ Description: A Python script to view precomputed mesh data in napari with proper
 URL: https://atrium.kyleharrington.com/meshes/visualize-ng-precomputed
 
 Group: meshes
-Name: Napari Precomputed Mesh Viewer with All LODs (view_all_lods)
-Description: A Python script to visualize all LODs of precomputed mesh data simultaneously in napari
+Name: View All LODs (view_all_lods)
+Description: A Python script to visualize all LOD levels of precomputed mesh data simultaneously in napari
 URL: https://atrium.kyleharrington.com/meshes/visualize-ng-precomputed
 
 Group: meshes

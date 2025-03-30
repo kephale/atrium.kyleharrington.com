@@ -1,6 +1,6 @@
 # /// script
-# title = "Napari Precomputed Mesh Viewer with All LODs"
-# description = "A Python script to visualize all LODs of precomputed mesh data simultaneously in napari"
+# title = "View All LODs"
+# description = "A Python script to visualize all LOD levels of precomputed mesh data simultaneously in napari"
 # author = "Kyle Harrington"
 # license = "MIT"
 # version = "0.1.0"
@@ -20,17 +20,13 @@ import argparse
 import json
 import sys
 import os
-import tempfile
-import subprocess
 import numpy as np
 import trimesh
 import napari
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
-import time
 
 # Import the PrecomputedMeshLoader class
-# We're placing the script in the same directory so this relative import should work
 from view_in_napari import PrecomputedMeshLoader
 
 def main():
@@ -41,14 +37,6 @@ def main():
                       help="Number of meshes to load (default: 3)")
     parser.add_argument("--debug", action="store_true",
                       help="Enable debug logging")
-    parser.add_argument("--color-by-lod", action="store_true", default=True,
-                      help="Color meshes by LOD level (default: True)")
-    parser.add_argument("--opacity", type=float, default=0.5,
-                      help="Opacity for meshes (default: 0.5)")
-    parser.add_argument("--view-mode", type=str, choices=["aligned", "separated"], default="aligned",
-                      help="View mode: 'aligned' for perfectly aligned LODs, 'separated' for spatially separated LODs (default: aligned)")
-    parser.add_argument("--position-offset", type=float, default=10.0,
-                      help="Position offset between LOD levels in 'separated' mode (default: 10.0)")
     
     args = parser.parse_args()
     
@@ -78,7 +66,7 @@ def main():
     # Initialize napari viewer with 3D mode
     viewer = napari.Viewer(ndisplay=3)
     
-    # Define LOD colors if color-by-lod is enabled
+    # Define LOD colors for visualization
     lod_colors = {
         0: [1.0, 0.1, 0.1],  # Red for LOD 0 (highest detail)
         1: [0.1, 1.0, 0.1],  # Green for LOD 1 (medium detail)
@@ -113,35 +101,11 @@ def main():
                     print(f"Could not load mesh {mesh_id} at LOD {lod}")
                     continue
                 
-                # Apply offset based on LOD level if in separated mode
-                if args.view_mode == "separated" and args.position_offset != 0:
-                    offset_vector = np.array([lod * args.position_offset, 
-                                            lod * args.position_offset, 
-                                            lod * args.position_offset])
-                    mesh.vertices = mesh.vertices + offset_vector
+                # Create a unique name for this layer
+                layer_name = f"Mesh {mesh_id} - LOD {lod}"
                 
-    # Add a helpful indicator to the layer name to show LOD level
-    prefix_by_lod = {
-        0: "🔴 LOD0", 
-        1: "🟢 LOD1", 
-        2: "🔵 LOD2"
-    }
-    prefix = prefix_by_lod.get(lod, f"LOD{lod}")
-    layer_name = f"{prefix}: Mesh {mesh_id}"
-                
-                # Choose color based on LOD level or mesh ID
-                if args.color_by_lod:
-                    # Use LOD-specific color
-                    color = lod_colors.get(lod, [0.5, 0.5, 0.5])  # Default to gray for unsupported LODs
-                else:
-                    # Use mesh-specific color with deterministic generation
-                    import hashlib
-                    color_seed = hashlib.md5(str(mesh_id).encode()).digest()
-                    color = [
-                        color_seed[0] / 255, 
-                        color_seed[1] / 255, 
-                        color_seed[2] / 255
-                    ]
+                # Choose color based on LOD level
+                color = lod_colors.get(lod, [0.5, 0.5, 0.5])  # Default to gray for unsupported LODs
                 
                 # Add the surface
                 try:
@@ -149,7 +113,7 @@ def main():
                     surface = viewer.add_surface(
                         data=(mesh.vertices, mesh.faces),
                         name=layer_name,
-                        opacity=args.opacity,
+                        opacity=0.7,
                         blending='translucent',
                         colormap='gray',
                         contrast_limits=[0, 1]
@@ -183,17 +147,15 @@ def main():
     # Reset view to show all objects
     viewer.reset_view()
     
-    print(f"\nNapari viewer launched with all LOD levels in '{args.view_mode}' mode.")
+    print("\nNapari viewer launched with all LOD levels.")
     print("LOD visualization colors:")
     print("- LOD 0 (highest detail): Red")
     print("- LOD 1 (medium detail): Green") 
     print("- LOD 2 (lowest detail): Blue")
-    
-    if args.view_mode == "aligned":
-        print("\nMeshes are perfectly aligned to verify LOD quality.")
-        print("You can toggle visibility of different LOD levels using the layer list on the left.")
-    elif args.view_mode == "separated" and args.position_offset != 0:
-        print(f"\nNOTE: LOD levels are offset by {args.position_offset} units for easier visual inspection.")
+    print("\nControls:")
+    print("- Right-click and drag to rotate")
+    print("- Middle-click to pan")
+    print("- Scroll to zoom")
     
     # Start the napari event loop
     napari.run()

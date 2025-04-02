@@ -745,9 +745,8 @@ def main():
                                             mesh_scale = scale.copy() / mesh_transform_scale
                                             print(f"Applying uniform scale adjustment of 1/{mesh_transform_scale}")
                                         else:
-                                            # Default fallback to 1/4 scale if we couldn't detect automatically
-                                            mesh_scale = scale.copy() / 4.0
-                                            print("Using default 1/4 scale adjustment for all LOD levels")
+                                            mesh_scale = scale.copy()
+                                            print("Using default 1 scale adjustment for all LOD levels")
                                     
                                     viewer.add_surface(
                                         data=(vertices, faces),

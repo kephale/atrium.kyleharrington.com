@@ -860,7 +860,7 @@ def main():
         temp_mesh_dir,
         box_size=32,
         vertex_quantization_bits=16,
-        transform=[4.0, 0, 0, 0, 0, 4.0, 0, 0, 0, 0, 4.0, 0],
+        transform=[1.0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 1.0, 0],
         clean_output=True
     )
     print(f"Creating meshes in: {temp_mesh_dir.absolute()}")

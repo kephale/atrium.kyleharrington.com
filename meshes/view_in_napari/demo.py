@@ -728,13 +728,17 @@ def main():
                                     # Get the manifest to extract lod_scales
                                     manifest = mesh_loader.read_manifest(mesh_id)
                                     if manifest and "lod_scales" in manifest:
-                                        # Calculate the ratio between LOD scales to determine the adjustment factor
-                                        lod_base_scale = manifest["lod_scales"][0]
-                                        lod_current_scale = manifest["lod_scales"][lod]
-                                        scale_ratio = lod_current_scale / lod_base_scale
+                                        # For mesh LODs, the relationship is typically powers of 2
+                                        # LOD 0 is highest detail (smallest voxels, 1x scale)
+                                        # LOD 1 is 2x larger voxels
+                                        # LOD 2 is 4x larger voxels, and so on
                                         
-                                        # Apply the ratio to make meshes match image scale at all LODs
-                                        mesh_scale = scale / scale_ratio
+                                        # Calculate the correct scale factor for this LOD
+                                        # We need to divide by 2^lod to compensate for the increased size
+                                        scale_factor = 2 ** lod
+                                        
+                                        # Apply the correction to make meshes match image scale at all LODs
+                                        mesh_scale = scale.copy() / scale_factor
                                     
                                     viewer.add_surface(
                                         data=(vertices, faces),

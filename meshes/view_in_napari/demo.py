@@ -246,9 +246,7 @@ class PrecomputedMeshLoader:
             
             # Add grid origin and fragment position offsets
             box_offset = position * scale
-            # Add half-voxel offset to align mesh vertices with voxel centers
-            half_voxel_offset = np.array([0.5, 0.5, 0.5]) * scale
-            mesh.vertices = mesh.vertices + grid_origin + box_offset + half_voxel_offset
+            mesh.vertices = mesh.vertices + grid_origin + box_offset
             
             # Apply global transform if available
             if self.transform is not None:

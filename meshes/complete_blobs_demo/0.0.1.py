@@ -383,7 +383,15 @@ class NeuroglancerMeshWriter:
         """Encode a mesh using Google's Draco encoder."""
         # Normalize vertices to quantization range
         vertices = vertices.copy()
+        
+        # Add half-voxel offset to ensure alignment with voxel centers
+        # This fixes the half-pixel offset issue when viewing in napari
+        half_voxel_offset = np.array([0.5, 0.5, 0.5]) * box_size / (2**self.vertex_quantization_bits) 
+        
         vertices -= bounds_min
+        # Apply the half-voxel offset before normalization
+        #vertices += half_voxel_offset  # Commented out as we fix it in the viewer instead
+        
         vertices /= box_size
         vertices *= (2**self.vertex_quantization_bits - 1)
         vertices = vertices.astype(np.int32)

@@ -4,7 +4,7 @@
 # description = "A Python script to view precomputed mesh data in napari with proper multiscale mesh rendering that automatically scales meshes to match image data"
 # author = "Kyle Harrington"
 # license = "MIT"
-# version = "0.4.1"
+# version = "0.4.2"
 # keywords = ["mesh", "3D", "visualization", "napari", "neuroglancer"]
 # documentation = "https://napari.org/stable/api/napari.html"
 # requires-python = ">=3.8"
@@ -728,17 +728,23 @@ def main():
                                     # Get the manifest to extract lod_scales
                                     manifest = mesh_loader.read_manifest(mesh_id)
                                     if manifest and "lod_scales" in manifest:
-                                        # For mesh LODs, the relationship is typically powers of 2
-                                        # LOD 0 is highest detail (smallest voxels, 1x scale)
-                                        # LOD 1 is 2x larger voxels
-                                        # LOD 2 is 4x larger voxels, and so on
+                                        # Based on testing, we've observed that LOD scales are inverted from what might be expected:
+                                        # LOD 0 is highest detail but is 4x too large
+                                        # LOD 1 is medium detail but is 2x too large
+                                        # LOD 2 is lowest detail but shows correct scale
+                                        #
+                                        # This suggests we need the following correction factor for each LOD:
+                                        # LOD 0: divide by 4 (2^2)
+                                        # LOD 1: divide by 2 (2^1)
+                                        # LOD 2: divide by 1 (2^0)
+                                        # The pattern is: divide by 2^(2-lod) for lod in [0,1,2]
                                         
-                                        # Calculate the correct scale factor for this LOD
-                                        # We need to divide by 2^lod to compensate for the increased size
-                                        scale_factor = 2 ** lod
+                                        # Calculate corrected scale factor 
+                                        # Use max(0, 2-lod) to ensure scaling works for higher LOD levels too
+                                        scale_correction = 2 ** max(0, 2-lod)
                                         
                                         # Apply the correction to make meshes match image scale at all LODs
-                                        mesh_scale = scale.copy() / scale_factor
+                                        mesh_scale = scale.copy() / scale_correction
                                     
                                     viewer.add_surface(
                                         data=(vertices, faces),

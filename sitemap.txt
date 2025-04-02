@@ -44,6 +44,11 @@ Description: A Python script to generate and visualize 3D meshes from scikit-ima
 URL: https://atrium.kyleharrington.com/meshes/generation
 
 Group: meshes
+Name: 3D Blob Meshing with NGFF Export
+Description: A Python script to generate and visualize 3D meshes from scikit-image blobs, with export to OME-NGFF Zarr format with Neuroglancer Precomputed meshes
+URL: https://atrium.kyleharrington.com/meshes/complete_blobs_demo
+
+Group: meshes
 Name: Neuroglancer Precomputed Mesh Viewer
 Description: A Python script to view precomputed mesh data using Neuroglancer with webdriver
 URL: https://atrium.kyleharrington.com/meshes/visualize-ng-precomputed
@@ -62,6 +67,11 @@ Group: meshes
 Name: Napari Precomputed Mesh LOD Viewer (view_lod_in_napari)
 Description: A Python script to view precomputed mesh data in napari with specific LOD levels
 URL: https://atrium.kyleharrington.com/meshes/visualize-ng-precomputed
+
+Group: meshes
+Name: Napari Precomputed Mesh Viewer
+Description: A Python script to view precomputed mesh data in napari with proper multiscale mesh rendering
+URL: https://atrium.kyleharrington.com/meshes/view_in_napari
 
 Group: visualization
 Name: napari tiled zarr

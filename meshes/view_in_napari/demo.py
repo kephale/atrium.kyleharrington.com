@@ -276,6 +276,10 @@ class PrecomputedMeshLoader:
                 
                 mesh.vertices = np.dot(mesh.vertices, rotation.T) + translation
                 
+            # Note: The implementation assumes meshes are already aligned with the image/labels data
+            # If meshes were created with a (-1,-1,-1) offset to align with image/labels, no additional
+            # adjustment is needed here as it's already part of the mesh coordinates
+                
             return mesh
             
         except Exception as e:

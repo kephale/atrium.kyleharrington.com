@@ -73,7 +73,8 @@ class NeuroglancerMeshWriter:
     def __init__(self, output_dir: str, box_size: int = 64, 
                  vertex_quantization_bits: int = 10,
                  transform: Optional[List[float]] = None,
-                 clean_output: bool = False):
+                 clean_output: bool = False,
+                 data_type: str = "uint64"):
         """Initialize the mesh writer with output directory and parameters.
         
         Args:
@@ -90,7 +91,8 @@ class NeuroglancerMeshWriter:
         self.box_size = box_size
         self.vertex_quantization_bits = vertex_quantization_bits
         self.transform = transform or [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]
-        self.lod_scale_multiplier = 1.0
+        self.lod_scale_multiplier = 2.0
+        self.data_type = data_type
         
         # Clean output directory if requested
         if clean_output and self.output_dir.exists():
@@ -108,7 +110,7 @@ class NeuroglancerMeshWriter:
             "transform": self.transform,
             "lod_scale_multiplier": self.lod_scale_multiplier,
             # Add required fields for viewer compatibility
-            "data_type": "uint64",  # Standard for segmentation data
+            "data_type": self.data_type,  # Standard for segmentation data
             "num_channels": 1,      # Single channel for mesh data
             "type": "segmentation",  # Important for Neuroglancer to recognize as meshes
             "scales": [
@@ -835,9 +837,28 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
     mesh_dir = os.path.join(zarr_path, "meshes")
     os.makedirs(mesh_dir, exist_ok=True)
     
-    # Add a file indicating this is a combined representation
-    with open(os.path.join(mesh_dir, "README.md"), "w") as f:
-        f.write("This directory contains mesh representations of the 3D blobs in Neuroglancer Precomputed format.\n")
+    # Create zarr.json for the mesh group according to RFC-8
+    mesh_metadata = {
+        "zarr_format": 3,
+        "node_type": "external",
+        "attributes": {
+            "ome": {
+                "version": "0.5",
+                "mesh": {
+                    "version": "0.1",
+                    "type": "neuroglancer_multilod_draco",
+                    "source": {
+                        "image": "../",
+                        "labels": "../labels/segmentation"
+                    }
+                }
+            }
+        }
+    }
+    
+    # Write the mesh metadata file
+    with open(os.path.join(mesh_dir, "zarr.json"), "w") as f:
+        json.dump(mesh_metadata, f, indent=2)
     
     # If mesh_writer is provided, copy mesh data into the zarr store
     if mesh_writer is not None:

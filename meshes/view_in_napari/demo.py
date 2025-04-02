@@ -50,7 +50,10 @@ class PrecomputedMeshLoader:
     def _load_info(self):
         """Load the info file for the Precomputed dataset."""
         info_path = self.precomputed_dir / "info"
+        zarr_json_path = self.precomputed_dir / "zarr.json"
+        
         try:
+            # Try to load the neuroglancer info file
             with open(info_path, 'r') as f:
                 info = json.load(f)
                 
@@ -67,6 +70,24 @@ class PrecomputedMeshLoader:
                 
             # Store the whole info object for reference
             self.info = info
+            
+            # Try to load the OME-NGFF zarr.json metadata for additional context
+            if zarr_json_path.exists():
+                with open(zarr_json_path, 'r') as f:
+                    zarr_metadata = json.load(f)
+                    
+                print(f"Loaded zarr.json metadata file: {zarr_json_path}")
+                
+                # Extract OME-NGFF mesh metadata if available
+                if 'attributes' in zarr_metadata and 'ome' in zarr_metadata['attributes']:
+                    ome_metadata = zarr_metadata['attributes']['ome']
+                    if 'mesh' in ome_metadata:
+                        self.mesh_metadata = ome_metadata['mesh']
+                        print(f"Found OME-NGFF mesh metadata: {self.mesh_metadata}")
+                        
+                        # Check if mesh type matches what we expect
+                        if self.mesh_metadata.get('type') != 'neuroglancer_multilod_draco':
+                            print(f"Warning: Unexpected mesh type: {self.mesh_metadata.get('type')}")
                 
         except Exception as e:
             print(f"Error loading info file: {e}")
@@ -338,6 +359,11 @@ class ZarrLoader:
                     print(f"Found multiscales metadata: {len(self.multiscales)} dataset(s)")
                 else:
                     print("No multiscales found in OME metadata")
+                    
+                # Check for mesh metadata in the OME root attributes
+                if 'mesh' in self.root.attrs['ome']:
+                    print(f"Found mesh metadata in root OME attributes")
+                    self.mesh_metadata_root = self.root.attrs['ome']['mesh']
             
             # Check for labels
             if 'labels' in self.root:
@@ -349,6 +375,19 @@ class ZarrLoader:
             if mesh_dir.exists() and mesh_dir.is_dir():
                 self.mesh_dir = mesh_dir
                 print(f"Found meshes directory: {mesh_dir}")
+                
+                # Look for zarr.json in the meshes directory (RFC-8 requirement)
+                zarr_json_path = mesh_dir / "zarr.json"
+                if zarr_json_path.exists():
+                    try:
+                        with open(zarr_json_path, 'r') as f:
+                            zarr_data = json.load(f)
+                        if 'attributes' in zarr_data and 'ome' in zarr_data['attributes']:
+                            if 'mesh' in zarr_data['attributes']['ome']:
+                                self.mesh_metadata = zarr_data['attributes']['ome']['mesh']
+                                print(f"Found RFC-8 mesh metadata: {self.mesh_metadata}")
+                    except Exception as e:
+                        print(f"Error reading mesh zarr.json: {e}")
             
             return True
             
@@ -468,6 +507,10 @@ class ZarrLoader:
     def get_mesh_dir(self) -> Optional[Path]:
         """Return the mesh directory if it exists."""
         return self.mesh_dir
+        
+    def get_mesh_metadata(self) -> Optional[dict]:
+        """Return the mesh metadata if available."""
+        return getattr(self, 'mesh_metadata', None) or getattr(self, 'mesh_metadata_root', None)
     
     def get_scale_transform(self, resolution_level: int = 0) -> Optional[np.ndarray]:
         """Get scale transform for the specified resolution level."""
@@ -690,6 +733,17 @@ def main():
                 
                 # Initialize the mesh loader
                 mesh_loader = PrecomputedMeshLoader(mesh_dir, debug=args.debug)
+                
+                # Check for mesh metadata
+                mesh_metadata = zarr_loader.get_mesh_metadata()
+                if mesh_metadata:
+                    print(f"Using OME-NGFF mesh metadata: {mesh_metadata}")
+                    
+                    # Verify the mesh type is what we expect
+                    if 'type' in mesh_metadata and mesh_metadata['type'] == 'neuroglancer_multilod_draco':
+                        print("Confirmed Neuroglancer multilod draco mesh format (RFC-8 compliant)")
+                    else:
+                        print(f"Warning: Mesh type '{mesh_metadata.get('type', 'unknown')}' may not be fully supported")
                 
                 # Get valid mesh IDs
                 valid_meshes = mesh_loader.get_valid_mesh_ids()

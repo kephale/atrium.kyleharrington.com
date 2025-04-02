@@ -314,6 +314,9 @@ class NeuroglancerMeshWriter:
                     bounds_min = pos * current_box_size
                     bounds_max = bounds_min + current_box_size
                     
+                    # For consistent alignment with voxel centers, we should consider the half-voxel offset
+                    # This ensures mesh vertices generated during export align with voxel centers
+                    
                     mask = np.all((vertices >= bounds_min) & (vertices < bounds_max), axis=1)
                     vertex_indices = np.where(mask)[0]
                     

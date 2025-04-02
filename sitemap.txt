@@ -39,9 +39,9 @@ Description: A Python script to generate and visualize 3D meshes from scikit-ima
 URL: https://atrium.kyleharrington.com/meshes/zmesh-ng-precomputed
 
 Group: meshes
-Name: 3D Blob Meshing (install draco)
+Name: 3D Blob Meshing (install drac first)
 Description: A Python script to generate and visualize 3D meshes from scikit-image blobs, with export to OBJ, PLY, and Neuroglancer Precomputed formats.
-URL: https://atrium.kyleharrington.com/meshes/minimal-ng-precomputed
+URL: https://atrium.kyleharrington.com/meshes/generation
 
 Group: meshes
 Name: Neuroglancer Precomputed Mesh Viewer

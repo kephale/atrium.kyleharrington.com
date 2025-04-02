@@ -1,11 +1,11 @@
 # /// script
-# title = "3D Blob Meshing (install draco)"
+# title = "3D Blob Meshing (install drac first)"
 # description = "A Python script to generate and visualize 3D meshes from scikit-image blobs, with export to OBJ, PLY, and Neuroglancer Precomputed formats."
 # author = "Kyle Harrington"
 # license = "MIT"
 # version = "0.1.0"
 # keywords = ["mesh", "3D", "visualization", "scikit-image", "zmesh", "neuroglancer"]
-# documentation = "https://github.com/seung-lab/zmesh#readme"
+# documentation = "https://atrium.kyleharrington.com/meshes/generation/generate_blobs/index.html"
 # classifiers = [
 # "Development Status :: 3 - Alpha",
 # "Intended Audience :: Science/Research",

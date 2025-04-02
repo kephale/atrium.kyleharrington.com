@@ -952,6 +952,10 @@ def main():
         
         trimesh_mesh.fix_normals()
         
+        # Apply a (-1,-1,-1) offset to mesh vertices to correct alignment with image/labels layers
+        print(f"Applying (-1,-1,-1) offset to mesh {mesh_id} to align with image/labels layers")
+        trimesh_mesh.vertices = trimesh_mesh.vertices - np.array([1, 1, 1])
+        
         # Process the mesh with multiple LODs
         mesh_writer.process_mesh(mesh_id, trimesh_mesh, num_lods=3)
         mesh_id += 1

@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # /// script
 # title = "Napari Precomputed Mesh Viewer"
-# description = "A Python script to view precomputed mesh data in napari with proper multiscale mesh rendering"
+# description = "A Python script to view precomputed mesh data in napari with proper multiscale mesh rendering that automatically scales meshes to match image data"
 # author = "Kyle Harrington"
 # license = "MIT"
-# version = "0.3.0"
+# version = "0.4.0"
 # keywords = ["mesh", "3D", "visualization", "napari", "neuroglancer"]
 # documentation = "https://napari.org/stable/api/napari.html"
 # requires-python = ">=3.8"
@@ -521,7 +521,24 @@ class ZarrLoader:
             print(f"Error getting scale transform: {str(e)}")
             return None
 
-def load_mesh(mesh_loader, mesh_id, lod=None, max_fragments=None):
+def load_mesh(mesh_loader, mesh_id, lod=None, max_fragments=None, load_all_lods=False):
+    """
+    Load a mesh or multiple LOD levels of a mesh.
+    
+    Args:
+        mesh_loader: The PrecomputedMeshLoader instance
+        mesh_id: ID of the mesh to load
+        lod: Specific LOD level to load (ignored if load_all_lods=True)
+        max_fragments: Maximum number of fragments to load per LOD
+        load_all_lods: If True, load all available LOD levels and return a dictionary
+                       mapping LOD levels to (vertices, faces) tuples
+    
+    Returns:
+        If load_all_lods=True: Dictionary of {lod: (vertices, faces)} for each LOD level
+        If load_all_lods=False: Tuple of (vertices, faces) for a single LOD level
+        None if no valid mesh data could be loaded
+    """
+
     """Load a mesh and return vertices and faces."""
     try:
         # Read the manifest
@@ -532,48 +549,66 @@ def load_mesh(mesh_loader, mesh_id, lod=None, max_fragments=None):
         
         num_lods = manifest["num_lods"]
         
-        # Determine which LOD to use
-        if lod is not None and lod < num_lods:
-            # Use the specified LOD
-            target_lod = lod
-        else:
-            # Choose the lowest LOD (highest detail) that has fragments
-            target_lod = None
+        # If load_all_lods is True, load all available LODs and return a dictionary
+        if load_all_lods:
+            meshes = {}
             for l in range(num_lods):
                 if l in manifest["fragments"] and manifest["fragments_per_lod"][l] > 0:
-                    target_lod = l
-                    break
-                    
-            # If no valid LOD found, try the highest one
-            if target_lod is None:
-                for l in range(num_lods-1, -1, -1):
+                    mesh = mesh_loader.load_lod_mesh(mesh_id, l, max_fragments)
+                    if mesh is not None:
+                        meshes[l] = (mesh.vertices, mesh.faces)
+                        print(f"Loaded LOD {l} for mesh {mesh_id} with {len(mesh.vertices)} vertices")
+            
+            if not meshes:
+                print(f"No valid LOD levels found for mesh {mesh_id}")
+                return None
+                
+            return meshes
+        
+        # Otherwise load a single LOD
+        else:
+            # Determine which LOD to use
+            if lod is not None and lod < num_lods:
+                # Use the specified LOD
+                target_lod = lod
+            else:
+                # Choose the lowest LOD (highest detail) that has fragments
+                target_lod = None
+                for l in range(num_lods):
                     if l in manifest["fragments"] and manifest["fragments_per_lod"][l] > 0:
                         target_lod = l
                         break
-        
-        if target_lod is None:
-            print(f"No valid LOD levels found for mesh {mesh_id}")
-            return None
+                        
+                # If no valid LOD found, try the highest one
+                if target_lod is None:
+                    for l in range(num_lods-1, -1, -1):
+                        if l in manifest["fragments"] and manifest["fragments_per_lod"][l] > 0:
+                            target_lod = l
+                            break
             
-        # Load the mesh
-        mesh = mesh_loader.load_lod_mesh(mesh_id, target_lod, max_fragments)
-        if mesh is None:
-            return None
-            
-        return mesh.vertices, mesh.faces
+            if target_lod is None:
+                print(f"No valid LOD levels found for mesh {mesh_id}")
+                return None
+                
+            # Load the mesh
+            mesh = mesh_loader.load_lod_mesh(mesh_id, target_lod, max_fragments)
+            if mesh is None:
+                return None
+                
+            return mesh.vertices, mesh.faces
         
     except Exception as e:
         print(f"Error loading mesh {mesh_id}: {e}")
         return None
 
 def main():
-    parser = argparse.ArgumentParser(description="Simple Zarr and Precomputed Mesh Viewer for Napari")
+    parser = argparse.ArgumentParser(description="Zarr and Precomputed Mesh Viewer for Napari with automatic multiscale mesh support")
     parser.add_argument("--zarr-path", type=str, required=True,
                        help="Path to the Zarr store containing OME-NGFF data with meshes")
-    parser.add_argument("--num-meshes", type=int, default=5,
-                       help="Number of meshes to load (default: 5, use 0 for all)")
+    parser.add_argument("--num-meshes", type=int, default=0,
+                       help="Number of meshes to load (default: 0 for all)")
     parser.add_argument("--resolution", type=int, default=0,
-                       help="Resolution level to load (default: 0 for highest resolution)")
+                       help="Image resolution level to load (default: 0 for highest resolution)")
     parser.add_argument("--skip-images", action="store_true",
                        help="Skip loading image data")
     parser.add_argument("--skip-labels", action="store_true",
@@ -584,6 +619,10 @@ def main():
                        help="Enable debug logging")
     parser.add_argument("--mesh-scale", type=float, nargs=3, default=None,
                        help="Override mesh scale (z, y, x)")
+    parser.add_argument("--load-all-lods", action="store_true", default=True,
+                       help="Load all LOD levels for each mesh (default: True)")
+    parser.add_argument("--one-lod-per-mesh", action="store_true",
+                       help="Load only a single LOD level per mesh (overrides --load-all-lods)")
     
     args = parser.parse_args()
     
@@ -658,29 +697,66 @@ def main():
                 if valid_meshes:
                     print(f"\nFound {len(valid_meshes)} valid meshes")
                     
-                    # Determine how many to load
+                        # Determine how many to load
                     if args.num_meshes > 0 and args.num_meshes < len(valid_meshes):
                         load_meshes = valid_meshes[:args.num_meshes]
                         print(f"Loading first {args.num_meshes} of {len(valid_meshes)} meshes")
                     else:
                         load_meshes = valid_meshes
                         print(f"Loading all {len(valid_meshes)} meshes")
+                        
+                    # Print out information about the meshing mode
+                    if args.load_all_lods and not args.one_lod_per_mesh:
+                        print("Using multi-LOD mode: Loading all available mesh LODs with scale matching the image")
+                    else:
+                        print("Using single-LOD mode: Loading only one LOD level per mesh")
                     
                     # Load each mesh
                     for mesh_id in load_meshes:
-                        result = load_mesh(mesh_loader, mesh_id)
+                        # Determine whether to load all LODs or a single one
+                        load_all_lods = args.load_all_lods and not args.one_lod_per_mesh
+                        
+                        result = load_mesh(mesh_loader, mesh_id, load_all_lods=load_all_lods)
                         if result:
-                            vertices, faces = result
-                            
-                            # Add surface layer with the same scale as images and labels
-                            viewer.add_surface(
-                                data=(vertices, faces),
-                                name=f"Mesh {mesh_id}",
-                                colormap='turbo',
-                                opacity=0.7,
-                                scale=scale
-                            )
-                            print(f"Added mesh {mesh_id} with {len(vertices)} vertices and {len(faces)} faces, scale {scale}")
+                            if load_all_lods and isinstance(result, dict):
+                                # Add each LOD as a separate layer, using scale matching the resolution level
+                                for lod, (vertices, faces) in result.items():
+                                    # Calculate scale for this LOD
+                                    # The scale factor should be 2^lod times the base scale from the image
+                                    mesh_scale = scale.copy()
+                                    
+                                    # Get the manifest to extract lod_scales
+                                    manifest = mesh_loader.read_manifest(mesh_id)
+                                    if manifest and "lod_scales" in manifest:
+                                        # Calculate the ratio between LOD scales to determine the adjustment factor
+                                        lod_base_scale = manifest["lod_scales"][0]
+                                        lod_current_scale = manifest["lod_scales"][lod]
+                                        scale_ratio = lod_current_scale / lod_base_scale
+                                        
+                                        # Apply the ratio to make meshes match image scale at all LODs
+                                        mesh_scale = scale / scale_ratio
+                                    
+                                    viewer.add_surface(
+                                        data=(vertices, faces),
+                                        name=f"Mesh {mesh_id} (LOD {lod})",
+                                        colormap='turbo',
+                                        opacity=0.7,
+                                        scale=mesh_scale
+                                    )
+                                    print(f"Added mesh {mesh_id} LOD {lod} with {len(vertices)} vertices and {len(faces)} faces, scale {mesh_scale}")
+                            else:
+                                # Single LOD case
+                                vertices, faces = result
+                                
+                                # Add surface layer with the same scale as images and labels
+                                viewer.add_surface(
+                                    data=(vertices, faces),
+                                    name=f"Mesh {mesh_id}",
+                                    colormap='turbo',
+                                    opacity=0.7,
+                                    scale=scale
+                                )
+                                print(f"Added mesh {mesh_id} with {len(vertices)} vertices and {len(faces)} faces, scale {scale}")
                 else:
                     print("No valid meshes found")
             else:

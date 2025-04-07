@@ -89,8 +89,7 @@ async def visualize_tomograms(
     augment: bool = Query(True, description="Apply augmentations"),
     show_augmentations: bool = Query(False, description="Show augmentation stages"),
     use_balanced_sampling: bool = Query(True, description="Use class balanced sampling"),
-    background_ratio: float = Query(0.2, description="Ratio of background samples"),
-    augmentation_prob: float = Query(0.5, description="Probability of applying augmentations")
+    background_ratio: float = Query(0.2, description="Ratio of background samples")
 ):
     """
     Visualize tomogram samples from a CoPick dataset, showing central slices and average projections
@@ -167,7 +166,6 @@ async def visualize_tomograms(
             augment=augment,
             include_background=True,
             background_ratio=background_ratio,
-            augmentation_prob=augmentation_prob,
             cache_dir="copick_torch_demo_cache"
         )
         
@@ -410,7 +408,6 @@ async def visualize_tomograms(
                 <p><strong>Box Size:</strong> {box_size}</p>
                 <p><strong>Samples:</strong> {len(images_html)}</p>
                 <p><strong>Augmentations:</strong> {augment}</p>
-                <p><strong>Augmentation Probability:</strong> {augmentation_prob}</p>
                 <p><strong>Show Augmentations:</strong> {show_augmentations}</p>
                 <p><strong>Class Balanced Sampling:</strong> {use_balanced_sampling}</p>
                 <p><strong>Background Ratio:</strong> {background_ratio}</p>
@@ -646,9 +643,6 @@ async def root():
             </div>
             <div class="param">
                 <code>background_ratio</code>: Ratio of background samples (default: 0.2)
-            </div>
-            <div class="param">
-                <code>augmentation_prob</code>: Probability of applying augmentations (default: 0.5)
             </div>
             <div class="example">
                 <p><strong>Example:</strong></p>

@@ -19,8 +19,8 @@
 #     "matplotlib",
 #     "fastapi",
 #     "uvicorn",
-#     "zarr<3",
-#     "numcodecs>=0.11.0",
+#     "zarr<2.14.0",
+#     "numcodecs<0.11.0",
 #     "copick-torch @ git+https://github.com/kephale/copick-torch.git",
 #     "copick-server @ git+https://github.com/kephale/copick-server.git"
 # ]

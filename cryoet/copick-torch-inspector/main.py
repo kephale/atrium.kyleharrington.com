@@ -75,7 +75,8 @@ app.add_middleware(
 
 @app.get("/tomogram-viz", response_class=HTMLResponse)
 async def visualize_tomograms(
-    dataset_id: int = Query(..., description="Dataset ID"),
+    dataset_path: Optional[str] = Query(None, description="Path to the dataset directory (legacy parameter)"),
+    dataset_id: Optional[int] = Query(None, description="Dataset ID"),
     overlay_root: str = Query("/tmp/test/", description="Overlay root directory"),
     run_name: Optional[str] = Query(None, description="Run name to visualize (if None, uses first run)"),
     voxel_spacing: Optional[float] = Query(None, description="Voxel spacing to use (if None, uses first available)"),
@@ -103,13 +104,162 @@ async def visualize_tomograms(
     Returns:
         HTML page with visualizations
     """
-    try:
-        # Create a temporary config file for the dataset
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
-            config_path = temp_file.name
-            
-            # Load the dataset using the copick API
-            root = copick.from_czcdp_datasets([dataset_id], overlay_root=overlay_root)
+    # Handle legacy parameter format
+    if dataset_path is not None and dataset_id is None:
+        # Legacy implementation
+        try:
+            # Try loading a dataset from the provided path
+            try:
+                dataset = CopickDataset(dataset_path, augment=False)
+                
+                # Create a dataloader to get a batch
+                dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+                
+                # Get one batch
+                batch = next(iter(dataloader))
+                
+                # Generate visualization for each sample
+                images_html = []
+                
+                for i in range(min(batch_size, len(batch))):
+                    # Extract sample
+                    if isinstance(batch, dict):
+                        sample = batch['image'][i].cpu().numpy() if 'image' in batch else batch['volume'][i].cpu().numpy()
+                    else:
+                        sample = batch[i][0].cpu().numpy()  # Get volume from (volume, label) tuple
+                    
+                    # Ensure we have a 3D volume
+                    if len(sample.shape) == 4:
+                        sample = sample[0]  # Remove channel dimension if present
+                    
+                    # Get sample dimensions
+                    depth, height, width = sample.shape
+                    
+                    # Generate central slices
+                    central_slice_z = sample[depth//2, :, :]
+                    central_slice_y = sample[:, height//2, :]
+                    central_slice_x = sample[:, :, width//2]
+                    
+                    # Generate average projections
+                    avg_proj_z = np.mean(sample, axis=0)
+                    avg_proj_y = np.mean(sample, axis=1)
+                    avg_proj_x = np.mean(sample, axis=2)
+                    
+                    # Create a figure with 6 subplots (3 slices, 3 projections)
+                    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+                    
+                    # Plot central slices
+                    axes[0, 0].imshow(central_slice_z, cmap=slice_colormap)
+                    axes[0, 0].set_title(f"Central Z Slice (z={depth//2})")
+                    
+                    axes[0, 1].imshow(central_slice_y, cmap=slice_colormap)
+                    axes[0, 1].set_title(f"Central Y Slice (y={height//2})")
+                    
+                    axes[0, 2].imshow(central_slice_x, cmap=slice_colormap)
+                    axes[0, 2].set_title(f"Central X Slice (x={width//2})")
+                    
+                    # Plot average projections
+                    axes[1, 0].imshow(avg_proj_z, cmap=projection_colormap)
+                    axes[1, 0].set_title("Average Z Projection")
+                    
+                    axes[1, 1].imshow(avg_proj_y, cmap=projection_colormap)
+                    axes[1, 1].set_title("Average Y Projection")
+                    
+                    axes[1, 2].imshow(avg_proj_x, cmap=projection_colormap)
+                    axes[1, 2].set_title("Average X Projection")
+                    
+                    # Add a main title
+                    fig.suptitle(f"Sample {i+1}", fontsize=16)
+                    plt.tight_layout()
+                    
+                    # Convert plot to base64 image
+                    buffer = io.BytesIO()
+                    plt.savefig(buffer, format='png', dpi=100)
+                    buffer.seek(0)
+                    img_data = base64.b64encode(buffer.read()).decode('utf-8')
+                    plt.close(fig)
+                    
+                    # Add to HTML
+                    images_html.append(f'<div class="sample"><h2>Sample {i+1}</h2><img src="data:image/png;base64,{img_data}" /></div>')
+                
+                # Create HTML page
+                html_content = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Copick Tomogram Visualization</title>
+                    <style>
+                        body {{
+                            font-family: Arial, sans-serif;
+                            margin: 20px;
+                            background-color: #f5f5f5;
+                        }}
+                        h1 {{
+                            color: #333;
+                            text-align: center;
+                        }}
+                        .sample {{
+                            margin: 20px 0;
+                            background-color: white;
+                            padding: 15px;
+                            border-radius: 5px;
+                            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                        }}
+                        .sample h2 {{
+                            margin-top: 0;
+                        }}
+                        img {{
+                            max-width: 100%;
+                            height: auto;
+                        }}
+                        .info {{
+                            background-color: #e0f7fa;
+                            padding: 10px;
+                            border-radius: 5px;
+                            margin-bottom: 20px;
+                        }}
+                        .note {{
+                            background-color: #fff9c4;
+                            padding: 10px;
+                            border-radius: 5px;
+                            margin-bottom: 20px;
+                            border-left: 4px solid #ffeb3b;
+                        }}
+                    </style>
+                </head>
+                <body>
+                    <h1>Copick Tomogram Visualization</h1>
+                    <div class="info">
+                        <p><strong>Dataset:</strong> {dataset_path}</p>
+                        <p><strong>Samples:</strong> {len(images_html)}</p>
+                        <p><strong>Slice Colormap:</strong> {slice_colormap}</p>
+                        <p><strong>Projection Colormap:</strong> {projection_colormap}</p>
+                    </div>
+                    <div class="note">
+                        <p><strong>Note:</strong> You're using the legacy dataset_path parameter. For CZ Data Portal integration, use dataset_id instead.</p>
+                    </div>
+                    {''.join(images_html)}
+                </body>
+                </html>
+                """
+                
+                return html_content
+                
+            except Exception as e:
+                # If loading from dataset_path fails, create error message
+                raise HTTPException(status_code=500, detail=f"Error loading dataset from path: {str(e)}")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error generating legacy visualizations: {str(e)}")
+    
+    # New implementation for dataset_id
+    elif dataset_id is not None:
+        try:
+            # Create a temporary config file for the dataset
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
+                config_path = temp_file.name
+                
+                # Load the dataset using the copick API
+                root = copick.from_czcdp_datasets([dataset_id], overlay_root=overlay_root)
             
             # Save the config to a file for CopickDataset to use
             config_data = root._config.model_dump(exclude_unset=True)

@@ -19,9 +19,9 @@
 #     "matplotlib",
 #     "fastapi",
 #     "uvicorn",
-#     "cryoet-data-portal==4.0.0",
-#     "zarr>=2.13.0,<2.15.0",
-#     "numcodecs>=0.10.0,<0.11.0",  
+#     "cryoet-data-portal",
+#     "zarr<3",
+#     "numcodecs<0.16.0",  
 #     "copick>=0.8.0",
 #     "copick-torch @ git+https://github.com/kephale/copick-torch.git",
 #     "copick-server @ git+https://github.com/kephale/copick-server.git"
@@ -46,14 +46,15 @@ from fastapi.responses import HTMLResponse
 import uvicorn
 
 # Import from copick-server
-from copick_server.demo_server import app as copick_app
+from copick_server.server import serve_copick
+
+app = serve_copick("/Users/kharrington/git/copick/copick-server/example_copick.json", allowed_origins=["*"])
+
+# this made a global: app
 
 # Import from copick-torch
 import copick_torch
 from copick_torch.datasets import TomogramDataset
-
-# Extend the existing copick app
-app = copick_app
 
 @app.get("/tomogram-viz", response_class=HTMLResponse)
 async def visualize_tomograms(

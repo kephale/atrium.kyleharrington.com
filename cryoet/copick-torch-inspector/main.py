@@ -46,7 +46,7 @@ from fastapi.responses import HTMLResponse
 import uvicorn
 
 # Import from copick-server
-from copick_server.server import create_copick_app
+from copick_server.server import serve_copick_threaded
 import copick
 
 # Find the example_copick.json file
@@ -68,9 +68,13 @@ if config_path is None:
 
 print(f"Using config file: {config_path}")
 
-# Create the FastAPI app
-root = copick.from_file(config_path)
-app = create_copick_app(root, allowed_origins=["*"])
+# Create the FastAPI app using threaded server
+app = serve_copick_threaded(
+    config_path, 
+    allowed_origins=["*"],
+    host="0.0.0.0",
+    port=8000
+)
 
 # Import from copick-torch
 import copick_torch
@@ -297,5 +301,11 @@ async def root():
     """
 
 if __name__ == "__main__":
-    # Run the server
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # The server is already running in a background thread,
+    # so we just need to keep the main thread alive
+    import time
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("Server stopped.")

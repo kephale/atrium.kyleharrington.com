@@ -54,7 +54,7 @@ app = serve_copick("/Users/kharrington/git/copick/copick-server/example_copick.j
 
 # Import from copick-torch
 import copick_torch
-from copick_torch.datasets import TomogramDataset
+from copick_torch.copick import CopickDataset
 
 @app.get("/tomogram-viz", response_class=HTMLResponse)
 async def visualize_tomograms(
@@ -78,7 +78,7 @@ async def visualize_tomograms(
     """
     try:
         # Load the dataset
-        dataset = TomogramDataset(dataset_path, transform=None)
+        dataset = CopickDataset(dataset_path, augment=False)
         
         # Create a dataloader to get a batch
         from torch.utils.data import DataLoader

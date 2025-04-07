@@ -44,9 +44,10 @@ from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 import uvicorn
+import threading
 
 # Import from copick-server
-from copick_server.server import serve_copick_threaded
+from copick_server.server import create_copick_app
 import copick
 
 # Find the example_copick.json file
@@ -65,13 +66,15 @@ if config_path is None:
 
 print(f"Using config file: {config_path}")
 
-# Create the FastAPI app and start the server in a background thread
-app = serve_copick_threaded(
-    config_path, 
-    allowed_origins=["*"],
-    host="0.0.0.0",
-    port=8018
-)
+# Port configuration - define once and reuse
+PORT = 8018
+HOST = "0.0.0.0"
+
+# Load the Copick project
+root = copick.from_file(config_path)
+
+# Create the FastAPI app but don't start it yet
+app = create_copick_app(root, cors_origins=["*"])
 
 # Import from copick-torch
 import copick_torch
@@ -298,13 +301,7 @@ async def root():
     """
 
 if __name__ == "__main__":
-    # Server is already running in a background thread
-    import time
-    print("Server is running on http://0.0.0.0:8018")
+    # Now start the server with our custom routes properly included
+    print(f"Server is running on http://{HOST}:{PORT}")
     print("Press Ctrl+C to exit")
-    try:
-        # Keep the main thread alive
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("Server shutting down...")
+    uvicorn.run(app, host=HOST, port=PORT)

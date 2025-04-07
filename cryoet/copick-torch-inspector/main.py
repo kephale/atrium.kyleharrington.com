@@ -512,16 +512,16 @@ async def visualize_tomograms(
             # Add note that this is the batch distribution, not the full dataset
             if batch_class_distribution:
                 class_distribution = batch_class_distribution
-                class_dist_html = '<p><em>Showing distribution of current batch (with balanced sampling):</em></p><ul>' + 
-                    ''.join([f'<li><strong>{cls}:</strong> {count} samples</li>' for cls, count in class_distribution.items()]) + 
+                class_dist_html = '<p><em>Showing distribution of current batch (with balanced sampling):</em></p><ul>' + \
+                    ''.join([f'<li><strong>{cls}:</strong> {count} samples</li>' for cls, count in class_distribution.items()]) + \
                     '</ul>'
             else:
                 # Make sure all detected classes are in the distribution
                 for obj_name in available_objects:
                     if obj_name not in class_distribution:
                         class_distribution[obj_name] = 0
-                class_dist_html = '<p><em>Showing distribution of full dataset:</em></p><ul>' + 
-                    ''.join([f'<li><strong>{cls}:</strong> {count} samples</li>' for cls, count in class_distribution.items()]) + 
+                class_dist_html = '<p><em>Showing distribution of full dataset:</em></p><ul>' + \
+                    ''.join([f'<li><strong>{cls}:</strong> {count} samples</li>' for cls, count in class_distribution.items()]) + \
                     '</ul>'
         else:
             # Make sure all detected classes are in the distribution

@@ -112,8 +112,8 @@ async def visualize_tomograms(
             root = copick.from_czcdp_datasets([dataset_id], overlay_root=overlay_root)
             
             # Save the config to a file for CopickDataset to use
-            config_data = root._config.model_dump(exclude_unset=True)
-            json.dump(config_data, temp_file, indent=4)
+            # config_data = root._config.model_dump(exclude_unset=True)
+            # json.dump(config_data, temp_file, indent=4)
         
         # Get available runs
         runs = root.runs
@@ -134,7 +134,7 @@ async def visualize_tomograms(
             run_name = str(selected_run.meta.name)
         
         # Get available voxel spacings
-        voxel_spacings = [vs.voxel_spacing for vs in selected_run.voxel_spacings]
+        voxel_spacings = [vs.meta.voxel_size for vs in selected_run.voxel_spacings]
         if not voxel_spacings:
             raise HTTPException(status_code=404, detail=f"No voxel spacings found for run {run_name}")
         
@@ -153,7 +153,8 @@ async def visualize_tomograms(
         
         # Create the dataset
         dataset = CopickDataset(
-            config_path=config_path,
+            copick_root=root,
+            # config_path=config_path,
             boxsize=(box_size, box_size, box_size),
             voxel_spacing=voxel_spacing,
             augment=False,
@@ -429,8 +430,6 @@ async def visualize_tomograms(
             <div class="error">
                 <h3>Error Details:</h3>
                 <p>{str(e)}</p>
-                <h3>Traceback:</h3>
-                <pre>{import traceback; traceback.format_exc()}</pre>
             </div>
             <div class="actions">
                 <h3>Try the following:</h3>
@@ -611,7 +610,7 @@ try:
 except Exception as e:
     # If that fails, create a dummy root for testing
     print(f"Error loading CZII dataset: {str(e)}")
-    print("Creating dummy CoPick project for testing")
+    print("Creating dummy copick project for testing")
     # Create a dummy temporary config for testing
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
         config_path = temp_file.name

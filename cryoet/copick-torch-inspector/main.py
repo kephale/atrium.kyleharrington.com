@@ -157,9 +157,11 @@ async def visualize_tomograms(
             # config_path=config_path,
             boxsize=(box_size, box_size, box_size),
             voxel_spacing=voxel_spacing,
-            augment=False,
+            augment=True,
             include_background=True,
-            background_ratio=0.2
+            background_ratio=0.2,
+            augmentation_prob=0.2,
+            cache_dir="copick_torch_demo_cache"
         )
         
         # Create a dataloader to get samples

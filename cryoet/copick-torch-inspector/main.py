@@ -3,7 +3,7 @@
 # description = "A FastAPI server that extends copick-server to provide visualization of tomogram samples."
 # author = "Kyle Harrington <czi@kyleharrington.com>"
 # license = "MIT"
-# version = "0.0.5"
+# version = "0.0.6"
 # keywords = ["tomogram", "visualization", "fastapi", "copick", "server"]
 # classifiers = [
 #     "Development Status :: 3 - Alpha",
@@ -491,11 +491,44 @@ async def visualize_tomograms(
         # Get the dataset's class distribution and ensure all classes are represented
         class_distribution = dataset.get_class_distribution()
         
-        # Make sure all detected classes are in the distribution
-        for obj_name in available_objects:
-            if obj_name not in class_distribution:
-                class_distribution[obj_name] = 0
-        class_dist_html = '<ul>' + ''.join([f'<li><strong>{cls}:</strong> {count} samples</li>' for cls, count in class_distribution.items()]) + '</ul>'
+        # If using balanced sampling, we should show the actual distribution of the batch instead
+        if use_balanced_sampling and 'batch' in locals() and len(batch) > 1:
+            batch_class_distribution = {}
+            
+            # Count the frequency of each class in the batch
+            for i in range(len(batch[1])):
+                if isinstance(batch[1][i], dict):
+                    class_idx = batch[1][i]['class_idx']
+                else:
+                    class_idx = batch[1][i].item()
+                
+                class_name = "background" if class_idx == -1 else dataset.keys()[class_idx]
+                
+                if class_name in batch_class_distribution:
+                    batch_class_distribution[class_name] += 1
+                else:
+                    batch_class_distribution[class_name] = 1
+            
+            # Add note that this is the batch distribution, not the full dataset
+            if batch_class_distribution:
+                class_distribution = batch_class_distribution
+                class_dist_html = '<p><em>Showing distribution of current batch (with balanced sampling):</em></p><ul>' + 
+                    ''.join([f'<li><strong>{cls}:</strong> {count} samples</li>' for cls, count in class_distribution.items()]) + 
+                    '</ul>'
+            else:
+                # Make sure all detected classes are in the distribution
+                for obj_name in available_objects:
+                    if obj_name not in class_distribution:
+                        class_distribution[obj_name] = 0
+                class_dist_html = '<p><em>Showing distribution of full dataset:</em></p><ul>' + 
+                    ''.join([f'<li><strong>{cls}:</strong> {count} samples</li>' for cls, count in class_distribution.items()]) + 
+                    '</ul>'
+        else:
+            # Make sure all detected classes are in the distribution
+            for obj_name in available_objects:
+                if obj_name not in class_distribution:
+                    class_distribution[obj_name] = 0
+            class_dist_html = '<ul>' + ''.join([f'<li><strong>{cls}:</strong> {count} samples</li>' for cls, count in class_distribution.items()]) + '</ul>'
         
         # Create HTML page
         html_content = f"""

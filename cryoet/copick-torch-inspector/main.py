@@ -157,6 +157,14 @@ async def visualize_tomograms(
         if not tomograms:
             raise HTTPException(status_code=404, detail=f"No tomograms found for run {run_name} with voxel spacing {voxel_spacing} and type {tomo_type}")
         
+        # Register all available object classes from the picks
+        available_objects = set()
+        for run in root.runs:
+            for picks in run.picks:
+                available_objects.add(picks.pickable_object_name)
+        
+        print(f"Available object classes: {', '.join(sorted(available_objects))}")
+        
         # Create the dataset
         dataset = SimpleCopickDataset(
             copick_root=root,
@@ -167,6 +175,13 @@ async def visualize_tomograms(
             background_ratio=background_ratio,
             cache_dir="copick_torch_demo_cache"
         )
+        
+        # Force all object classes to be registered in the dataset
+        # This ensures all classes appear in the visualization, even if subvolume extraction fails
+        for obj_name in available_objects:
+            if obj_name not in dataset._keys:
+                dataset._keys.append(obj_name)
+                print(f"Added missing class: {obj_name}")
         
         # Create a dataloader with optional class balanced sampling
         if use_balanced_sampling:
@@ -427,8 +442,13 @@ async def visualize_tomograms(
                 # Add to HTML
                 images_html.append(f'<div class="sample"><h2>Patch {i+1} - Coordinates: {coord_str}</h2><img src="data:image/png;base64,{img_data}" /></div>')
         
-        # Get the dataset's class distribution
+        # Get the dataset's class distribution and ensure all classes are represented
         class_distribution = dataset.get_class_distribution()
+        
+        # Make sure all detected classes are in the distribution
+        for obj_name in available_objects:
+            if obj_name not in class_distribution:
+                class_distribution[obj_name] = 0
         class_dist_html = '<ul>' + ''.join([f'<li><strong>{cls}:</strong> {count} samples</li>' for cls, count in class_distribution.items()]) + '</ul>'
         
         # Create HTML page

@@ -3,7 +3,7 @@
 # description = "A FastAPI server that extends copick-server to provide visualization of tomogram samples."
 # author = "Kyle Harrington <czi@kyleharrington.com>"
 # license = "MIT"
-# version = "0.0.3"
+# version = "0.0.4"
 # keywords = ["tomogram", "visualization", "fastapi", "copick", "server"]
 # classifiers = [
 #     "Development Status :: 3 - Alpha",
@@ -46,7 +46,8 @@ import uvicorn
 import threading
 import tempfile
 import json
-from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.colors import LinearSegmentedColormap, Normalize
+from matplotlib.cm import ScalarMappable
 
 # Import from copick-server
 from copick_server.server import CopickRoute
@@ -87,9 +88,10 @@ async def visualize_tomograms(
     slice_colormap: str = Query("gray", description="Colormap for slices"),
     projection_colormap: str = Query("viridis", description="Colormap for projections"),
     augment: bool = Query(True, description="Apply augmentations"),
-    show_augmentations: bool = Query(False, description="Show augmentation stages"),
+    show_augmentations: bool = Query(True, description="Show augmentation stages"),
     use_balanced_sampling: bool = Query(True, description="Use class balanced sampling"),
-    background_ratio: float = Query(0.2, description="Ratio of background samples")
+    background_ratio: float = Query(0.2, description="Ratio of background samples"),
+    mixup_alpha: float = Query(0.2, description="Alpha parameter for mixup augmentation")
 ):
     """
     Visualize tomogram samples from a CoPick dataset, showing central slices and average projections
@@ -197,7 +199,7 @@ async def visualize_tomograms(
             dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         
         # Create mixup augmentation for visualization if requested
-        mixup = MixupAugmentation(alpha=0.2) if augment and show_augmentations else None
+        mixup = MixupAugmentation(alpha=mixup_alpha) if augment and show_augmentations else None
         
         # Generate visualization for each sample
         images_html = []
@@ -244,34 +246,47 @@ async def visualize_tomograms(
                 # Create a figure with 6 subplots (3 slices, 3 projections)
                 fig, axes = plt.subplots(2, 3, figsize=(15, 10))
                 
-                # Plot central slices
-                axes[0, 0].imshow(central_slice_z, cmap=slice_colormap)
+                # Initialize min/max values for colorbar consistency
+                vmin_slices = np.min([np.min(central_slice_z), np.min(central_slice_y), np.min(central_slice_x)])
+                vmax_slices = np.max([np.max(central_slice_z), np.max(central_slice_y), np.max(central_slice_x)])
+                
+                vmin_projs = np.min([np.min(avg_proj_z), np.min(avg_proj_y), np.min(avg_proj_x)])
+                vmax_projs = np.max([np.max(avg_proj_z), np.max(avg_proj_y), np.max(avg_proj_x)])
+                
+                # Plot central slices with consistent colorbar range
+                axes[0, 0].imshow(central_slice_z, cmap=slice_colormap, vmin=vmin_slices, vmax=vmax_slices)
                 axes[0, 0].set_title(f"Central Z Slice (z={depth//2})")
                 
-                axes[0, 1].imshow(central_slice_y, cmap=slice_colormap)
+                axes[0, 1].imshow(central_slice_y, cmap=slice_colormap, vmin=vmin_slices, vmax=vmax_slices)
                 axes[0, 1].set_title(f"Central Y Slice (y={height//2})")
                 
-                axes[0, 2].imshow(central_slice_x, cmap=slice_colormap)
+                axes[0, 2].imshow(central_slice_x, cmap=slice_colormap, vmin=vmin_slices, vmax=vmax_slices)
                 axes[0, 2].set_title(f"Central X Slice (x={width//2})")
                 
-                # Plot average projections
-                axes[1, 0].imshow(avg_proj_z, cmap=projection_colormap)
+                # Plot average projections with consistent colorbar range
+                axes[1, 0].imshow(avg_proj_z, cmap=projection_colormap, vmin=vmin_projs, vmax=vmax_projs)
                 axes[1, 0].set_title("Average Z Projection")
                 
-                axes[1, 1].imshow(avg_proj_y, cmap=projection_colormap)
+                axes[1, 1].imshow(avg_proj_y, cmap=projection_colormap, vmin=vmin_projs, vmax=vmax_projs)
                 axes[1, 1].set_title("Average Y Projection")
                 
-                axes[1, 2].imshow(avg_proj_x, cmap=projection_colormap)
+                axes[1, 2].imshow(avg_proj_x, cmap=projection_colormap, vmin=vmin_projs, vmax=vmax_projs)
                 axes[1, 2].set_title("Average X Projection")
                 
-                # Check if this is one of the augmented samples
-                is_augmented = (aug_samples is not None and i < len(aug_samples[0]))
+                # Check if this is one of the augmented samples and capture augmentation details
+                is_augmented = False
+                class_a = None
+                class_b = None
+                lam = None
+                
+                if aug_samples is not None and i < len(aug_samples[0]):
+                    is_augmented = True
+                    class_a = "Background" if aug_samples[1][i].item() == -1 else dataset.keys()[aug_samples[1][i].item()]
+                    class_b = "Background" if aug_samples[2][i].item() == -1 else dataset.keys()[aug_samples[2][i].item()]
+                    lam = aug_samples[3][i].item()
                 
                 # Add a main title
                 if is_augmented:
-                    class_a = "Background" if aug_samples[1][i].item() == -1 else dataset.keys()[aug_samples[1][i].item()]
-                    class_b = "Background" if aug_samples[2][i].item() == -1 else dataset.keys()[aug_samples[2][i].item()]
-                    lam = aug_samples[3].item()
                     fig.suptitle(f"Augmented Sample {i+1} - Class Mix: {class_a} ({lam:.2f}) + {class_b} ({1-lam:.2f})", fontsize=16)
                 else:
                     # Handle the possibility of integer or dict label format
@@ -286,7 +301,8 @@ async def visualize_tomograms(
                 # Add colorbar to show data range
                 for j in range(2):
                     for k in range(3):
-                        plt.colorbar(ax=axes[j, k])
+                        im = axes[j, k].get_images()[0]
+                        plt.colorbar(im, ax=axes[j, k])
                 
                 plt.tight_layout()
                 
@@ -303,7 +319,22 @@ async def visualize_tomograms(
                     sample_title = f"Sample {i+1} - Class: {class_label}"
                 except NameError:
                     sample_title = f"Sample {i+1}"
-                images_html.append(f'<div class="sample"><h2>{sample_title}</h2><img src="data:image/png;base64,{img_data}" /></div>')
+                
+                # Add augmentation details if available
+                aug_details = ""
+                if is_augmented:
+                    aug_details = f'''
+                    <div class="augmentation-details">
+                        <h3>Augmentation Details:</h3>
+                        <ul>
+                            <li><strong>Type:</strong> Mixup</li>
+                            <li><strong>Class A:</strong> {class_a} (ratio: {lam:.2f})</li>
+                            <li><strong>Class B:</strong> {class_b} (ratio: {1-lam:.2f})</li>
+                        </ul>
+                    </div>
+                    '''
+                
+                images_html.append(f'<div class="sample"><h2>{sample_title}</h2>{aug_details}<img src="data:image/png;base64,{img_data}" /></div>')
         
         except StopIteration:
             # If batch creation failed, try to generate patches from the tomogram directly
@@ -406,24 +437,31 @@ async def visualize_tomograms(
                 # Create a figure with 6 subplots (3 slices, 3 projections)
                 fig, axes = plt.subplots(2, 3, figsize=(15, 10))
                 
-                # Plot central slices
-                axes[0, 0].imshow(central_slice_z, cmap=slice_colormap)
+                # Initialize min/max values for colorbar consistency
+                vmin_slices = np.min([np.min(central_slice_z), np.min(central_slice_y), np.min(central_slice_x)])
+                vmax_slices = np.max([np.max(central_slice_z), np.max(central_slice_y), np.max(central_slice_x)])
+                
+                vmin_projs = np.min([np.min(avg_proj_z), np.min(avg_proj_y), np.min(avg_proj_x)])
+                vmax_projs = np.max([np.max(avg_proj_z), np.max(avg_proj_y), np.max(avg_proj_x)])
+                
+                # Plot central slices with consistent colorbar range
+                axes[0, 0].imshow(central_slice_z, cmap=slice_colormap, vmin=vmin_slices, vmax=vmax_slices)
                 axes[0, 0].set_title(f"Central Z Slice (z={depth//2})")
                 
-                axes[0, 1].imshow(central_slice_y, cmap=slice_colormap)
+                axes[0, 1].imshow(central_slice_y, cmap=slice_colormap, vmin=vmin_slices, vmax=vmax_slices)
                 axes[0, 1].set_title(f"Central Y Slice (y={height//2})")
                 
-                axes[0, 2].imshow(central_slice_x, cmap=slice_colormap)
+                axes[0, 2].imshow(central_slice_x, cmap=slice_colormap, vmin=vmin_slices, vmax=vmax_slices)
                 axes[0, 2].set_title(f"Central X Slice (x={width//2})")
                 
-                # Plot average projections
-                axes[1, 0].imshow(avg_proj_z, cmap=projection_colormap)
+                # Plot average projections with consistent colorbar range
+                axes[1, 0].imshow(avg_proj_z, cmap=projection_colormap, vmin=vmin_projs, vmax=vmax_projs)
                 axes[1, 0].set_title("Average Z Projection")
                 
-                axes[1, 1].imshow(avg_proj_y, cmap=projection_colormap)
+                axes[1, 1].imshow(avg_proj_y, cmap=projection_colormap, vmin=vmin_projs, vmax=vmax_projs)
                 axes[1, 1].set_title("Average Y Projection")
                 
-                axes[1, 2].imshow(avg_proj_x, cmap=projection_colormap)
+                axes[1, 2].imshow(avg_proj_x, cmap=projection_colormap, vmin=vmin_projs, vmax=vmax_projs)
                 axes[1, 2].set_title("Average X Projection")
                 
                 # Add a main title
@@ -507,6 +545,7 @@ async def visualize_tomograms(
                 <p><strong>Show Augmentations:</strong> {show_augmentations}</p>
                 <p><strong>Class Balanced Sampling:</strong> {use_balanced_sampling}</p>
                 <p><strong>Background Ratio:</strong> {background_ratio}</p>
+                <p><strong>Mixup Alpha:</strong> {mixup_alpha}</p>
                 <p><strong>Slice Colormap:</strong> {slice_colormap}</p>
                 <p><strong>Projection Colormap:</strong> {projection_colormap}</p>
             </div>
@@ -693,7 +732,7 @@ async def root():
             <p>Try the CZ cryoET Data Portal sample dataset:</p>
             <a href="/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp">View Dataset 10440 - Run 16463</a>
             <br><br>
-            <a href="/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp&use_balanced_sampling=true&show_augmentations=true">View with Balanced Sampling & Augmentations</a>
+            <a href="/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp&use_balanced_sampling=true&show_augmentations=true&mixup_alpha=0.2">View with Balanced Sampling & Augmentations</a>
         </div>
         
         <div class="endpoint">
@@ -743,7 +782,7 @@ async def root():
             <div class="example">
                 <p><strong>Example:</strong></p>
                 <p><a href="/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp">/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp</a></p>
-                <p><a href="/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp&use_balanced_sampling=true&show_augmentations=true">/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp&use_balanced_sampling=true&show_augmentations=true</a></p>
+                <p><a href="/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp&use_balanced_sampling=true&show_augmentations=true&mixup_alpha=0.2">/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp&use_balanced_sampling=true&show_augmentations=true&mixup_alpha=0.2</a></p>
             </div>
         </div>
         
@@ -822,7 +861,7 @@ if __name__ == "__main__":
     print("Available endpoints:")
     print(f"  - http://{HOST}:{PORT}/ (Home page)")
     print(f"  - http://{HOST}:{PORT}/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp (Visualization)")
-    print(f"  - http://{HOST}:{PORT}/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp&use_balanced_sampling=true&show_augmentations=true (With Balanced Sampling & Augmentations)")
+    print(f"  - http://{HOST}:{PORT}/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp&use_balanced_sampling=true&show_augmentations=true&mixup_alpha=0.2 (With Balanced Sampling & Augmentations)")
     print("Press Ctrl+C to exit")
     
     # Start the server

@@ -47,7 +47,8 @@ import uvicorn
 import threading
 
 # Import from copick-server
-from copick_server.server import create_copick_app
+from copick_server.server import CopickRoute
+from fastapi.middleware.cors import CORSMiddleware
 import copick
 
 # Find the example_copick.json file
@@ -73,8 +74,17 @@ HOST = "0.0.0.0"
 # Load the Copick project
 root = copick.from_file(config_path)
 
-# Create the FastAPI app but don't start it yet
-app = create_copick_app(root, cors_origins=["*"])
+# Create a new FastAPI app and add our custom routes first
+app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Import from copick-torch
 import copick_torch
@@ -299,6 +309,16 @@ async def root():
     </body>
     </html>
     """
+
+# Add the Copick route handler after our custom routes
+route_handler = CopickRoute(root)
+
+# Add the Copick catch-all route at the end
+app.add_api_route(
+    "/{path:path}",
+    route_handler.handle_request,
+    methods=["GET", "HEAD", "PUT"]
+)
 
 if __name__ == "__main__":
     # Now start the server with our custom routes properly included

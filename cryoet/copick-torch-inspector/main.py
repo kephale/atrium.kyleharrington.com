@@ -3,7 +3,7 @@
 # description = "A FastAPI server that extends copick-server to provide visualization of tomogram samples."
 # author = "Kyle Harrington <czi@kyleharrington.com>"
 # license = "MIT"
-# version = "0.0.1"
+# version = "0.0.2"
 # keywords = ["tomogram", "visualization", "fastapi", "copick", "server"]
 # classifiers = [
 #     "Development Status :: 3 - Alpha",
@@ -19,8 +19,10 @@
 #     "matplotlib",
 #     "fastapi",
 #     "uvicorn",
-#     "zarr<2.14.0",
-#     "numcodecs<0.11.0",
+#     "cryoet-data-portal==4.0.0",
+#     "zarr>=2.13.0,<2.15.0",
+#     "numcodecs>=0.10.0,<0.11.0",  
+#     "copick>=0.8.0",
 #     "copick-torch @ git+https://github.com/kephale/copick-torch.git",
 #     "copick-server @ git+https://github.com/kephale/copick-server.git"
 # ]

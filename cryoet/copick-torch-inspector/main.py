@@ -3,7 +3,7 @@
 # description = "A FastAPI server that extends copick-server to provide visualization of tomogram samples."
 # author = "Kyle Harrington <czi@kyleharrington.com>"
 # license = "MIT"
-# version = "0.0.4"
+# version = "0.0.5"
 # keywords = ["tomogram", "visualization", "fastapi", "copick", "server"]
 # classifiers = [
 #     "Development Status :: 3 - Alpha",
@@ -224,6 +224,11 @@ async def visualize_tomograms(
                     half_inputs = batch[0][:half_batch].clone()
                     half_labels = batch[1][:half_batch].clone()
                     aug_inputs, aug_labels_a, aug_labels_b, aug_lambda = mixup(half_inputs, half_labels)
+                    # Ensure aug_lambda is a tensor with same batch dimension as the inputs
+                    if not hasattr(aug_lambda, 'shape') or len(aug_lambda.shape) == 0:
+                        # If aug_lambda is a scalar, convert to a tensor with batch dimension
+                        import torch
+                        aug_lambda = torch.tensor([aug_lambda] * len(aug_inputs))
                     aug_samples = (aug_inputs, aug_labels_a, aug_labels_b, aug_lambda)
             
             for i in range(min(batch_size, len(batch[0]))):
@@ -283,7 +288,11 @@ async def visualize_tomograms(
                     is_augmented = True
                     class_a = "Background" if aug_samples[1][i].item() == -1 else dataset.keys()[aug_samples[1][i].item()]
                     class_b = "Background" if aug_samples[2][i].item() == -1 else dataset.keys()[aug_samples[2][i].item()]
-                    lam = aug_samples[3][i].item()
+                    # Access lambda value - ensure it's an indexed tensor or a float
+                    if hasattr(aug_samples[3], 'shape') and len(aug_samples[3].shape) > 0:
+                        lam = aug_samples[3][i].item()
+                    else:
+                        lam = float(aug_samples[3])
                 
                 # Add a main title
                 if is_augmented:
@@ -529,6 +538,12 @@ async def visualize_tomograms(
                     padding: 10px;
                     border-radius: 5px;
                     margin-bottom: 20px;
+                }}
+                .augmentation-details {{
+                    background-color: #fff9c4;
+                    padding: 10px;
+                    border-radius: 5px;
+                    margin: 10px 0;
                 }}
             </style>
         </head>

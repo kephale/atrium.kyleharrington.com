@@ -1,356 +1,3 @@
-# /// script
-# title = "Copick Tomogram Visualization Server"
-# description = "A FastAPI server that extends copick-server to provide visualization of tomogram samples."
-# author = "Kyle Harrington <czi@kyleharrington.com>"
-# license = "MIT"
-# version = "0.0.3"
-# keywords = ["tomogram", "visualization", "fastapi", "copick", "server"]
-# classifiers = [
-#     "Development Status :: 3 - Alpha",
-#     "Intended Audience :: Science/Research",
-#     "License :: OSI Approved :: MIT License",
-#     "Programming Language :: Python :: 3.9",
-#     "Topic :: Scientific/Engineering :: Bio-Informatics",
-#     "Topic :: Scientific/Engineering :: Visualization"
-# ]
-# requires-python = ">=3.10"
-# dependencies = [
-#     "numpy",
-#     "matplotlib",
-#     "fastapi",
-#     "uvicorn",
-#     "zarr<3",
-#     "numcodecs<0.16.0",  
-#     "copick>=0.8.0",
-#     "copick-torch @ git+https://github.com/copick/copick-torch.git",
-#     "copick-server @ git+https://github.com/copick/copick-server.git"
-# ]
-# ///
-
-"""
-Copick Tomogram Visualization Server
-
-A FastAPI server that extends copick-server to provide visualization of tomogram samples.
-Displays central slices and average projections along all axes for tomogram samples.
-"""
-
-import os
-import io
-import base64
-import numpy as np
-import matplotlib.pyplot as plt
-from typing import List, Optional, Dict, Any, Union
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse
-import uvicorn
-import threading
-import tempfile
-import json
-
-# Import from copick-server
-from copick_server.server import CopickRoute
-from fastapi.middleware.cors import CORSMiddleware
-import copick
-
-# Import from copick-torch
-import copick_torch
-from copick_torch.copick import CopickDataset
-from torch.utils.data import DataLoader
-
-# Port configuration - define once and reuse
-PORT = 8018
-HOST = "0.0.0.0"
-
-# Create a new FastAPI app and add our custom routes first
-app = FastAPI()
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.get("/tomogram-viz", response_class=HTMLResponse)
-async def visualize_tomograms(
-    dataset_id: int = Query(..., description="Dataset ID"),
-    overlay_root: str = Query("/tmp/test/", description="Overlay root directory"),
-    run_name: Optional[str] = Query(None, description="Run name to visualize (if None, uses first run)"),
-    voxel_spacing: Optional[float] = Query(None, description="Voxel spacing to use (if None, uses first available)"),
-    tomo_type: str = Query("wbp", description="Tomogram type (e.g., 'wbp')"),
-    batch_size: int = Query(25, description="Number of samples to visualize"),
-    box_size: int = Query(64, description="Box size for subvolume extraction"),
-    slice_colormap: str = Query("gray", description="Colormap for slices"),
-    projection_colormap: str = Query("viridis", description="Colormap for projections")
-):
-    """
-    Visualize tomogram samples from a CoPick dataset, showing central slices and average projections
-    along all axes.
-    
-    Args:
-        dataset_id: Dataset ID from CZ cryoET Data Portal
-        overlay_root: Root directory for the overlay storage
-        run_name: Name of the run to visualize
-        voxel_spacing: Voxel spacing to use
-        tomo_type: Tomogram type (e.g., 'wbp')
-        batch_size: Number of samples to visualize
-        box_size: Box size for subvolume extraction
-        slice_colormap: Matplotlib colormap for slices
-        projection_colormap: Matplotlib colormap for projections
-    
-    Returns:
-        HTML page with visualizations
-    """
-    try:
-        # Create a temporary config file for the dataset
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
-            config_path = temp_file.name
-            
-            # Load the dataset using the copick API
-            root = copick.from_czcdp_datasets([dataset_id], overlay_root=overlay_root)
-            
-            # Save the config to a file for CopickDataset to use
-            # config_data = root._config.model_dump(exclude_unset=True)
-            # json.dump(config_data, temp_file, indent=4)
-        
-        # Get available runs
-        runs = root.runs
-        if not runs:
-            raise HTTPException(status_code=404, detail="No runs found in the dataset")
-        
-        # Select the run to use
-        selected_run = None
-        if run_name:
-            for run in runs:
-                if str(run.meta.name) == run_name:
-                    selected_run = run
-                    break
-            if selected_run is None:
-                raise HTTPException(status_code=404, detail=f"Run {run_name} not found in the dataset")
-        else:
-            selected_run = runs[0]
-            run_name = str(selected_run.meta.name)
-        
-        # Get available voxel spacings
-        voxel_spacings = [vs.meta.voxel_size for vs in selected_run.voxel_spacings]
-        if not voxel_spacings:
-            raise HTTPException(status_code=404, detail=f"No voxel spacings found for run {run_name}")
-        
-        # Select the voxel spacing to use
-        if voxel_spacing is None:
-            voxel_spacing = voxel_spacings[0]
-        elif voxel_spacing not in voxel_spacings:
-            # Find the closest voxel spacing
-            voxel_spacing = min(voxel_spacings, key=lambda vs: abs(vs - voxel_spacing))
-        
-        # Get the tomograms for the selected run and voxel spacing
-        voxel_spacing_obj = selected_run.get_voxel_spacing(voxel_spacing)
-        tomograms = voxel_spacing_obj.get_tomograms(tomo_type)
-        if not tomograms:
-            raise HTTPException(status_code=404, detail=f"No tomograms found for run {run_name} with voxel spacing {voxel_spacing} and type {tomo_type}")
-        
-        # Create the dataset
-        dataset = CopickDataset(
-            copick_root=root,
-            # config_path=config_path,
-            boxsize=(box_size, box_size, box_size),
-            voxel_spacing=voxel_spacing,
-            augment=True,
-            include_background=True,
-            background_ratio=0.2,
-            augmentation_prob=0.2,
-            cache_dir="copick_torch_demo_cache"
-        )
-        
-        # Create a dataloader to get samples
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-        
-        # Generate visualization for each sample
-        images_html = []
-        
-        try:
-            # Try to get one batch
-            batch = next(iter(dataloader))
-            
-            for i in range(min(batch_size, len(batch[0]))):
-                # Extract sample
-                sample = batch[0][i].cpu().numpy()[0]  # Remove channel dimension
-                
-                # Get sample dimensions
-                depth, height, width = sample.shape
-                
-                # Generate central slices
-                central_slice_z = sample[depth//2, :, :]
-                central_slice_y = sample[:, height//2, :]
-                central_slice_x = sample[:, :, width//2]
-                
-                # Generate average projections
-                avg_proj_z = np.mean(sample, axis=0)
-                avg_proj_y = np.mean(sample, axis=1)
-                avg_proj_x = np.mean(sample, axis=2)
-                
-                # Create a figure with 6 subplots (3 slices, 3 projections)
-                fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-                
-                # Plot central slices
-                axes[0, 0].imshow(central_slice_z, cmap=slice_colormap)
-                axes[0, 0].set_title(f"Central Z Slice (z={depth//2})")
-                
-                axes[0, 1].imshow(central_slice_y, cmap=slice_colormap)
-                axes[0, 1].set_title(f"Central Y Slice (y={height//2})")
-                
-                axes[0, 2].imshow(central_slice_x, cmap=slice_colormap)
-                axes[0, 2].set_title(f"Central X Slice (x={width//2})")
-                
-                # Plot average projections
-                axes[1, 0].imshow(avg_proj_z, cmap=projection_colormap)
-                axes[1, 0].set_title("Average Z Projection")
-                
-                axes[1, 1].imshow(avg_proj_y, cmap=projection_colormap)
-                axes[1, 1].set_title("Average Y Projection")
-                
-                axes[1, 2].imshow(avg_proj_x, cmap=projection_colormap)
-                axes[1, 2].set_title("Average X Projection")
-                
-                # Add a main title
-                class_label = "Background" if batch[1][i].item() == -1 else dataset.keys()[batch[1][i].item()]
-                fig.suptitle(f"Sample {i+1} - Class: {class_label}", fontsize=16)
-                plt.tight_layout()
-                
-                # Convert plot to base64 image
-                buffer = io.BytesIO()
-                plt.savefig(buffer, format='png', dpi=100)
-                buffer.seek(0)
-                img_data = base64.b64encode(buffer.read()).decode('utf-8')
-                plt.close(fig)
-                
-                # Add to HTML
-                images_html.append(f'<div class="sample"><h2>Sample {i+1} - Class: {class_label}</h2><img src="data:image/png;base64,{img_data}" /></div>')
-        
-        except StopIteration:
-            # If batch creation failed, try to generate patches from the tomogram directly
-            print("No samples from dataloader, creating grid patches instead")
-            
-            # Get the first tomogram
-            tomogram = tomograms[0]
-            tomogram_array = tomogram.numpy()
-            
-            # Extract patches using the grid_patches method
-            patches, coordinates = dataset.extract_grid_patches(
-                patch_size=box_size,
-                overlap=0.5,
-                normalize=True,
-                run_index=0,
-                tomo_type='raw'
-            )
-            
-            # Use up to batch_size patches
-            for i, (patch, coord) in enumerate(zip(patches[:batch_size], coordinates[:batch_size])):
-                # Get patch dimensions
-                depth, height, width = patch.shape
-                
-                # Generate central slices
-                central_slice_z = patch[depth//2, :, :]
-                central_slice_y = patch[:, height//2, :]
-                central_slice_x = patch[:, :, width//2]
-                
-                # Generate average projections
-                avg_proj_z = np.mean(patch, axis=0)
-                avg_proj_y = np.mean(patch, axis=1)
-                avg_proj_x = np.mean(patch, axis=2)
-                
-                # Create a figure with 6 subplots (3 slices, 3 projections)
-                fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-                
-                # Plot central slices
-                axes[0, 0].imshow(central_slice_z, cmap=slice_colormap)
-                axes[0, 0].set_title(f"Central Z Slice (z={depth//2})")
-                
-                axes[0, 1].imshow(central_slice_y, cmap=slice_colormap)
-                axes[0, 1].set_title(f"Central Y Slice (y={height//2})")
-                
-                axes[0, 2].imshow(central_slice_x, cmap=slice_colormap)
-                axes[0, 2].set_title(f"Central X Slice (x={width//2})")
-                
-                # Plot average projections
-                axes[1, 0].imshow(avg_proj_z, cmap=projection_colormap)
-                axes[1, 0].set_title("Average Z Projection")
-                
-                axes[1, 1].imshow(avg_proj_y, cmap=projection_colormap)
-                axes[1, 1].set_title("Average Y Projection")
-                
-                axes[1, 2].imshow(avg_proj_x, cmap=projection_colormap)
-                axes[1, 2].set_title("Average X Projection")
-                
-                # Add a main title
-                coord_str = f"({coord[0]}, {coord[1]}, {coord[2]})"
-                fig.suptitle(f"Patch {i+1} - Coordinates: {coord_str}", fontsize=16)
-                plt.tight_layout()
-                
-                # Convert plot to base64 image
-                buffer = io.BytesIO()
-                plt.savefig(buffer, format='png', dpi=100)
-                buffer.seek(0)
-                img_data = base64.b64encode(buffer.read()).decode('utf-8')
-                plt.close(fig)
-                
-                # Add to HTML
-                images_html.append(f'<div class="sample"><h2>Patch {i+1} - Coordinates: {coord_str}</h2><img src="data:image/png;base64,{img_data}" /></div>')
-        
-        # Get the dataset's class distribution
-        class_distribution = dataset.get_class_distribution()
-        class_dist_html = '<ul>' + ''.join([f'<li><strong>{cls}:</strong> {count} samples</li>' for cls, count in class_distribution.items()]) + '</ul>'
-        
-        # Create HTML page
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Copick Tomogram Visualization</title>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    margin: 20px;
-                    background-color: #f5f5f5;
-                }}
-                h1 {{
-                    color: #333;
-                    text-align: center;
-                }}
-                .sample {{
-                    margin: 20px 0;
-                    background-color: white;
-                    padding: 15px;
-                    border-radius: 5px;
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-                }}
-                .sample h2 {{
-                    margin-top: 0;
-                }}
-                img {{
-                    max-width: 100%;
-                    height: auto;
-                }}
-                .info {{
-                    background-color: #e0f7fa;
-                    padding: 10px;
-                    border-radius: 5px;
-                    margin-bottom: 20px;
-                }}
-                .class-distribution {{
-                    background-color: #f1f8e9;
-                    padding: 10px;
-                    border-radius: 5px;
-                    margin-bottom: 20px;
-                }}
-            </style>
-        </head>
-        <body>
-            <h1>Copick Tomogram Visualization</h1>
-            <div class="info">
-                <p><strong>Dataset ID:</strong> {dataset_id}</p>
                 <p><strong>Run:</strong> {run_name}</p>
                 <p><strong>Voxel Spacing:</strong> {voxel_spacing}</p>
                 <p><strong>Tomogram Type:</strong> {tomo_type}</p>
@@ -358,6 +5,29 @@ async def visualize_tomograms(
                 <p><strong>Samples:</strong> {len(images_html)}</p>
                 <p><strong>Slice Colormap:</strong> {slice_colormap}</p>
                 <p><strong>Projection Colormap:</strong> {projection_colormap}</p>
+            </div>
+            <div class="options">
+                <h3>Visualization Options:</h3>
+                <p><strong>Class Balancing:</strong> 
+                    <a href="?dataset_id={dataset_id}&overlay_root={overlay_root}&run_name={run_name}&voxel_spacing={voxel_spacing}&tomo_type={tomo_type}&box_size={box_size}&use_class_balancing=true&apply_mixup={apply_mixup}" 
+                       class="toggle-button {'active' if use_class_balancing else 'inactive'}">
+                       {'On' if use_class_balancing else 'Off'}
+                    </a>
+                    <a href="?dataset_id={dataset_id}&overlay_root={overlay_root}&run_name={run_name}&voxel_spacing={voxel_spacing}&tomo_type={tomo_type}&box_size={box_size}&use_class_balancing={not use_class_balancing}&apply_mixup={apply_mixup}" 
+                       class="toggle-button {'inactive' if use_class_balancing else 'active'}">
+                       {'Off' if use_class_balancing else 'On'}
+                    </a>
+                </p>
+                <p><strong>Mixup Augmentation:</strong> 
+                    <a href="?dataset_id={dataset_id}&overlay_root={overlay_root}&run_name={run_name}&voxel_spacing={voxel_spacing}&tomo_type={tomo_type}&box_size={box_size}&use_class_balancing={use_class_balancing}&apply_mixup=true" 
+                       class="toggle-button {'active' if apply_mixup else 'inactive'}">
+                       {'On' if apply_mixup else 'Off'}
+                    </a>
+                    <a href="?dataset_id={dataset_id}&overlay_root={overlay_root}&run_name={run_name}&voxel_spacing={voxel_spacing}&tomo_type={tomo_type}&box_size={box_size}&use_class_balancing={use_class_balancing}&apply_mixup={not apply_mixup}" 
+                       class="toggle-button {'inactive' if apply_mixup else 'active'}">
+                       {'Off' if apply_mixup else 'On'}
+                    </a>
+                </p>
             </div>
             <div class="class-distribution">
                 <h3>Class Distribution:</h3>
@@ -531,6 +201,16 @@ async def root():
             .main-example a:hover {
                 background-color: #2980b9;
             }
+            .feature {
+                background-color: #f1f8e9;
+                padding: 10px;
+                margin-top: 10px;
+                border-radius: 5px;
+            }
+            .feature h3 {
+                margin-top: 0;
+                color: #43a047;
+            }
         </style>
     </head>
     <body>
@@ -539,6 +219,13 @@ async def root():
         <div class="main-example">
             <p>Try the CZ cryoET Data Portal sample dataset:</p>
             <a href="/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp">View Dataset 10440 - Run 16463</a>
+        </div>
+        
+        <div class="feature">
+            <h3>New Features!</h3>
+            <p><strong>Class Balancing:</strong> Balance class distribution in samples using weighted sampling.</p>
+            <p><strong>Mixup Augmentation:</strong> Visualize mixup augmentation which blends samples for better generalization.</p>
+            <p>Try these new options with the toggles in the visualization page!</p>
         </div>
         
         <div class="endpoint">
@@ -573,9 +260,17 @@ async def root():
             <div class="param">
                 <code>projection_colormap</code>: Matplotlib colormap for projections (default: "viridis")
             </div>
+            <div class="param">
+                <code>use_class_balancing</code>: Whether to use class-balanced sampling (default: true)
+            </div>
+            <div class="param">
+                <code>apply_mixup</code>: Whether to apply mixup augmentation for visualization (default: false)
+            </div>
             <div class="example">
                 <p><strong>Example:</strong></p>
                 <p><a href="/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp">/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp</a></p>
+                <p><strong>With new features:</strong></p>
+                <p><a href="/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp&use_class_balancing=true&apply_mixup=true">/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp&use_class_balancing=true&apply_mixup=true</a></p>
             </div>
         </div>
         

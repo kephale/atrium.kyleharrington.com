@@ -158,7 +158,7 @@ async def visualize_tomograms(
             raise HTTPException(status_code=404, detail=f"No tomograms found for run {run_name} with voxel spacing {voxel_spacing} and type {tomo_type}")
         
         # Create the dataset
-        dataset = SimpleCopickDataset(
+        dataset = ExtendedCopickDataset(
             copick_root=root,
             # config_path=config_path,
             boxsize=(box_size, box_size, box_size),

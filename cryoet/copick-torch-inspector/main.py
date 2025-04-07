@@ -262,6 +262,7 @@ async def demo(
             raise HTTPException(status_code=500, detail="No runs found in the Copick project")
         
         run = runs[0]  # Use the first run
+        run_name = getattr(run, 'name', str(run))  # Safely get the name or use string representation
         
         # Get voxel spacings for this run
         if not run.voxel_spacings:
@@ -269,6 +270,7 @@ async def demo(
             
         # Use the first voxel spacing
         voxel_spacing = run.voxel_spacings[0]
+        voxel_spacing_value = getattr(voxel_spacing, 'voxel_spacing', str(voxel_spacing))  # Safely get the spacing
         
         # Get tomograms for this voxel spacing
         if not voxel_spacing.tomograms:
@@ -276,6 +278,7 @@ async def demo(
             
         # Use the first tomogram
         tomogram = voxel_spacing.tomograms[0]
+        tomogram_name = getattr(tomogram, 'name', str(tomogram))  # Safely get the name
         
         # Get the raw tomogram data
         tomo_data = tomogram.zarr()
@@ -417,9 +420,9 @@ async def demo(
             <div class="project-info">
                 <p><strong>Description:</strong> {project_description}</p>
                 <p><strong>{dataset_id_text}</strong></p>
-                <p><strong>Run:</strong> {run.name}</p>
-                <p><strong>Voxel Spacing:</strong> {voxel_spacing.voxel_spacing}</p>
-                <p><strong>Tomogram:</strong> {tomogram.name}</p>
+                <p><strong>Run:</strong> {run_name}</p>
+                <p><strong>Voxel Spacing:</strong> {voxel_spacing_value}</p>
+                <p><strong>Tomogram:</strong> {tomogram_name}</p>
                 <p><strong>Volume Shape:</strong> {volume_data.shape}</p>
             </div>
             

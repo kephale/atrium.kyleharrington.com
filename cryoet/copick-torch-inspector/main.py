@@ -46,11 +46,31 @@ from fastapi.responses import HTMLResponse
 import uvicorn
 
 # Import from copick-server
-from copick_server.server import serve_copick
+from copick_server.server import create_copick_app
+import copick
 
-app = serve_copick("/Users/kharrington/git/copick/copick-server/example_copick.json", allowed_origins=["*"])
+# Find the example_copick.json file
+potential_paths = [
+    "/Users/kharrington/git/kephale/copick-server/example_copick.json",
+    "/Users/kharrington/agent/git/kephale/copick-server/example_copick.json",
+    os.path.expanduser("~/git/kephale/copick-server/example_copick.json"),
+    os.path.expanduser("~/git/copick/copick-server/example_copick.json")
+]
 
-# this made a global: app
+config_path = None
+for path in potential_paths:
+    if os.path.exists(path):
+        config_path = path
+        break
+
+if config_path is None:
+    raise FileNotFoundError("Could not find example_copick.json in any of the expected locations.")
+
+print(f"Using config file: {config_path}")
+
+# Create the FastAPI app
+root = copick.from_file(config_path)
+app = create_copick_app(root, allowed_origins=["*"])
 
 # Import from copick-torch
 import copick_torch

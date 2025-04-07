@@ -381,12 +381,11 @@ async def visualize_tomograms(
                 return patches, coordinates
                 
             # Extract patches using our helper function
-            patches, coordinates = extract_grid_patches(tomogram_array, box_size, overlap=0.5, normalize=True)
+            patches, coordinates = extract_grid_patches(
+                tomogram_array, 
                 patch_size=box_size,
                 overlap=0.5,
-                normalize=True,
-                run_index=0,
-                tomo_type='raw'
+                normalize=True
             )
             
             # Use up to batch_size patches

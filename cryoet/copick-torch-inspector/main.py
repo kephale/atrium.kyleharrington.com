@@ -51,9 +51,6 @@ import copick
 
 # Find the example_copick.json file
 potential_paths = [
-    "/Users/kharrington/git/kephale/copick-server/example_copick.json",
-    "/Users/kharrington/agent/git/kephale/copick-server/example_copick.json",
-    os.path.expanduser("~/git/kephale/copick-server/example_copick.json"),
     os.path.expanduser("~/git/copick/copick-server/example_copick.json")
 ]
 
@@ -73,7 +70,7 @@ app = serve_copick_threaded(
     config_path, 
     allowed_origins=["*"],
     host="0.0.0.0",
-    port=8000
+    port=8018
 )
 
 # Import from copick-torch
@@ -303,7 +300,7 @@ async def root():
 if __name__ == "__main__":
     # Server is already running in a background thread
     import time
-    print("Server is running on http://0.0.0.0:8000")
+    print("Server is running on http://0.0.0.0:8018")
     print("Press Ctrl+C to exit")
     try:
         # Keep the main thread alive

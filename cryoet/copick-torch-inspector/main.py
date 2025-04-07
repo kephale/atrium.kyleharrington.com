@@ -46,6 +46,7 @@ import uvicorn
 import threading
 import tempfile
 import json
+from matplotlib.colors import LinearSegmentedColormap
 
 # Import from copick-server
 from copick_server.server import CopickRoute
@@ -55,6 +56,7 @@ import copick
 # Import from copick-torch
 import copick_torch
 from copick_torch.copick import CopickDataset
+from copick_torch import SimpleCopickDataset, ClassBalancedSampler, MixupAugmentation
 from torch.utils.data import DataLoader
 
 # Port configuration - define once and reuse
@@ -83,7 +85,12 @@ async def visualize_tomograms(
     batch_size: int = Query(25, description="Number of samples to visualize"),
     box_size: int = Query(64, description="Box size for subvolume extraction"),
     slice_colormap: str = Query("gray", description="Colormap for slices"),
-    projection_colormap: str = Query("viridis", description="Colormap for projections")
+    projection_colormap: str = Query("viridis", description="Colormap for projections"),
+    augment: bool = Query(True, description="Apply augmentations"),
+    show_augmentations: bool = Query(False, description="Show augmentation stages"),
+    use_balanced_sampling: bool = Query(True, description="Use class balanced sampling"),
+    background_ratio: float = Query(0.2, description="Ratio of background samples"),
+    augmentation_prob: float = Query(0.5, description="Probability of applying augmentations")
 ):
     """
     Visualize tomogram samples from a CoPick dataset, showing central slices and average projections
@@ -152,20 +159,33 @@ async def visualize_tomograms(
             raise HTTPException(status_code=404, detail=f"No tomograms found for run {run_name} with voxel spacing {voxel_spacing} and type {tomo_type}")
         
         # Create the dataset
-        dataset = CopickDataset(
+        dataset = SimpleCopickDataset(
             copick_root=root,
             # config_path=config_path,
             boxsize=(box_size, box_size, box_size),
             voxel_spacing=voxel_spacing,
-            augment=True,
+            augment=augment,
             include_background=True,
-            background_ratio=0.2,
-            augmentation_prob=0.2,
+            background_ratio=background_ratio,
+            augmentation_prob=augmentation_prob,
             cache_dir="copick_torch_demo_cache"
         )
         
-        # Create a dataloader to get samples
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+        # Create a dataloader with optional class balanced sampling
+        if use_balanced_sampling:
+            # Create class-balanced sampler
+            labels = [dataset[i][1] for i in range(len(dataset))]
+            sampler = ClassBalancedSampler(
+                labels=labels,
+                num_samples=len(dataset),
+                replacement=True
+            )
+            dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler)
+        else:
+            dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+        
+        # Create mixup augmentation for visualization if requested
+        mixup = MixupAugmentation(alpha=0.2) if augment and show_augmentations else None
         
         # Generate visualization for each sample
         images_html = []
@@ -173,6 +193,24 @@ async def visualize_tomograms(
         try:
             # Try to get one batch
             batch = next(iter(dataloader))
+            
+            # If showing augmentation stages, apply mixup to half the batch
+            aug_samples = None
+            if show_augmentations and mixup is not None:
+                # Create a custom colormap for distinguishing original vs augmented
+                orig_cmap = plt.cm.get_cmap(slice_colormap)
+                aug_cmap = LinearSegmentedColormap.from_list(
+                    'aug_' + slice_colormap, 
+                    [(0, (0, 0.5, 0.5)), (0.5, (0, 0.7, 0.7)), (1, (0, 1, 1))]
+                )
+                
+                # Apply mixup to create augmented samples
+                half_batch = batch_size // 2
+                if half_batch > 0:
+                    half_inputs = batch[0][:half_batch].clone()
+                    half_labels = batch[1][:half_batch].clone()
+                    aug_inputs, aug_labels_a, aug_labels_b, aug_lambda = mixup(half_inputs, half_labels)
+                    aug_samples = (aug_inputs, aug_labels_a, aug_labels_b, aug_lambda)
             
             for i in range(min(batch_size, len(batch[0]))):
                 # Extract sample
@@ -214,9 +252,24 @@ async def visualize_tomograms(
                 axes[1, 2].imshow(avg_proj_x, cmap=projection_colormap)
                 axes[1, 2].set_title("Average X Projection")
                 
+                # Check if this is one of the augmented samples
+                is_augmented = (aug_samples is not None and i < len(aug_samples[0]))
+                
                 # Add a main title
-                class_label = "Background" if batch[1][i].item() == -1 else dataset.keys()[batch[1][i].item()]
-                fig.suptitle(f"Sample {i+1} - Class: {class_label}", fontsize=16)
+                if is_augmented:
+                    class_a = "Background" if aug_samples[1][i].item() == -1 else dataset.keys()[aug_samples[1][i].item()]
+                    class_b = "Background" if aug_samples[2][i].item() == -1 else dataset.keys()[aug_samples[2][i].item()]
+                    lam = aug_samples[3].item()
+                    fig.suptitle(f"Augmented Sample {i+1} - Class Mix: {class_a} ({lam:.2f}) + {class_b} ({1-lam:.2f})", fontsize=16)
+                else:
+                    class_label = "Background" if batch[1][i].item() == -1 else dataset.keys()[batch[1][i].item()]
+                    fig.suptitle(f"Sample {i+1} - Class: {class_label}", fontsize=16)
+                
+                # Add colorbar to show data range
+                for j in range(2):
+                    for k in range(3):
+                        plt.colorbar(ax=axes[j, k])
+                
                 plt.tight_layout()
                 
                 # Convert plot to base64 image
@@ -356,6 +409,11 @@ async def visualize_tomograms(
                 <p><strong>Tomogram Type:</strong> {tomo_type}</p>
                 <p><strong>Box Size:</strong> {box_size}</p>
                 <p><strong>Samples:</strong> {len(images_html)}</p>
+                <p><strong>Augmentations:</strong> {augment}</p>
+                <p><strong>Augmentation Probability:</strong> {augmentation_prob}</p>
+                <p><strong>Show Augmentations:</strong> {show_augmentations}</p>
+                <p><strong>Class Balanced Sampling:</strong> {use_balanced_sampling}</p>
+                <p><strong>Background Ratio:</strong> {background_ratio}</p>
                 <p><strong>Slice Colormap:</strong> {slice_colormap}</p>
                 <p><strong>Projection Colormap:</strong> {projection_colormap}</p>
             </div>
@@ -428,6 +486,8 @@ async def visualize_tomograms(
                 <p><strong>Run:</strong> {run_name or "Not specified"}</p>
                 <p><strong>Voxel Spacing:</strong> {voxel_spacing or "Not specified"}</p>
                 <p><strong>Tomogram Type:</strong> {tomo_type}</p>
+                <p><strong>Augmentations:</strong> {augment}</p>
+                <p><strong>Class Balanced Sampling:</strong> {use_balanced_sampling}</p>
             </div>
             <div class="error">
                 <h3>Error Details:</h3>
@@ -539,6 +599,8 @@ async def root():
         <div class="main-example">
             <p>Try the CZ cryoET Data Portal sample dataset:</p>
             <a href="/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp">View Dataset 10440 - Run 16463</a>
+            <br><br>
+            <a href="/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp&use_balanced_sampling=true&show_augmentations=true">View with Balanced Sampling & Augmentations</a>
         </div>
         
         <div class="endpoint">
@@ -573,9 +635,25 @@ async def root():
             <div class="param">
                 <code>projection_colormap</code>: Matplotlib colormap for projections (default: "viridis")
             </div>
+            <div class="param">
+                <code>augment</code>: Apply augmentations (default: true)
+            </div>
+            <div class="param">
+                <code>show_augmentations</code>: Show augmentation stages (default: false)
+            </div>
+            <div class="param">
+                <code>use_balanced_sampling</code>: Use class balanced sampling (default: true)
+            </div>
+            <div class="param">
+                <code>background_ratio</code>: Ratio of background samples (default: 0.2)
+            </div>
+            <div class="param">
+                <code>augmentation_prob</code>: Probability of applying augmentations (default: 0.5)
+            </div>
             <div class="example">
                 <p><strong>Example:</strong></p>
                 <p><a href="/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp">/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp</a></p>
+                <p><a href="/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp&use_balanced_sampling=true&show_augmentations=true">/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp&use_balanced_sampling=true&show_augmentations=true</a></p>
             </div>
         </div>
         
@@ -654,6 +732,7 @@ if __name__ == "__main__":
     print("Available endpoints:")
     print(f"  - http://{HOST}:{PORT}/ (Home page)")
     print(f"  - http://{HOST}:{PORT}/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp (Visualization)")
+    print(f"  - http://{HOST}:{PORT}/tomogram-viz?dataset_id=10440&overlay_root=/tmp/test/&run_name=16463&voxel_spacing=10.012&tomo_type=wbp&use_balanced_sampling=true&show_augmentations=true (With Balanced Sampling & Augmentations)")
     print("Press Ctrl+C to exit")
     
     # Start the server

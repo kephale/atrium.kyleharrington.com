@@ -68,7 +68,7 @@ if config_path is None:
 
 print(f"Using config file: {config_path}")
 
-# Create the FastAPI app using threaded server
+# Create the FastAPI app and start the server in a background thread
 app = serve_copick_threaded(
     config_path, 
     allowed_origins=["*"],
@@ -119,7 +119,7 @@ async def visualize_tomograms(
             if isinstance(batch, dict):
                 sample = batch['image'][i].cpu().numpy() if 'image' in batch else batch['volume'][i].cpu().numpy()
             else:
-                sample = batch[i].cpu().numpy()
+                sample = batch[i][0].cpu().numpy()  # Get volume from (volume, label) tuple
             
             # Ensure we have a 3D volume
             if len(sample.shape) == 4:
@@ -301,11 +301,13 @@ async def root():
     """
 
 if __name__ == "__main__":
-    # The server is already running in a background thread,
-    # so we just need to keep the main thread alive
+    # Server is already running in a background thread
     import time
+    print("Server is running on http://0.0.0.0:8000")
+    print("Press Ctrl+C to exit")
     try:
+        # Keep the main thread alive
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        print("Server stopped.")
+        print("Server shutting down...")

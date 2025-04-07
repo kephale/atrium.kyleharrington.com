@@ -19,7 +19,6 @@
 #     "matplotlib",
 #     "fastapi",
 #     "uvicorn",
-#     "cryoet-data-portal",
 #     "zarr<3",
 #     "numcodecs<0.16.0",  
 #     "copick>=0.8.0",
@@ -89,7 +88,6 @@ app.add_middleware(
 # Import from copick-torch
 import copick_torch
 from copick_torch.copick import CopickDataset
-from cryoet_data_portal import client as cryoet_client
 
 @app.get("/tomogram-viz", response_class=HTMLResponse)
 async def visualize_tomograms(
@@ -250,11 +248,11 @@ async def demo(
 ):
     """Demo endpoint that shows 25 examples from the Copick project with visualizations"""
     try:
-        # Get project information
+        # Get project information from Copick
         project_name = root.name
         project_description = root.description
         
-        # Get dataset ID if available
+        # Get dataset ID if available from Copick
         dataset_ids = getattr(root, 'dataset_ids', [])
         dataset_id_text = f"Dataset ID: {dataset_ids[0]}" if dataset_ids else ""
         

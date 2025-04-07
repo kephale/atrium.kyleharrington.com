@@ -158,9 +158,8 @@ async def visualize_tomograms(
             raise HTTPException(status_code=404, detail=f"No tomograms found for run {run_name} with voxel spacing {voxel_spacing} and type {tomo_type}")
         
         # Create the dataset
-        dataset = ExtendedCopickDataset(
+        dataset = SimpleCopickDataset(
             copick_root=root,
-            # config_path=config_path,
             boxsize=(box_size, box_size, box_size),
             voxel_spacing=voxel_spacing,
             augment=augment,
@@ -260,7 +259,13 @@ async def visualize_tomograms(
                     lam = aug_samples[3].item()
                     fig.suptitle(f"Augmented Sample {i+1} - Class Mix: {class_a} ({lam:.2f}) + {class_b} ({1-lam:.2f})", fontsize=16)
                 else:
-                    class_label = "Background" if batch[1][i].item() == -1 else dataset.keys()[batch[1][i].item()]
+                    # Handle the possibility of integer or dict label format
+                    if isinstance(batch[1][i], dict):
+                        class_idx = batch[1][i]['class_idx']
+                    else:
+                        class_idx = batch[1][i].item()
+                    
+                    class_label = "Background" if class_idx == -1 else dataset.keys()[class_idx]
                     fig.suptitle(f"Sample {i+1} - Class: {class_label}", fontsize=16)
                 
                 # Add colorbar to show data range
@@ -278,7 +283,12 @@ async def visualize_tomograms(
                 plt.close(fig)
                 
                 # Add to HTML
-                images_html.append(f'<div class="sample"><h2>Sample {i+1} - Class: {class_label}</h2><img src="data:image/png;base64,{img_data}" /></div>')
+                # Handle the possibility that class_label might not be defined yet
+                try:
+                    sample_title = f"Sample {i+1} - Class: {class_label}"
+                except NameError:
+                    sample_title = f"Sample {i+1}"
+                images_html.append(f'<div class="sample"><h2>{sample_title}</h2><img src="data:image/png;base64,{img_data}" /></div>')
         
         except StopIteration:
             # If batch creation failed, try to generate patches from the tomogram directly
@@ -288,8 +298,75 @@ async def visualize_tomograms(
             tomogram = tomograms[0]
             tomogram_array = tomogram.numpy()
             
-            # Extract patches using the grid_patches method
-            patches, coordinates = dataset.extract_grid_patches(
+            # Define an extract_grid_patches method since SimpleCopickDataset doesn't have one directly
+            def extract_grid_patches(tomogram_array, patch_size, overlap=0.25, normalize=True):
+                """Extract a grid of patches from a tomogram."""
+                # Validate parameters
+                if isinstance(patch_size, int):
+                    patch_size = (patch_size, patch_size, patch_size)
+                elif len(patch_size) != 3:
+                    raise ValueError("patch_size must be an integer or tuple of 3 integers")
+                    
+                if overlap < 0 or overlap >= 1:
+                    raise ValueError("overlap must be between 0 and 1")
+                
+                # Calculate stride (step size between patches)
+                stride_z = int(patch_size[0] * (1 - overlap))
+                stride_y = int(patch_size[1] * (1 - overlap))
+                stride_x = int(patch_size[2] * (1 - overlap))
+                
+                # Ensure stride is at least 1
+                stride_z = max(1, stride_z)
+                stride_y = max(1, stride_y)
+                stride_x = max(1, stride_x)
+                
+                # Calculate number of patches in each dimension
+                n_patches_z = 1 + (tomogram_array.shape[0] - patch_size[0]) // stride_z
+                n_patches_y = 1 + (tomogram_array.shape[1] - patch_size[1]) // stride_y
+                n_patches_x = 1 + (tomogram_array.shape[2] - patch_size[2]) // stride_x
+                
+                # Initialize results
+                patches = []
+                coordinates = []
+                
+                # Extract patches
+                for iz in range(n_patches_z):
+                    z_start = iz * stride_z
+                    z_end = z_start + patch_size[0]
+                    if z_end > tomogram_array.shape[0]:
+                        continue
+                        
+                    for iy in range(n_patches_y):
+                        y_start = iy * stride_y
+                        y_end = y_start + patch_size[1]
+                        if y_end > tomogram_array.shape[1]:
+                            continue
+                            
+                        for ix in range(n_patches_x):
+                            x_start = ix * stride_x
+                            x_end = x_start + patch_size[2]
+                            if x_end > tomogram_array.shape[2]:
+                                continue
+                                
+                            # Extract the patch
+                            patch = tomogram_array[z_start:z_end, y_start:y_end, x_start:x_end].copy()
+                            
+                            # Normalize if requested
+                            if normalize:
+                                # Center and scale to unit variance
+                                patch = (patch - np.mean(patch)) / (np.std(patch) + 1e-6)
+                                
+                            # Record patch and its center coordinates
+                            patches.append(patch)
+                            coordinates.append((z_start + patch_size[0]//2,
+                                             y_start + patch_size[1]//2,
+                                             x_start + patch_size[2]//2))
+                
+                print(f"Extracted {len(patches)} patches of size {patch_size} with {overlap:.2f} overlap")
+                return patches, coordinates
+                
+            # Extract patches using our helper function
+            patches, coordinates = extract_grid_patches(tomogram_array, box_size, overlap=0.5, normalize=True)
                 patch_size=box_size,
                 overlap=0.5,
                 normalize=True,

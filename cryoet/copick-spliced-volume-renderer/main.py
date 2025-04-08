@@ -313,12 +313,15 @@ def splice_volumes(synthetic_tomogram, synthetic_mask, exp_tomogram, bbox_info, 
         (x_min, y_min, z_min, x_max, y_max, z_max),
         # y and z swapped (y, z, x)
         (y_min, z_min, x_min, y_max, z_max, x_max),
+        # All axes swapped (x, z, y)
+        (x_min, z_min, y_min, x_max, z_max, y_max),
+        # y and x swapped (z, x, y)
+        (z_min, x_min, y_min, z_max, x_max, y_max),
+        # Complete permutation (y, x, z)
+        (y_min, x_min, z_min, y_max, x_max, z_max),
     ]
     
-    best_synth_region = None
-    best_match_score = -float('inf')
-    best_coords = None
-    best_order_name = None
+    order_names = ['(z,y,x)', '(x,y,z)', '(y,z,x)', '(x,z,y)', '(z,x,y)', '(y,x,z)']
     
     # Test each coordinate order and find the best match
     for idx, (min1, min2, min3, max1, max2, max3) in enumerate(coordinate_orders):

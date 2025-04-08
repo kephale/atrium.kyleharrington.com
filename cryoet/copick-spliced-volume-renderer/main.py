@@ -52,7 +52,7 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def load_copick_datasets(exp_dataset_id, synth_dataset_id, overlay_root="/tmp/test/"):
+def load_copick_datasets(exp_dataset_id, synth_dataset_id, overlay_root="/tmp/test/", synth_run_id=None):
     """
     Load the experimental and synthetic CoPick datasets.
     
@@ -60,6 +60,7 @@ def load_copick_datasets(exp_dataset_id, synth_dataset_id, overlay_root="/tmp/te
         exp_dataset_id: Dataset ID for the experimental dataset
         synth_dataset_id: Dataset ID for the synthetic dataset
         overlay_root: Root directory for the overlay storage
+        synth_run_id: Specific run ID to use for synthetic data (optional)
         
     Returns:
         Tuple of (experimental_root, synthetic_root)
@@ -70,6 +71,19 @@ def load_copick_datasets(exp_dataset_id, synth_dataset_id, overlay_root="/tmp/te
     
     logger.info(f"Experimental dataset: {len(exp_root.runs)} runs")
     logger.info(f"Synthetic dataset: {len(synth_root.runs)} runs")
+    
+    # Filter synthetic dataset to only include the specified run if provided
+    if synth_run_id:
+        logger.info(f"Filtering synthetic dataset to only use run {synth_run_id}")
+        # Find the specified run
+        filtered_runs = [run for run in synth_root.runs if run.meta.name == synth_run_id]
+        if filtered_runs:
+            # Create a new synthetic root with only the specified run
+            filtered_root = copick.models.CopickRoot(runs=filtered_runs, config=synth_root.config)
+            logger.info(f"Using synthetic run {synth_run_id} with {len(filtered_root.runs)} runs")
+            return exp_root, filtered_root
+        else:
+            logger.warning(f"Run {synth_run_id} not found in synthetic dataset. Using all available runs.")
     
     return exp_root, synth_root
 
@@ -556,7 +570,8 @@ def main(args):
     exp_root, synth_root = load_copick_datasets(
         args.exp_dataset_id, 
         args.synth_dataset_id,
-        overlay_root=args.overlay_root
+        overlay_root=args.overlay_root,
+        synth_run_id=args.synth_run_id
     )
     
     # Get tomograms from both datasets
@@ -742,6 +757,8 @@ if __name__ == "__main__":
                         help="Dataset ID for experimental data")
     parser.add_argument("--synth-dataset-id", type=int, default=10441,
                         help="Dataset ID for synthetic data with segmentation masks")
+    parser.add_argument("--synth-run-id", type=str, default="16487",
+                        help="Specific run ID to use for synthetic data (default: 16487)")
     parser.add_argument("--overlay-root", type=str, default="/tmp/test/",
                         help="Root directory for overlay storage")
     

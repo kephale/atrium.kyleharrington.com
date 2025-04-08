@@ -3,7 +3,7 @@
 # description = "A FastAPI server that extends copick-server to provide visualization of tomogram samples."
 # author = "Kyle Harrington <czi@kyleharrington.com>"
 # license = "MIT"
-# version = "0.0.6"
+# version = "0.0.7"
 # keywords = ["tomogram", "visualization", "fastapi", "copick", "server"]
 # classifiers = [
 #     "Development Status :: 3 - Alpha",
@@ -509,11 +509,33 @@ async def visualize_tomograms(
                 else:
                     batch_class_distribution[class_name] = 1
             
+            # If we have augmentation with mixup, also count the mixed classes
+            if aug_samples is not None:
+                for i in range(len(aug_samples[1])):
+                    # Class A
+                    class_idx_a = aug_samples[1][i].item()
+                    class_name_a = "background" if class_idx_a == -1 else dataset.keys()[class_idx_a]
+                    
+                    # Class B
+                    class_idx_b = aug_samples[2][i].item()
+                    class_name_b = "background" if class_idx_b == -1 else dataset.keys()[class_idx_b]
+                    
+                    # Count both classes (we visualize both in the mixup)
+                    for class_name in [class_name_a, class_name_b]:
+                        if class_name in batch_class_distribution:
+                            batch_class_distribution[class_name] += 0.5  # Count as half since it's mixed
+                        else:
+                            batch_class_distribution[class_name] = 0.5
+                
+                # Round the counts for display
+                for cls in batch_class_distribution:
+                    batch_class_distribution[cls] = round(batch_class_distribution[cls])
+            
             # Add note that this is the batch distribution, not the full dataset
             if batch_class_distribution:
                 class_distribution = batch_class_distribution
-                class_dist_html = '<p><em>Showing distribution of current batch (with balanced sampling):</em></p><ul>' + \
-                    ''.join([f'<li><strong>{cls}:</strong> {count} samples</li>' for cls, count in class_distribution.items()]) + \
+                class_dist_html = '<p><em>Showing combined class distribution of current batch, including augmentations:</em></p><ul>' + \
+                    ''.join([f'<li><strong>{cls}:</strong> {count} samples</li>' for cls, count in sorted(class_distribution.items())]) + \
                     '</ul>'
             else:
                 # Make sure all detected classes are in the distribution
@@ -521,14 +543,14 @@ async def visualize_tomograms(
                     if obj_name not in class_distribution:
                         class_distribution[obj_name] = 0
                 class_dist_html = '<p><em>Showing distribution of full dataset:</em></p><ul>' + \
-                    ''.join([f'<li><strong>{cls}:</strong> {count} samples</li>' for cls, count in class_distribution.items()]) + \
+                    ''.join([f'<li><strong>{cls}:</strong> {count} samples</li>' for cls, count in sorted(class_distribution.items())]) + \
                     '</ul>'
         else:
             # Make sure all detected classes are in the distribution
             for obj_name in available_objects:
                 if obj_name not in class_distribution:
                     class_distribution[obj_name] = 0
-            class_dist_html = '<ul>' + ''.join([f'<li><strong>{cls}:</strong> {count} samples</li>' for cls, count in class_distribution.items()]) + '</ul>'
+            class_dist_html = '<ul>' + ''.join([f'<li><strong>{cls}:</strong> {count} samples</li>' for cls, count in sorted(class_distribution.items())]) + '</ul>'
         
         # Create HTML page
         html_content = f"""

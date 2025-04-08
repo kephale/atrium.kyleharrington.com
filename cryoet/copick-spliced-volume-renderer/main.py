@@ -517,7 +517,7 @@ def main(args):
         mask_data = mask_zarr["data" if "data" in mask_zarr else "0"][:]
         
         # Extract bounding boxes for structures in the mask
-        bboxes = extract_bounding_boxes(mask_data, min_size=args.min_structure_size)
+        bboxes = extract_bounding_boxes(mask_data, min_size=args.min_structure_size, box_size=48)
         
         if not bboxes:
             logger.warning(f"No structures found in mask {mask_name} larger than {args.min_structure_size} voxels")

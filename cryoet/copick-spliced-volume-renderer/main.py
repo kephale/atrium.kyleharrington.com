@@ -18,7 +18,7 @@
 #     "numpy",
 #     "matplotlib",
 #     "scipy",
-#     "copick>=0.8.0",
+#     "copick @ git+https://github.com/copick/copick",
 #     "zarr<3",
 #     "numcodecs<0.16.0",
 #     "tqdm",
@@ -345,223 +345,6 @@ def render_orthogonal_views(volume_data, title=None, savepath=None, colormap='vi
     else:
         plt.show()
 
-def main(args):
-    # Create output directory
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Load the experimental and synthetic datasets
-    exp_root, synth_root = load_copick_datasets(
-        args.exp_dataset_id, 
-        args.synth_dataset_id,
-        overlay_root=args.overlay_root
-    )
-    
-    # Get tomograms from both datasets
-    exp_tomograms = get_available_tomograms(exp_root, args.voxel_spacing, args.tomo_type)
-    synth_tomograms = get_available_tomograms(synth_root, args.voxel_spacing, args.tomo_type)
-    
-    if not exp_tomograms:
-        raise ValueError(f"No experimental tomograms found with voxel spacing {args.voxel_spacing}")
-    
-    if not synth_tomograms:
-        raise ValueError(f"No synthetic tomograms found with voxel spacing {args.voxel_spacing}")
-    
-    # Get segmentation masks from synthetic dataset
-    logger.info("Getting segmentation masks from synthetic dataset")
-    segmentation_masks = get_segmentation_masks(synth_root, args.voxel_spacing)
-    
-    if not segmentation_masks:
-        raise ValueError(f"No segmentation masks found in synthetic dataset with voxel spacing {args.voxel_spacing}")
-    
-    # Process each segmentation mask to extract structures and splice them into experimental data
-    results = []
-    
-    # Limit to the specified number of examples
-    num_examples = min(args.num_examples, len(segmentation_masks))
-    
-    # Select random segmentation masks if there are more than we need
-    selected_masks = list(segmentation_masks.items())
-    if len(selected_masks) > num_examples:
-        selected_masks = random.sample(selected_masks, num_examples)
-    
-    for mask_name, mask_obj in tqdm(selected_masks, desc="Processing masks"):
-        logger.info(f"Processing mask: {mask_name}")
-        
-        # Access the mask data
-        mask_zarr = zarr.open(mask_obj.zarr().path, "r")
-        mask_data = mask_zarr["data" if "data" in mask_zarr else "0"][:]
-        
-        # Extract bounding boxes for structures in the mask
-        bboxes = extract_bounding_boxes(mask_data, min_size=args.min_structure_size)
-        
-        if not bboxes:
-            logger.warning(f"No structures found in mask {mask_name} larger than {args.min_structure_size} voxels")
-            continue
-        
-        # Select a random synthetic tomogram
-        synth_tomogram_obj = random.choice(synth_tomograms)
-        synth_zarr = zarr.open(synth_tomogram_obj.zarr().path, "r")
-        synth_data = synth_zarr["0"][:]
-        
-        # Select a random experimental tomogram
-        exp_tomogram_obj = random.choice(exp_tomograms)
-        exp_zarr = zarr.open(exp_tomogram_obj.zarr().path, "r")
-        exp_data = exp_zarr["0"][:]
-        
-        # Normalize tomogram data
-        synth_data = (synth_data - np.mean(synth_data)) / np.std(synth_data)
-        exp_data = (exp_data - np.mean(exp_data)) / np.std(exp_data)
-        
-        # Process each bounding box
-        for i, bbox in enumerate(bboxes):
-            # Only process a limited number of structures per mask
-            if i >= args.structures_per_mask:
-                break
-            
-            # Splice the structure into experimental data
-            spliced_volume, metadata = splice_volumes(
-                synth_data, mask_data, exp_data, bbox, blend_sigma=args.blend_sigma
-            )
-            
-            # Save the result information
-            result_info = {
-                'mask_name': mask_name,
-                'bbox_idx': i,
-                'bbox_center': bbox['center'],
-                'spliced_volume': spliced_volume,
-                'metadata': metadata
-            }
-            
-            results.append(result_info)
-            
-            # Render and save comparison views
-            title = f"Spliced Structure: {mask_name} (Structure {i+1})"
-            savepath = output_dir / f"{mask_name}_structure_{i+1}_comparison.png"
-            
-            render_comparison_views(
-                metadata['exp_crop'],
-                spliced_volume,
-                metadata,
-                title=title,
-                savepath=savepath,
-                colormap=args.colormap
-            )
-            
-            # Optionally, save the volumes for further analysis
-            if args.save_volumes:
-                # Save spliced volume
-                np.save(output_dir / f"{mask_name}_structure_{i+1}_spliced.npy", spliced_volume)
-                
-                # Save original experimental crop
-                np.save(output_dir / f"{mask_name}_structure_{i+1}_experimental.npy", metadata['exp_crop'])
-                
-                # Save synthetic region
-                np.save(output_dir / f"{mask_name}_structure_{i+1}_synthetic.npy", metadata['synth_region'])
-                
-                # Save mask
-                np.save(output_dir / f"{mask_name}_structure_{i+1}_mask.npy", metadata['mask'])
-    
-    # Create summary HTML file with links to all images
-    if results:
-        logger.info(f"Created {len(results)} spliced volumes")
-        logger.info(f"Results saved to {output_dir}")
-        
-        # Create summary HTML file with links to all images
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Spliced Volume Results</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; margin: 20px; }}
-                h1 {{ color: #2c3e50; }}
-                .result {{ 
-                    margin: 20px 0; 
-                    padding: 15px;
-                    border: 1px solid #ddd;
-                    border-radius: 8px;
-                }}
-                img {{ max-width: 100%; height: auto; }}
-                .metadata {{ 
-                    background-color: #f8f9fa;
-                    padding: 10px;
-                    border-radius: 5px;
-                    margin-top: 10px;
-                    font-family: monospace;
-                }}
-            </style>
-        </head>
-        <body>
-            <h1>Spliced Volume Results</h1>
-            <p>Generated {len(results)} spliced volumes from synthetic dataset {args.synth_dataset_id} to experimental dataset {args.exp_dataset_id}</p>
-        """
-        
-        for i, result in enumerate(results):
-            img_path = f"{result['mask_name']}_structure_{result['bbox_idx']+1}_comparison.png"
-            center_coords = ", ".join([f"{c:.1f}" for c in result['bbox_center']])
-            
-            html_content += f"""
-            <div class="result">
-                <h2>Result {i+1}: {result['mask_name']} (Structure {result['bbox_idx']+1})</h2>
-                <div class="metadata">
-                    <p>Center coordinates: ({center_coords})</p>
-                </div>
-                <img src="{img_path}" alt="Comparison view">
-            </div>
-            """
-        
-        html_content += """
-        </body>
-        </html>
-        """
-        
-        with open(output_dir / "results.html", "w") as f:
-            f.write(html_content)
-        
-        logger.info(f"Summary HTML saved to {output_dir / 'results.html'}")
-    else:
-        logger.warning("No results were generated")
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Render orthogonal views of spliced 3D volumes from CryoET data")
-    
-    # Dataset parameters
-    parser.add_argument("--exp-dataset-id", type=int, default=10440,
-                        help="Dataset ID for experimental data")
-    parser.add_argument("--synth-dataset-id", type=int, default=10441,
-                        help="Dataset ID for synthetic data with segmentation masks")
-    parser.add_argument("--overlay-root", type=str, default="/tmp/test/",
-                        help="Root directory for overlay storage")
-    
-    # Volume parameters
-    parser.add_argument("--voxel-spacing", type=float, default=10.0,
-                        help="Target voxel spacing for tomograms")
-    parser.add_argument("--tomo-type", type=str, default="wbp",
-                        help="Tomogram type to use")
-    
-    # Processing parameters
-    parser.add_argument("--num-examples", type=int, default=5,
-                        help="Number of example pairs to create")
-    parser.add_argument("--structures-per-mask", type=int, default=1,
-                        help="Number of structures to extract per mask")
-    parser.add_argument("--min-structure-size", type=int, default=500,
-                        help="Minimum structure size in voxels")
-    parser.add_argument("--blend-sigma", type=float, default=2.0,
-                        help="Sigma for Gaussian blending at boundaries")
-    
-    # Output parameters
-    parser.add_argument("--output-dir", type=str, default="./spliced_volumes",
-                        help="Directory to save output files")
-    parser.add_argument("--colormap", type=str, default="viridis",
-                        help="Matplotlib colormap for rendering")
-    parser.add_argument("--save-volumes", action="store_true",
-                        help="Save volume data as numpy arrays")
-    
-    args = parser.parse_args()
-    
-    main(args)
-
 def render_comparison_views(original, spliced, metadata, title=None, savepath=None, colormap='viridis'):
     """
     Render comparison views between original experimental data and spliced volume.
@@ -689,7 +472,7 @@ def main(args):
         logger.info(f"Processing mask: {mask_name}")
         
         # Access the mask data
-        mask_zarr = zarr.open(mask_obj.zarr().path, "r")
+        mask_zarr = zarr.open(mask_obj.zarr(), "r")
         mask_data = mask_zarr["data" if "data" in mask_zarr else "0"][:]
         
         # Extract bounding boxes for structures in the mask
@@ -701,12 +484,12 @@ def main(args):
         
         # Select a random synthetic tomogram
         synth_tomogram_obj = random.choice(synth_tomograms)
-        synth_zarr = zarr.open(synth_tomogram_obj.zarr().path, "r")
+        synth_zarr = zarr.open(synth_tomogram_obj.zarr(), "r")
         synth_data = synth_zarr["0"][:]
         
         # Select a random experimental tomogram
         exp_tomogram_obj = random.choice(exp_tomograms)
-        exp_zarr = zarr.open(exp_tomogram_obj.zarr().path, "r")
+        exp_zarr = zarr.open(exp_tomogram_obj.zarr(), "r")
         exp_data = exp_zarr["0"][:]
         
         # Normalize tomogram data

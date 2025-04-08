@@ -610,15 +610,19 @@ def main(args):
         synth_tomogram_obj = random.choice(synth_tomograms)
         synth_zarr = zarr.open(synth_tomogram_obj.zarr(), "r")
         synth_data = synth_zarr["0"][:]
+        logger.info(f"Synthetic tomogram shape: {synth_data.shape}")
         
         # Select a random experimental tomogram
         exp_tomogram_obj = random.choice(exp_tomograms)
         exp_zarr = zarr.open(exp_tomogram_obj.zarr(), "r")
         exp_data = exp_zarr["0"][:]
+        logger.info(f"Experimental tomogram shape: {exp_data.shape}")
         
         # Normalize tomogram data
         synth_data = (synth_data - np.mean(synth_data)) / np.std(synth_data)
         exp_data = (exp_data - np.mean(exp_data)) / np.std(exp_data)
+        logger.info(f"Normalized synthetic tomogram range: [{np.min(synth_data):.2f}, {np.max(synth_data):.2f}]")
+        logger.info(f"Normalized experimental tomogram range: [{np.min(exp_data):.2f}, {np.max(exp_data):.2f}]")
         
         # Process each bounding box
         for i, bbox in enumerate(bboxes):

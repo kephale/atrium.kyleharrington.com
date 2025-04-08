@@ -193,20 +193,29 @@ async def visualize_tomograms(
             # Check a sample to see if indexing works as expected
             if len(dataset) > 0:
                 print(f"Dataset has {len(dataset)} samples")
-                try:
-                    sample_idx = min(5, len(dataset)-1)
-                    sample, label = dataset[sample_idx]
-                    print(f"Sample shape: {sample.shape}, Label: {label}")
-                    
-                    # Check if label makes sense
-                    if isinstance(label, dict):
-                        class_idx = label['class_idx']
-                    else:
-                        class_idx = label.item() if hasattr(label, 'item') else label
-                    
-                    print(f"Class index: {class_idx}, Keys length: {len(dataset.keys())}")
-                except Exception as e:
-                    print(f"Error inspecting dataset sample: {str(e)}")
+                # Check several samples to see if class indices are consistent
+                for sample_idx in range(min(10, len(dataset))):
+                    try:
+                        sample, label = dataset[sample_idx]
+                        print(f"Sample {sample_idx} - Shape: {sample.shape}")
+                        
+                        # Check if label makes sense
+                        if isinstance(label, dict):
+                            class_idx = label['class_idx']
+                        else:
+                            class_idx = label.item() if hasattr(label, 'item') else label
+                        
+                        # Get class name for this index
+                        if class_idx == -1:
+                            class_name = "background"
+                        elif class_idx >= 0 and class_idx < len(dataset.keys()):
+                            class_name = dataset.keys()[class_idx]
+                        else:
+                            class_name = f"unknown-class-{class_idx}"
+                        
+                        print(f"Sample {sample_idx} - Class index: {class_idx}, Class name: {class_name}")
+                    except Exception as e:
+                        print(f"Error inspecting dataset sample {sample_idx}: {str(e)}")
             else:
                 print("Warning: Dataset is empty!")
                 
@@ -225,8 +234,11 @@ async def visualize_tomograms(
                 dataset._keys.append(obj_name)
                 print(f"Added missing class: {obj_name}")
         
+        # Remove duplicate keys (which can happen if the dataset wasn't cleaned properly)
+        dataset._keys = list(dict.fromkeys(dataset._keys))
+        
         # Log the full list of registered keys for debugging
-        print(f"Full list of registered class keys: {dataset._keys}")
+        print(f"Full list of registered class keys ({len(dataset._keys)} unique classes): {dataset._keys}")
         
         # Create a dataloader with optional class balanced sampling
         if use_balanced_sampling:
@@ -234,17 +246,36 @@ async def visualize_tomograms(
             labels = [dataset[i][1] for i in range(len(dataset))]
             # Print label distribution for debugging
             label_counts = {}
-            for label in labels:
+            class_name_counts = {}
+            for i, label in enumerate(labels):
                 if isinstance(label, dict):
                     label_val = label['class_idx']
                 else:
                     label_val = label.item() if hasattr(label, 'item') else label
                 
+                # Count by numeric index
                 if label_val not in label_counts:
                     label_counts[label_val] = 0
                 label_counts[label_val] += 1
+                
+                # Also count by class name for better debugging
+                if label_val == -1:
+                    class_name = "background"
+                elif label_val >= 0 and label_val < len(dataset.keys()):
+                    class_name = dataset.keys()[label_val]
+                else:
+                    class_name = f"unknown-class-{label_val}"
+                
+                if class_name not in class_name_counts:
+                    class_name_counts[class_name] = 0
+                class_name_counts[class_name] += 1
+                
+                # Print every 100th sample for debugging
+                if i % 100 == 0:
+                    print(f"Sample {i} - Class index: {label_val}, Class name: {class_name}")
             
-            print(f"Label distribution before sampling: {label_counts}")
+            print(f"Label distribution by index before sampling: {label_counts}")
+            print(f"Label distribution by class name before sampling: {class_name_counts}")
             
             sampler = ClassBalancedSampler(
                 labels=labels,
@@ -342,7 +373,7 @@ async def visualize_tomograms(
                 lam = None
                 
                 # Get the keys for class lookup
-                keys = dataset.keys()
+                keys = dataset.keys() if hasattr(dataset, 'keys') else []
                 
                 if aug_samples is not None and i < len(aug_samples[0]):
                     is_augmented = True
@@ -351,18 +382,20 @@ async def visualize_tomograms(
                     
                     # Fix for class label resolution
                     if class_idx_a == -1:
-                        class_a = "Background"
-                    elif class_idx_a < len(keys):
+                        class_a = "background"
+                    elif class_idx_a >= 0 and class_idx_a < len(keys):
                         class_a = keys[class_idx_a]
                     else:
-                        class_a = f"Unknown (idx={class_idx_a})"
+                        class_a = f"unknown (idx={class_idx_a})"
                         
                     if class_idx_b == -1:
-                        class_b = "Background"
-                    elif class_idx_b < len(keys):
+                        class_b = "background"
+                    elif class_idx_b >= 0 and class_idx_b < len(keys):
                         class_b = keys[class_idx_b]
                     else:
-                        class_b = f"Unknown (idx={class_idx_b})"
+                        class_b = f"unknown (idx={class_idx_b})"
+                        
+                    print(f"Augmented sample {i}: Class A idx={class_idx_a} ({class_a}), Class B idx={class_idx_b} ({class_b}), λ={lam:.2f}")
                     # Access lambda value - ensure it's an indexed tensor or a float
                     if hasattr(aug_samples[3], 'shape') and len(aug_samples[3].shape) > 0:
                         lam = aug_samples[3][i].item()
@@ -382,11 +415,13 @@ async def visualize_tomograms(
                     # Fix for class label resolution - ensure we're using the actual keys array
                     keys = dataset.keys()
                     if class_idx == -1:
-                        class_label = "Background"
-                    elif class_idx < len(keys):
+                        class_label = "background"
+                    elif class_idx >= 0 and class_idx < len(keys):
                         class_label = keys[class_idx]
                     else:
-                        class_label = f"Unknown (idx={class_idx})"
+                        class_label = f"unknown (idx={class_idx})"
+                        
+                    print(f"Regular sample {i}: Class idx={class_idx} ({class_label})")
                     fig.suptitle(f"Sample {i+1} - Class: {class_label}", fontsize=16)
                 
                 # Add colorbar to show data range
@@ -579,7 +614,8 @@ async def visualize_tomograms(
             print(f"Error getting class distribution: {str(e)}")
             # Create a manual class distribution based on available objects
             class_distribution = {obj: 0 for obj in available_objects}
-            class_distribution["background"] = 0
+            if "background" not in class_distribution:
+                class_distribution["background"] = 0
             
         # Add a function to build class distribution HTML that's robust to errors
         def get_class_distribution_html(distribution, available_objects=None):
@@ -592,6 +628,9 @@ async def visualize_tomograms(
             elif distribution:
                 # Normal case with distribution
                 html = '<ul>'
+                # Ensure consistent capitalization for 'background'
+                distribution = {cls.lower() if cls.lower() == 'background' else cls: count 
+                               for cls, count in distribution.items()}
                 html += ''.join([f'<li><strong>{cls}:</strong> {count} samples</li>' 
                                for cls, count in sorted(distribution.items())])
                 html += '</ul>'
@@ -605,7 +644,7 @@ async def visualize_tomograms(
             batch_class_distribution = {}
             
             # Count the frequency of each class in the batch
-            keys = dataset.keys()
+            keys = dataset.keys() if hasattr(dataset, 'keys') else []
             for i in range(len(batch[1])):
                 if isinstance(batch[1][i], dict):
                     class_idx = batch[1][i]['class_idx']
@@ -615,10 +654,12 @@ async def visualize_tomograms(
                 # Fix for class label resolution
                 if class_idx == -1:
                     class_name = "background"
-                elif class_idx < len(keys):
+                elif class_idx >= 0 and class_idx < len(keys):
                     class_name = keys[class_idx]
                 else:
                     class_name = f"unknown-class-{class_idx}"
+                    
+                print(f"Class distribution: Added {class_name} (class_idx={class_idx})")
                 
                 if class_name in batch_class_distribution:
                     batch_class_distribution[class_name] += 1
@@ -632,7 +673,7 @@ async def visualize_tomograms(
                     class_idx_a = aug_samples[1][i].item()
                     if class_idx_a == -1:
                         class_name_a = "background"
-                    elif class_idx_a < len(keys):
+                    elif class_idx_a >= 0 and class_idx_a < len(keys):
                         class_name_a = keys[class_idx_a]
                     else:
                         class_name_a = f"unknown-class-{class_idx_a}"
@@ -641,10 +682,18 @@ async def visualize_tomograms(
                     class_idx_b = aug_samples[2][i].item()
                     if class_idx_b == -1:
                         class_name_b = "background"
-                    elif class_idx_b < len(keys):
+                    elif class_idx_b >= 0 and class_idx_b < len(keys):
                         class_name_b = keys[class_idx_b]
                     else:
                         class_name_b = f"unknown-class-{class_idx_b}"
+                        
+                    # Get lambda value for these samples
+                    if hasattr(aug_samples[3], 'shape') and len(aug_samples[3].shape) > 0:
+                        lam = aug_samples[3][i].item()
+                    else:
+                        lam = float(aug_samples[3])
+                    
+                    print(f"Class distribution: Added {class_name_a} (λ={lam:.2f}) and {class_name_b} (λ={1-lam:.2f})")
                     
                     # Count both classes (we visualize both in the mixup)
                     for class_name in [class_name_a, class_name_b]:
@@ -743,7 +792,8 @@ async def visualize_tomograms(
                 <p><strong>Slice Colormap:</strong> {slice_colormap}</p>
                 <p><strong>Projection Colormap:</strong> {projection_colormap}</p>
                 <p><strong>Dataset Size:</strong> {len(dataset) if 'dataset' in locals() else 'Unknown'}</p>
-                <p><strong>Registered Classes:</strong> {', '.join(dataset.keys()) if 'dataset' in locals() else 'Unknown'}</p>
+                <p><strong>Registered Classes:</strong> {', '.join(sorted(set(dataset.keys()))) if 'dataset' in locals() and hasattr(dataset, 'keys') else 'Unknown'}</p>
+                <p><strong>Total Unique Classes:</strong> {len(set(dataset.keys())) if 'dataset' in locals() and hasattr(dataset, 'keys') else 'Unknown'}</p>
             </div>
             <div class="class-distribution">
                 <h3>Class Distribution:</h3>

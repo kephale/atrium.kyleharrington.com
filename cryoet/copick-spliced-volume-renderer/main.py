@@ -294,25 +294,65 @@ def splice_volumes(synthetic_tomogram, synthetic_mask, exp_tomogram, bbox_info, 
     z_min, y_min, x_min, z_max, y_max, x_max = bbox_info['bbox']
     region_mask = bbox_info['region_mask']
     
-    logger.info(f"Extracting synthetic region with bbox: ({z_min}, {y_min}, {x_min}) to ({z_max}, {y_max}, {x_max})")
-    logger.info(f"Expected shape: ({z_max - z_min}, {y_max - y_min}, {x_max - x_min})")
-    logger.info(f"Mask shape: {region_mask.shape}")
+    logger.info(f"Original bbox coords: z({z_min}:{z_max}), y({y_min}:{y_max}), x({x_min}:{x_max})")
     
-    # Extract the region from the synthetic tomogram
-    try:
-        synth_region = synthetic_tomogram[z_min:z_max, y_min:y_max, x_min:x_max].copy()
-        logger.info(f"Extracted synthetic region with shape: {synth_region.shape}")
+    # Try different coordinate orders to fix possible axis swaps
+    # The original order is (z, y, x) but we'll try different permutations
+    coordinate_orders = [
+        # Original order (z, y, x)
+        (z_min, y_min, x_min, z_max, y_max, x_max),
+        # x and z swapped (x, y, z)
+        (x_min, y_min, z_min, x_max, y_max, z_max),
+        # y and z swapped (y, z, x)
+        (y_min, z_min, x_min, y_max, z_max, x_max),
+    ]
+    
+    best_synth_region = None
+    best_match_score = -float('inf')
+    best_coords = None
+    best_order_name = None
+    
+    # Test each coordinate order and find the best match
+    for idx, (min1, min2, min3, max1, max2, max3) in enumerate(coordinate_orders):
+        order_name = ['(z,y,x)', '(x,y,z)', '(y,z,x)'][idx]
+        logger.info(f"Trying coordinate order {order_name}: ({min1}:{max1}, {min2}:{max2}, {min3}:{max3})")
         
-        if synth_region.shape != region_mask.shape:
-            logger.warning(f"Shape mismatch: Synthetic region {synth_region.shape} vs mask {region_mask.shape}")
-            # Resize the region to match the mask if needed
-            synth_region = resize(synth_region, region_mask.shape, mode='reflect', anti_aliasing=True)
-            logger.info(f"Resized synthetic region to {synth_region.shape}")
-    except Exception as e:
-        logger.error(f"Error extracting synthetic region: {e}")
-        # Extract a valid region from the tomogram and resize it
-        logger.info(f"Synthetic tomogram shape: {synthetic_tomogram.shape}")
-        
+        try:
+            # Check if the coordinates are valid
+            if min1 < 0 or min2 < 0 or min3 < 0 or \
+               max1 > synthetic_tomogram.shape[0] or \
+               max2 > synthetic_tomogram.shape[1] or \
+               max3 > synthetic_tomogram.shape[2]:
+                logger.warning(f"Coordinates out of bounds for order {order_name}")
+                continue
+                
+            # Extract region with this coordinate order
+            synth_region = synthetic_tomogram[min1:max1, min2:max2, min3:max3].copy()
+            
+            # Skip if shapes don't match
+            if synth_region.shape != region_mask.shape:
+                logger.warning(f"Shape mismatch for order {order_name}: {synth_region.shape} vs {region_mask.shape}")
+                continue
+            
+            # Compute a match score (correlation between mask and synthetic data)
+            masked_synth = synth_region * region_mask.astype(float)
+            match_score = np.mean(masked_synth) / (np.std(masked_synth) + 1e-8)
+            
+            logger.info(f"Order {order_name} - Shape: {synth_region.shape}, Score: {match_score:.4f}")
+            
+            # Update best match if this is better
+            if match_score > best_match_score:
+                best_match_score = match_score
+                best_synth_region = synth_region
+                best_coords = (min1, min2, min3, max1, max2, max3)
+                best_order_name = order_name
+                
+        except Exception as e:
+            logger.error(f"Error with coordinate order {order_name}: {e}")
+    
+    # If we couldn't find a good match, use a fallback strategy
+    if best_synth_region is None:
+        logger.warning("No valid coordinate ordering found, using fallback strategy")
         # Extract center region from synthetic tomogram
         sz, sy, sx = synthetic_tomogram.shape
         center_z, center_y, center_x = sz//2, sy//2, sx//2
@@ -327,31 +367,33 @@ def splice_volumes(synthetic_tomogram, synthetic_mask, exp_tomogram, bbox_info, 
         safe_x_min = max(0, center_x - half_size)
         safe_x_max = min(sx, center_x + half_size)
         
-        synth_region = synthetic_tomogram[safe_z_min:safe_z_max, safe_y_min:safe_y_max, safe_x_min:safe_x_max].copy()
+        best_synth_region = synthetic_tomogram[safe_z_min:safe_z_max, safe_y_min:safe_y_max, safe_x_min:safe_x_max].copy()
+        best_coords = (safe_z_min, safe_y_min, safe_x_min, safe_z_max, safe_y_max, safe_x_max)
+        best_order_name = "fallback"
         
         # Resize to match mask if needed
-        if synth_region.shape != region_mask.shape:
-            synth_region = resize(synth_region, region_mask.shape, mode='reflect', anti_aliasing=True)
-        
-        logger.info(f"Using fallback synthetic region with shape: {synth_region.shape}")
+        if best_synth_region.shape != region_mask.shape:
+            best_synth_region = resize(best_synth_region, region_mask.shape, mode='reflect', anti_aliasing=True)
+    
+    logger.info(f"Selected coordinate order: {best_order_name} with coords {best_coords}")
+    logger.info(f"Final synthetic region shape: {best_synth_region.shape}, mask shape: {region_mask.shape}")
     
     # Extract corresponding region from experimental tomogram with matching shape
     exp_crop = extract_random_crop(exp_tomogram, region_mask.shape)
-    logger.info(f"Extracted experimental crop with shape: {exp_crop.shape}")
     
     # Create a spliced volume by starting with the experimental crop
     spliced_volume = exp_crop.copy()
     
     # Create a debug synthetic region that only shows the masked parts
-    masked_synth = synth_region.copy()
+    masked_synth = best_synth_region.copy()
     masked_synth[~region_mask] = 0  # Zero out non-mask areas for debug visualization
     
     # Save the masked synthetic region for debug purposes
     debug_mask_only = np.zeros_like(masked_synth)
-    debug_mask_only[region_mask] = synth_region[region_mask]
+    debug_mask_only[region_mask] = best_synth_region[region_mask]
     
     # Replace the masked region with synthetic data
-    spliced_volume[region_mask] = synth_region[region_mask]
+    spliced_volume[region_mask] = best_synth_region[region_mask]
     
     # Apply Gaussian weight blending at the boundary for smoother transition
     if blend_sigma > 0:
@@ -362,7 +404,7 @@ def splice_volumes(synthetic_tomogram, synthetic_mask, exp_tomogram, bbox_info, 
             weight_map = np.clip(weight_map, 0, 1)
             
             # Blend the synthetic and experimental data
-            blended = synth_region * weight_map + exp_crop * (1 - weight_map)
+            blended = best_synth_region * weight_map + exp_crop * (1 - weight_map)
             spliced_volume = blended
         except Exception as e:
             logger.error(f"Error during Gaussian blending: {e}")
@@ -370,10 +412,11 @@ def splice_volumes(synthetic_tomogram, synthetic_mask, exp_tomogram, bbox_info, 
     
     return spliced_volume, {
         'exp_crop': exp_crop,
-        'synth_region': synth_region,
+        'synth_region': best_synth_region,
         'mask': region_mask,
         'mask_only': debug_mask_only,  # Add debug data
-        'masked_synth': masked_synth    # Add debug data
+        'masked_synth': masked_synth,    # Add debug data
+        'coord_order': best_order_name  # Track which coordinate order worked best
     }
 
 def render_orthogonal_views(volume_data, title=None, savepath=None, colormap='viridis'):

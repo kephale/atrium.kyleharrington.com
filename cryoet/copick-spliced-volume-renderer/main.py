@@ -276,48 +276,88 @@ def splice_volumes(synthetic_tomogram, synthetic_mask, exp_tomogram, bbox_info, 
     """
     # Extract bounding box coordinates
     z_min, y_min, x_min, z_max, y_max, x_max = bbox_info['bbox']
-    
-    # Verify dimensions of the mask
-    expected_shape = (z_max - z_min, y_max - y_min, x_max - x_min)
-    mask_shape = bbox_info['region_mask'].shape
-    
-    # If the mask dimensions don't match the expected dimensions, the coordinates might be swapped
-    if mask_shape != expected_shape:
-        logger.warning(f"Mask shape {mask_shape} doesn't match expected shape {expected_shape}. Adjusting coordinates.")
-        # Try to correct by using the mask dimensions to extract the right region
-        z_max = z_min + mask_shape[0]
-        y_max = y_min + mask_shape[1]
-        x_max = x_min + mask_shape[2]
-    
-    # Get the masked region from the synthetic tomogram
-    synth_region = synthetic_tomogram[z_min:z_max, y_min:y_max, x_min:x_max].copy()
     region_mask = bbox_info['region_mask']
     
-    # Extract corresponding region from experimental tomogram
-    exp_crop = extract_random_crop(exp_tomogram, synth_region.shape)
+    logger.info(f"Extracting synthetic region with bbox: ({z_min}, {y_min}, {x_min}) to ({z_max}, {y_max}, {x_max})")
+    logger.info(f"Expected shape: ({z_max - z_min}, {y_max - y_min}, {x_max - x_min})")
+    logger.info(f"Mask shape: {region_mask.shape}")
     
-    # Create a spliced volume (starting with experimental data)
+    # Extract the region from the synthetic tomogram
+    try:
+        synth_region = synthetic_tomogram[z_min:z_max, y_min:y_max, x_min:x_max].copy()
+        logger.info(f"Extracted synthetic region with shape: {synth_region.shape}")
+        
+        if synth_region.shape != region_mask.shape:
+            logger.warning(f"Shape mismatch: Synthetic region {synth_region.shape} vs mask {region_mask.shape}")
+            # Resize the region to match the mask if needed
+            synth_region = resize(synth_region, region_mask.shape, mode='reflect', anti_aliasing=True)
+            logger.info(f"Resized synthetic region to {synth_region.shape}")
+    except Exception as e:
+        logger.error(f"Error extracting synthetic region: {e}")
+        # Extract a valid region from the tomogram and resize it
+        logger.info(f"Synthetic tomogram shape: {synthetic_tomogram.shape}")
+        
+        # Extract center region from synthetic tomogram
+        sz, sy, sx = synthetic_tomogram.shape
+        center_z, center_y, center_x = sz//2, sy//2, sx//2
+        box_size = region_mask.shape[0]
+        half_size = box_size // 2
+        
+        # Extract a region from the center of the tomogram
+        safe_z_min = max(0, center_z - half_size)
+        safe_z_max = min(sz, center_z + half_size)
+        safe_y_min = max(0, center_y - half_size)
+        safe_y_max = min(sy, center_y + half_size)
+        safe_x_min = max(0, center_x - half_size)
+        safe_x_max = min(sx, center_x + half_size)
+        
+        synth_region = synthetic_tomogram[safe_z_min:safe_z_max, safe_y_min:safe_y_max, safe_x_min:safe_x_max].copy()
+        
+        # Resize to match mask if needed
+        if synth_region.shape != region_mask.shape:
+            synth_region = resize(synth_region, region_mask.shape, mode='reflect', anti_aliasing=True)
+        
+        logger.info(f"Using fallback synthetic region with shape: {synth_region.shape}")
+    
+    # Extract corresponding region from experimental tomogram with matching shape
+    exp_crop = extract_random_crop(exp_tomogram, region_mask.shape)
+    logger.info(f"Extracted experimental crop with shape: {exp_crop.shape}")
+    
+    # Create a spliced volume by starting with the experimental crop
     spliced_volume = exp_crop.copy()
+    
+    # Create a debug synthetic region that only shows the masked parts
+    masked_synth = synth_region.copy()
+    masked_synth[~region_mask] = 0  # Zero out non-mask areas for debug visualization
+    
+    # Save the masked synthetic region for debug purposes
+    debug_mask_only = np.zeros_like(masked_synth)
+    debug_mask_only[region_mask] = synth_region[region_mask]
     
     # Replace the masked region with synthetic data
     spliced_volume[region_mask] = synth_region[region_mask]
     
     # Apply Gaussian weight blending at the boundary for smoother transition
-    # This would make the edges less obvious, but is optional
-    from scipy.ndimage import gaussian_filter
     if blend_sigma > 0:
-        # Create a weight map that transitions smoothly across the boundary
-        weight_map = gaussian_filter(region_mask.astype(float), sigma=blend_sigma)
-        weight_map = np.clip(weight_map, 0, 1)
-        
-        # Blend the synthetic and experimental data
-        blended = synth_region * weight_map + exp_crop * (1 - weight_map)
-        spliced_volume = blended
+        try:
+            # Create a weight map that transitions smoothly across the boundary
+            from scipy.ndimage import gaussian_filter
+            weight_map = gaussian_filter(region_mask.astype(float), sigma=blend_sigma)
+            weight_map = np.clip(weight_map, 0, 1)
+            
+            # Blend the synthetic and experimental data
+            blended = synth_region * weight_map + exp_crop * (1 - weight_map)
+            spliced_volume = blended
+        except Exception as e:
+            logger.error(f"Error during Gaussian blending: {e}")
+            # Fallback to the non-blended result
     
     return spliced_volume, {
         'exp_crop': exp_crop,
         'synth_region': synth_region,
-        'mask': region_mask
+        'mask': region_mask,
+        'mask_only': debug_mask_only,  # Add debug data
+        'masked_synth': masked_synth    # Add debug data
     }
 
 def render_orthogonal_views(volume_data, title=None, savepath=None, colormap='viridis'):

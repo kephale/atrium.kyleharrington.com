@@ -78,13 +78,17 @@ def load_copick_datasets(exp_dataset_id, synth_dataset_id, overlay_root="/tmp/te
         # Find the specified run
         filtered_runs = [run for run in synth_root.runs if run.meta.name == synth_run_id]
         if filtered_runs:
+            logger.info(f"Found run {synth_run_id}. Using only this run.")
             # Create a new synthetic root with only the specified run
-            filtered_root = copick.models.CopickRoot(runs=filtered_runs, config=synth_root.config)
-            logger.info(f"Using synthetic run {synth_run_id} with {len(filtered_root.runs)} runs")
-            return exp_root, filtered_root
+            # Note: We can't directly construct a CopickRoot with selected runs
+            # Instead, we'll return the original root but use only the specified run in downstream functions
+            synth_root._filtered_run = filtered_runs[0]
+            return exp_root, synth_root
         else:
             logger.warning(f"Run {synth_run_id} not found in synthetic dataset. Using all available runs.")
     
+    # If no run ID specified or not found, return as is
+    synth_root._filtered_run = None
     return exp_root, synth_root
 
 def get_available_tomograms(root, voxel_spacing, tomo_type="wbp"):
@@ -101,7 +105,14 @@ def get_available_tomograms(root, voxel_spacing, tomo_type="wbp"):
     """
     available_tomograms = []
     
-    for run in root.runs:
+    # If a filtered run is specified, only use that run
+    if hasattr(root, '_filtered_run') and root._filtered_run is not None:
+        runs = [root._filtered_run]
+        logger.info(f"Using only filtered run: {root._filtered_run.meta.name}")
+    else:
+        runs = root.runs
+    
+    for run in runs:
         # Get the closest voxel spacing to the target
         closest_vs = None
         min_diff = float('inf')
@@ -134,7 +145,14 @@ def get_segmentation_masks(root, voxel_spacing, pickable_objects=None):
     """
     segmentation_masks = {}
     
-    for run in root.runs:
+    # If a filtered run is specified, only use that run
+    if hasattr(root, '_filtered_run') and root._filtered_run is not None:
+        runs = [root._filtered_run]
+        logger.info(f"Using only filtered run: {root._filtered_run.meta.name} for segmentation masks")
+    else:
+        runs = root.runs
+    
+    for run in runs:
         # Get the closest voxel spacing to the target
         closest_vs = None
         min_diff = float('inf')

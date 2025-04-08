@@ -253,6 +253,18 @@ def splice_volumes(synthetic_tomogram, synthetic_mask, exp_tomogram, bbox_info, 
     # Extract bounding box coordinates
     z_min, y_min, x_min, z_max, y_max, x_max = bbox_info['bbox']
     
+    # Verify dimensions of the mask
+    expected_shape = (z_max - z_min, y_max - y_min, x_max - x_min)
+    mask_shape = bbox_info['region_mask'].shape
+    
+    # If the mask dimensions don't match the expected dimensions, the coordinates might be swapped
+    if mask_shape != expected_shape:
+        logger.warning(f"Mask shape {mask_shape} doesn't match expected shape {expected_shape}. Adjusting coordinates.")
+        # Try to correct by using the mask dimensions to extract the right region
+        z_max = z_min + mask_shape[0]
+        y_max = y_min + mask_shape[1]
+        x_max = x_min + mask_shape[2]
+    
     # Get the masked region from the synthetic tomogram
     synth_region = synthetic_tomogram[z_min:z_max, y_min:y_max, x_min:x_max].copy()
     region_mask = bbox_info['region_mask']

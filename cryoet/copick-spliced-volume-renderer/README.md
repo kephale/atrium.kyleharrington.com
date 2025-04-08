@@ -25,6 +25,7 @@ uv run https://atrium.kyleharrington.com/cryoet/copick-spliced-volume-renderer/m
 - `--num-examples`: Number of example pairs to create (default: 5)
 - `--structures-per-mask`: Number of structures to extract per mask (default: 1)
 - `--min-structure-size`: Minimum structure size in voxels (default: 500)
+- `--box-size`: Size of the cubic box for extracting structures (default: 48)
 - `--blend-sigma`: Sigma for Gaussian blending at boundaries (default: 2.0)
 - `--output-dir`: Directory to save output files (default: "./spliced_volumes")
 - `--colormap`: Matplotlib colormap for rendering (default: "viridis")

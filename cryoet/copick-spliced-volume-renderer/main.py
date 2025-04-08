@@ -142,13 +142,15 @@ def get_segmentation_masks(root, voxel_spacing, pickable_objects=None):
     
     return segmentation_masks
 
-def extract_bounding_boxes(mask_data, min_size=100):
+def extract_bounding_boxes(mask_data, min_size=100, box_size=48):
     """
     Extract bounding boxes for all connected components in a segmentation mask.
+    Uses a constant box size and ensures the particle is centered.
     
     Args:
         mask_data: 3D segmentation mask array
         min_size: Minimum size in voxels to consider a component
+        box_size: Size of the cubic bounding box (default: 48)
         
     Returns:
         List of dictionaries with bounding box information
@@ -161,20 +163,33 @@ def extract_bounding_boxes(mask_data, min_size=100):
     bounding_boxes = []
     for region in regions:
         if region.area >= min_size:
-            z_min, y_min, x_min, z_max, y_max, x_max = region.bbox
+            # Get the centroid of the region
+            z_center, y_center, x_center = region.centroid
             
-            # Add padding to the bounding box (10% on each side)
-            padding_z = max(1, int(0.1 * (z_max - z_min)))
-            padding_y = max(1, int(0.1 * (y_max - y_min)))
-            padding_x = max(1, int(0.1 * (x_max - x_min)))
+            # Calculate box boundaries centered on the particle
+            half_size = box_size // 2
             
-            # Ensure padded bounding box stays within the mask dimensions
-            z_min_pad = max(0, z_min - padding_z)
-            y_min_pad = max(0, y_min - padding_y)
-            x_min_pad = max(0, x_min - padding_x)
-            z_max_pad = min(mask_data.shape[0], z_max + padding_z)
-            y_max_pad = min(mask_data.shape[1], y_max + padding_y)
-            x_max_pad = min(mask_data.shape[2], x_max + padding_x)
+            z_min = max(0, int(z_center - half_size))
+            y_min = max(0, int(y_center - half_size))
+            x_min = max(0, int(x_center - half_size))
+            
+            # Adjust if box would go beyond bounds
+            if z_min + box_size > mask_data.shape[0]:
+                z_min = mask_data.shape[0] - box_size
+            if y_min + box_size > mask_data.shape[1]:
+                y_min = mask_data.shape[1] - box_size
+            if x_min + box_size > mask_data.shape[2]:
+                x_min = mask_data.shape[2] - box_size
+            
+            # Ensure we don't have negative indices
+            z_min = max(0, z_min)
+            y_min = max(0, y_min)
+            x_min = max(0, x_min)
+            
+            # Calculate max coordinates
+            z_max = min(mask_data.shape[0], z_min + box_size)
+            y_max = min(mask_data.shape[1], y_min + box_size)
+            x_max = min(mask_data.shape[2], x_min + box_size)
             
             # Create a mask for this region
             region_mask = np.zeros(mask_data.shape, dtype=bool)
@@ -183,9 +198,18 @@ def extract_bounding_boxes(mask_data, min_size=100):
             # Dilate the mask slightly for smoother boundaries
             dilated_mask = binary_dilation(region_mask, iterations=2)
             
+            # Extract the fixed-size box from the mask
+            box_mask = dilated_mask[z_min:z_max, y_min:y_max, x_min:x_max]
+            
+            # Skip if box size is not as expected (e.g., at image boundaries)
+            if box_mask.shape != (box_size, box_size, box_size):
+                # If we can't get a full box_size cube, skip this region
+                logger.warning(f"Region at {region.centroid} couldn't be extracted as a {box_size}^3 box. Got {box_mask.shape} instead.")
+                continue
+            
             bounding_boxes.append({
-                'bbox': (z_min_pad, y_min_pad, x_min_pad, z_max_pad, y_max_pad, x_max_pad),
-                'region_mask': dilated_mask[z_min_pad:z_max_pad, y_min_pad:y_max_pad, x_min_pad:x_max_pad],
+                'bbox': (z_min, y_min, x_min, z_max, y_max, x_max),
+                'region_mask': box_mask,
                 'center': region.centroid,
                 'size': region.area
             })
@@ -252,6 +276,18 @@ def splice_volumes(synthetic_tomogram, synthetic_mask, exp_tomogram, bbox_info, 
     """
     # Extract bounding box coordinates
     z_min, y_min, x_min, z_max, y_max, x_max = bbox_info['bbox']
+    
+    # Verify dimensions of the mask
+    expected_shape = (z_max - z_min, y_max - y_min, x_max - x_min)
+    mask_shape = bbox_info['region_mask'].shape
+    
+    # If the mask dimensions don't match the expected dimensions, the coordinates might be swapped
+    if mask_shape != expected_shape:
+        logger.warning(f"Mask shape {mask_shape} doesn't match expected shape {expected_shape}. Adjusting coordinates.")
+        # Try to correct by using the mask dimensions to extract the right region
+        z_max = z_min + mask_shape[0]
+        y_max = y_min + mask_shape[1]
+        x_max = x_min + mask_shape[2]
     
     # Get the masked region from the synthetic tomogram
     synth_region = synthetic_tomogram[z_min:z_max, y_min:y_max, x_min:x_max].copy()
@@ -397,9 +433,9 @@ def render_comparison_views(original, spliced, metadata, title=None, savepath=No
         if 'mask' in metadata:
             mask = metadata['mask']
             masked_synth = synth_region.copy()
-            masked_synth[~mask] = np.nan  # Make non-mask areas transparent
-            axes[1, 2].imshow(np.max(masked_synth, axis=0), cmap=colormap, vmin=vmin, vmax=vmax)
-            axes[1, 2].set_title('Masked Synthetic (Max Z Proj)')
+            masked_synth[~mask] = 0  # Zero out non-mask areas for sum projection
+            axes[1, 2].imshow(np.sum(masked_synth, axis=0), cmap=colormap)
+            axes[1, 2].set_title('Masked Synthetic (Sum Z Proj)')
         else:
             axes[1, 2].imshow(np.max(synth_region, axis=1), cmap=colormap, vmin=vmin, vmax=vmax)
             axes[1, 2].set_title('Synthetic (Max Y Proj)')
@@ -471,12 +507,17 @@ def main(args):
     for mask_name, mask_obj in tqdm(selected_masks, desc="Processing masks"):
         logger.info(f"Processing mask: {mask_name}")
         
+        # Skip membrane segmentation masks
+        if mask_name.lower() == "membrane":
+            logger.info(f"Skipping membrane segmentation mask: {mask_name}")
+            continue
+        
         # Access the mask data
         mask_zarr = zarr.open(mask_obj.zarr(), "r")
         mask_data = mask_zarr["data" if "data" in mask_zarr else "0"][:]
         
         # Extract bounding boxes for structures in the mask
-        bboxes = extract_bounding_boxes(mask_data, min_size=args.min_structure_size)
+        bboxes = extract_bounding_boxes(mask_data, min_size=args.min_structure_size, box_size=args.box_size)
         
         if not bboxes:
             logger.warning(f"No structures found in mask {mask_name} larger than {args.min_structure_size} voxels")
@@ -630,6 +671,8 @@ if __name__ == "__main__":
                         help="Number of structures to extract per mask")
     parser.add_argument("--min-structure-size", type=int, default=500,
                         help="Minimum structure size in voxels")
+    parser.add_argument("--box-size", type=int, default=48,
+                        help="Size of the cubic box for extracting structures (default: 48)")
     parser.add_argument("--blend-sigma", type=float, default=2.0,
                         help="Sigma for Gaussian blending at boundaries")
     

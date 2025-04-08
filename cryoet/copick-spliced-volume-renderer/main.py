@@ -433,8 +433,8 @@ def render_comparison_views(original, spliced, metadata, title=None, savepath=No
         savepath: Path to save the rendered image
         colormap: Matplotlib colormap to use
     """
-    # Create a 3×3 grid for comparisons
-    fig, axes = plt.subplots(3, 3, figsize=(15, 15))
+    # Create a 4×3 grid for more detailed comparisons
+    fig, axes = plt.subplots(4, 3, figsize=(15, 20))
     
     # Get central slices
     z_mid = original.shape[0] // 2
@@ -454,7 +454,7 @@ def render_comparison_views(original, spliced, metadata, title=None, savepath=No
     if 'mask' in metadata:
         mask_slice = metadata['mask'][z_mid, :, :]
         axes[0, 2].imshow(mask_slice, cmap='gray')
-        axes[0, 2].set_title('Structure Mask')
+        axes[0, 2].set_title('Structure Mask (Slice)')
     else:
         # If no mask, show exp data from another angle
         axes[0, 2].imshow(np.max(original, axis=1), cmap=colormap, vmin=vmin, vmax=vmax)
@@ -472,23 +472,50 @@ def render_comparison_views(original, spliced, metadata, title=None, savepath=No
         # Show masked synthetic data in third column
         if 'mask' in metadata:
             mask = metadata['mask']
-            masked_synth = synth_region.copy()
-            masked_synth[~mask] = 0  # Zero out non-mask areas for sum projection
-            axes[1, 2].imshow(np.sum(masked_synth, axis=0), cmap=colormap)
-            axes[1, 2].set_title('Masked Synthetic (Sum Z Proj)')
+            axes[1, 2].imshow(np.max(mask, axis=0), cmap='gray')
+            axes[1, 2].set_title('Mask (Max Z Proj)')
         else:
             axes[1, 2].imshow(np.max(synth_region, axis=1), cmap=colormap, vmin=vmin, vmax=vmax)
             axes[1, 2].set_title('Synthetic (Max Y Proj)')
     
-    # Row 3: Spliced result
-    axes[2, 0].imshow(spliced[z_mid, :, :], cmap=colormap, vmin=vmin, vmax=vmax)
-    axes[2, 0].set_title(f'Spliced Result (z={z_mid})')
+    # Row 3: Synthetic data with mask applied
+    if 'masked_synth' in metadata:
+        masked_synth = metadata['masked_synth']
+        axes[2, 0].imshow(masked_synth[z_mid, :, :], cmap=colormap)
+        axes[2, 0].set_title(f'Masked Synthetic (z={z_mid})')
+        
+        # Sum projection of the masked synthetic region
+        axes[2, 1].imshow(np.sum(masked_synth, axis=0), cmap=colormap)
+        axes[2, 1].set_title('Masked Synthetic (Sum Z Proj)')
+        
+        # Max projection of the masked synthetic region
+        axes[2, 2].imshow(np.max(masked_synth, axis=0), cmap=colormap)
+        axes[2, 2].set_title('Masked Synthetic (Max Z Proj)')
+    elif 'mask_only' in metadata:
+        # If masked_synth isn't available but mask_only is
+        mask_only = metadata['mask_only']
+        axes[2, 0].imshow(mask_only[z_mid, :, :], cmap=colormap)
+        axes[2, 0].set_title(f'Mask Only (z={z_mid})')
+        
+        axes[2, 1].imshow(np.sum(mask_only, axis=0), cmap=colormap)
+        axes[2, 1].set_title('Mask Only (Sum Z Proj)')
+        
+        axes[2, 2].imshow(np.max(mask_only, axis=0), cmap=colormap)
+        axes[2, 2].set_title('Mask Only (Max Z Proj)')
+    else:
+        # If neither is available, show empty plots
+        for i in range(3):
+            axes[2, i].axis('off')
     
-    axes[2, 1].imshow(np.max(spliced, axis=0), cmap=colormap, vmin=vmin, vmax=vmax)
-    axes[2, 1].set_title('Spliced Result (Max Z Proj)')
+    # Row 4: Spliced result
+    axes[3, 0].imshow(spliced[z_mid, :, :], cmap=colormap, vmin=vmin, vmax=vmax)
+    axes[3, 0].set_title(f'Spliced Result (z={z_mid})')
     
-    axes[2, 2].imshow(np.max(spliced, axis=1), cmap=colormap, vmin=vmin, vmax=vmax)
-    axes[2, 2].set_title('Spliced Result (Max Y Proj)')
+    axes[3, 1].imshow(np.max(spliced, axis=0), cmap=colormap, vmin=vmin, vmax=vmax)
+    axes[3, 1].set_title('Spliced Result (Max Z Proj)')
+    
+    axes[3, 2].imshow(np.max(spliced, axis=1), cmap=colormap, vmin=vmin, vmax=vmax)
+    axes[3, 2].set_title('Spliced Result (Max Y Proj)')
     
     # Add overall title if provided
     if title:

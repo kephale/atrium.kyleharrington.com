@@ -502,6 +502,14 @@ def render_comparison_views(original, spliced, metadata, title=None, savepath=No
     vmin = min(np.min(original), np.min(spliced))
     vmax = max(np.max(original), np.max(spliced))
     
+    # Add coordinate order information to title if available
+    if 'coord_order' in metadata:
+        coord_order = metadata['coord_order']
+        if title:
+            title = f"{title} (Coords: {coord_order})"
+        else:
+            title = f"Spliced Volume (Coords: {coord_order})"
+    
     # Row 1: Experimental data
     axes[0, 0].imshow(original[z_mid, :, :], cmap=colormap, vmin=vmin, vmax=vmax)
     axes[0, 0].set_title(f'Experimental (z={z_mid})')

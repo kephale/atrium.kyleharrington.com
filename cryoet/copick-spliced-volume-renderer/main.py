@@ -397,9 +397,9 @@ def render_comparison_views(original, spliced, metadata, title=None, savepath=No
         if 'mask' in metadata:
             mask = metadata['mask']
             masked_synth = synth_region.copy()
-            masked_synth[~mask] = np.nan  # Make non-mask areas transparent
-            axes[1, 2].imshow(np.max(masked_synth, axis=0), cmap=colormap, vmin=vmin, vmax=vmax)
-            axes[1, 2].set_title('Masked Synthetic (Max Z Proj)')
+            masked_synth[~mask] = 0  # Zero out non-mask areas for sum projection
+            axes[1, 2].imshow(np.sum(masked_synth, axis=0), cmap=colormap)
+            axes[1, 2].set_title('Masked Synthetic (Sum Z Proj)')
         else:
             axes[1, 2].imshow(np.max(synth_region, axis=1), cmap=colormap, vmin=vmin, vmax=vmax)
             axes[1, 2].set_title('Synthetic (Max Y Proj)')

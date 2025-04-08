@@ -760,22 +760,35 @@ def main(args):
                     margin-top: 10px;
                     font-family: monospace;
                 }}
+                .coord-success {{ color: green; font-weight: bold; }}
+                .coord-fallback {{ color: orange; font-weight: bold; }}
             </style>
         </head>
         <body>
             <h1>Spliced Volume Results</h1>
             <p>Generated {len(results)} spliced volumes from synthetic dataset {args.synth_dataset_id} to experimental dataset {args.exp_dataset_id}</p>
+            <p>Box size: {args.box_size}^3</p>
         """
         
         for i, result in enumerate(results):
             img_path = f"{result['mask_name']}_structure_{result['bbox_idx']+1}_comparison.png"
             center_coords = ", ".join([f"{c:.1f}" for c in result['bbox_center']])
             
+            # Get coordinate order information if available
+            coord_class = "coord-fallback"
+            coord_info = "Unknown coordinate order"
+            if 'metadata' in result and 'coord_order' in result['metadata']:
+                coord_order = result['metadata']['coord_order']
+                if coord_order != "fallback":
+                    coord_class = "coord-success"
+                coord_info = f"Coordinate order: <span class=\"{coord_class}\">{coord_order}</span>"
+            
             html_content += f"""
             <div class="result">
                 <h2>Result {i+1}: {result['mask_name']} (Structure {result['bbox_idx']+1})</h2>
                 <div class="metadata">
                     <p>Center coordinates: ({center_coords})</p>
+                    <p>{coord_info}</p>
                 </div>
                 <img src="{img_path}" alt="Comparison view">
             </div>

@@ -665,7 +665,7 @@ if __name__ == "__main__":
                         help="Tomogram type to use")
     
     # Processing parameters
-    parser.add_argument("--num-examples", type=int, default=5,
+    parser.add_argument("--num-examples", type=int, default=3,
                         help="Number of example pairs to create")
     parser.add_argument("--structures-per-mask", type=int, default=1,
                         help="Number of structures to extract per mask")

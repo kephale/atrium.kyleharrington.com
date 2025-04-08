@@ -483,6 +483,11 @@ def main(args):
     for mask_name, mask_obj in tqdm(selected_masks, desc="Processing masks"):
         logger.info(f"Processing mask: {mask_name}")
         
+        # Skip membrane segmentation masks
+        if mask_name.lower() == "membrane":
+            logger.info(f"Skipping membrane segmentation mask: {mask_name}")
+            continue
+        
         # Access the mask data
         mask_zarr = zarr.open(mask_obj.zarr(), "r")
         mask_data = mask_zarr["data" if "data" in mask_zarr else "0"][:]

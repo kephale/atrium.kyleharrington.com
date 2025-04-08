@@ -671,6 +671,8 @@ if __name__ == "__main__":
                         help="Number of structures to extract per mask")
     parser.add_argument("--min-structure-size", type=int, default=500,
                         help="Minimum structure size in voxels")
+    parser.add_argument("--box-size", type=int, default=48,
+                        help="Size of the cubic box for extracting structures (default: 48)")
     parser.add_argument("--blend-sigma", type=float, default=2.0,
                         help="Sigma for Gaussian blending at boundaries")
     

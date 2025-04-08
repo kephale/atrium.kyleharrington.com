@@ -155,21 +155,23 @@ def extract_bounding_boxes(mask_data, min_size=100, box_size=48):
     Returns:
         List of dictionaries with bounding box information
     """
+    # Check mask data and its properties
+    logger.info(f"Mask data shape: {mask_data.shape}, min: {np.min(mask_data)}, max: {np.max(mask_data)}")
+    logger.info(f"Mask data axes order (assumed): (z, y, x)")
+    
     # Label connected components
     labels = measure.label(mask_data > 0)
     regions = measure.regionprops(labels)
     
-    # Log some information about the mask
-    logger.info(f"Mask data shape: {mask_data.shape}, min: {np.min(mask_data)}, max: {np.max(mask_data)}")
     logger.info(f"Found {len(regions)} regions in the mask")
     
     # Extract bounding boxes
     bounding_boxes = []
-    for region in regions:
+    for i, region in enumerate(regions):
         if region.area >= min_size:
             # Get the centroid of the region
             z_center, y_center, x_center = region.centroid
-            logger.info(f"Processing region with center ({z_center}, {y_center}, {x_center}) and area {region.area}")
+            logger.info(f"Region {i+1}: center=({z_center:.1f}, {y_center:.1f}, {x_center:.1f}), area={region.area}")
             
             # Calculate box boundaries centered on the particle
             half_size = box_size // 2
@@ -192,7 +194,7 @@ def extract_bounding_boxes(mask_data, min_size=100, box_size=48):
             x_max = min(mask_data.shape[2], x_min + box_size)
             
             # Log the chosen box coordinates
-            logger.info(f"Box coordinates: ({z_min}, {y_min}, {x_min}) to ({z_max}, {y_max}, {x_max})")
+            logger.info(f"Box coordinates for region {i+1}: z({z_min}:{z_max}), y({y_min}:{y_max}), x({x_min}:{x_max})")
             
             # Check if we can extract a full box
             if (z_max - z_min) != box_size or (y_max - y_min) != box_size or (x_max - x_min) != box_size:
@@ -215,13 +217,19 @@ def extract_bounding_boxes(mask_data, min_size=100, box_size=48):
                 logger.warning(f"Box mask has unexpected shape: {box_mask.shape}")
                 continue
             
-            logger.info(f"Final box mask shape: {box_mask.shape}, non-zero elements: {np.count_nonzero(box_mask)}")
+            # Perform additional validation checks on the mask
+            if np.count_nonzero(box_mask) < min_size / 2:
+                logger.warning(f"Box mask contains too few nonzero elements: {np.count_nonzero(box_mask)}")
+                continue
+                
+            logger.info(f"Region {i+1}: Box mask shape: {box_mask.shape}, non-zero elements: {np.count_nonzero(box_mask)}")
             
             bounding_boxes.append({
                 'bbox': (z_min, y_min, x_min, z_max, y_max, x_max),
                 'region_mask': box_mask,
                 'center': region.centroid,
-                'size': region.area
+                'size': region.area,
+                'region_id': i+1 # Add region ID for tracking
             })
     
     # Sort by size (largest first)

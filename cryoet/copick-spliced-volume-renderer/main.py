@@ -159,12 +159,17 @@ def extract_bounding_boxes(mask_data, min_size=100, box_size=48):
     labels = measure.label(mask_data > 0)
     regions = measure.regionprops(labels)
     
+    # Log some information about the mask
+    logger.info(f"Mask data shape: {mask_data.shape}, min: {np.min(mask_data)}, max: {np.max(mask_data)}")
+    logger.info(f"Found {len(regions)} regions in the mask")
+    
     # Extract bounding boxes
     bounding_boxes = []
     for region in regions:
         if region.area >= min_size:
             # Get the centroid of the region
             z_center, y_center, x_center = region.centroid
+            logger.info(f"Processing region with center ({z_center}, {y_center}, {x_center}) and area {region.area}")
             
             # Calculate box boundaries centered on the particle
             half_size = box_size // 2
@@ -175,23 +180,27 @@ def extract_bounding_boxes(mask_data, min_size=100, box_size=48):
             
             # Adjust if box would go beyond bounds
             if z_min + box_size > mask_data.shape[0]:
-                z_min = mask_data.shape[0] - box_size
+                z_min = max(0, mask_data.shape[0] - box_size)
             if y_min + box_size > mask_data.shape[1]:
-                y_min = mask_data.shape[1] - box_size
+                y_min = max(0, mask_data.shape[1] - box_size)
             if x_min + box_size > mask_data.shape[2]:
-                x_min = mask_data.shape[2] - box_size
-            
-            # Ensure we don't have negative indices
-            z_min = max(0, z_min)
-            y_min = max(0, y_min)
-            x_min = max(0, x_min)
+                x_min = max(0, mask_data.shape[2] - box_size)
             
             # Calculate max coordinates
             z_max = min(mask_data.shape[0], z_min + box_size)
             y_max = min(mask_data.shape[1], y_min + box_size)
             x_max = min(mask_data.shape[2], x_min + box_size)
             
-            # Create a mask for this region
+            # Log the chosen box coordinates
+            logger.info(f"Box coordinates: ({z_min}, {y_min}, {x_min}) to ({z_max}, {y_max}, {x_max})")
+            
+            # Check if we can extract a full box
+            if (z_max - z_min) != box_size or (y_max - y_min) != box_size or (x_max - x_min) != box_size:
+                logger.warning(f"Cannot extract a full {box_size}^3 box at the edge of the volume. "
+                              f"Got size {(z_max - z_min, y_max - y_min, x_max - x_min)}")
+                continue
+            
+            # Create a mask for this specific region
             region_mask = np.zeros(mask_data.shape, dtype=bool)
             region_mask[labels == region.label] = True
             
@@ -199,13 +208,14 @@ def extract_bounding_boxes(mask_data, min_size=100, box_size=48):
             dilated_mask = binary_dilation(region_mask, iterations=2)
             
             # Extract the fixed-size box from the mask
-            box_mask = dilated_mask[z_min:z_max, y_min:y_max, x_min:x_max]
+            box_mask = dilated_mask[z_min:z_max, y_min:y_max, x_min:x_max].copy()
             
-            # Skip if box size is not as expected (e.g., at image boundaries)
+            # Verify box mask has expected dimensions
             if box_mask.shape != (box_size, box_size, box_size):
-                # If we can't get a full box_size cube, skip this region
-                logger.warning(f"Region at {region.centroid} couldn't be extracted as a {box_size}^3 box. Got {box_mask.shape} instead.")
+                logger.warning(f"Box mask has unexpected shape: {box_mask.shape}")
                 continue
+            
+            logger.info(f"Final box mask shape: {box_mask.shape}, non-zero elements: {np.count_nonzero(box_mask)}")
             
             bounding_boxes.append({
                 'bbox': (z_min, y_min, x_min, z_max, y_max, x_max),
@@ -213,6 +223,12 @@ def extract_bounding_boxes(mask_data, min_size=100, box_size=48):
                 'center': region.centroid,
                 'size': region.area
             })
+    
+    # Sort by size (largest first)
+    bounding_boxes.sort(key=lambda x: x['size'], reverse=True)
+    
+    logger.info(f"Generated {len(bounding_boxes)} valid bounding boxes")
+    return bounding_boxes
     
     # Sort by size (largest first)
     bounding_boxes.sort(key=lambda x: x['size'], reverse=True)
@@ -276,48 +292,88 @@ def splice_volumes(synthetic_tomogram, synthetic_mask, exp_tomogram, bbox_info, 
     """
     # Extract bounding box coordinates
     z_min, y_min, x_min, z_max, y_max, x_max = bbox_info['bbox']
-    
-    # Verify dimensions of the mask
-    expected_shape = (z_max - z_min, y_max - y_min, x_max - x_min)
-    mask_shape = bbox_info['region_mask'].shape
-    
-    # If the mask dimensions don't match the expected dimensions, the coordinates might be swapped
-    if mask_shape != expected_shape:
-        logger.warning(f"Mask shape {mask_shape} doesn't match expected shape {expected_shape}. Adjusting coordinates.")
-        # Try to correct by using the mask dimensions to extract the right region
-        z_max = z_min + mask_shape[0]
-        y_max = y_min + mask_shape[1]
-        x_max = x_min + mask_shape[2]
-    
-    # Get the masked region from the synthetic tomogram
-    synth_region = synthetic_tomogram[z_min:z_max, y_min:y_max, x_min:x_max].copy()
     region_mask = bbox_info['region_mask']
     
-    # Extract corresponding region from experimental tomogram
-    exp_crop = extract_random_crop(exp_tomogram, synth_region.shape)
+    logger.info(f"Extracting synthetic region with bbox: ({z_min}, {y_min}, {x_min}) to ({z_max}, {y_max}, {x_max})")
+    logger.info(f"Expected shape: ({z_max - z_min}, {y_max - y_min}, {x_max - x_min})")
+    logger.info(f"Mask shape: {region_mask.shape}")
     
-    # Create a spliced volume (starting with experimental data)
+    # Extract the region from the synthetic tomogram
+    try:
+        synth_region = synthetic_tomogram[z_min:z_max, y_min:y_max, x_min:x_max].copy()
+        logger.info(f"Extracted synthetic region with shape: {synth_region.shape}")
+        
+        if synth_region.shape != region_mask.shape:
+            logger.warning(f"Shape mismatch: Synthetic region {synth_region.shape} vs mask {region_mask.shape}")
+            # Resize the region to match the mask if needed
+            synth_region = resize(synth_region, region_mask.shape, mode='reflect', anti_aliasing=True)
+            logger.info(f"Resized synthetic region to {synth_region.shape}")
+    except Exception as e:
+        logger.error(f"Error extracting synthetic region: {e}")
+        # Extract a valid region from the tomogram and resize it
+        logger.info(f"Synthetic tomogram shape: {synthetic_tomogram.shape}")
+        
+        # Extract center region from synthetic tomogram
+        sz, sy, sx = synthetic_tomogram.shape
+        center_z, center_y, center_x = sz//2, sy//2, sx//2
+        box_size = region_mask.shape[0]
+        half_size = box_size // 2
+        
+        # Extract a region from the center of the tomogram
+        safe_z_min = max(0, center_z - half_size)
+        safe_z_max = min(sz, center_z + half_size)
+        safe_y_min = max(0, center_y - half_size)
+        safe_y_max = min(sy, center_y + half_size)
+        safe_x_min = max(0, center_x - half_size)
+        safe_x_max = min(sx, center_x + half_size)
+        
+        synth_region = synthetic_tomogram[safe_z_min:safe_z_max, safe_y_min:safe_y_max, safe_x_min:safe_x_max].copy()
+        
+        # Resize to match mask if needed
+        if synth_region.shape != region_mask.shape:
+            synth_region = resize(synth_region, region_mask.shape, mode='reflect', anti_aliasing=True)
+        
+        logger.info(f"Using fallback synthetic region with shape: {synth_region.shape}")
+    
+    # Extract corresponding region from experimental tomogram with matching shape
+    exp_crop = extract_random_crop(exp_tomogram, region_mask.shape)
+    logger.info(f"Extracted experimental crop with shape: {exp_crop.shape}")
+    
+    # Create a spliced volume by starting with the experimental crop
     spliced_volume = exp_crop.copy()
+    
+    # Create a debug synthetic region that only shows the masked parts
+    masked_synth = synth_region.copy()
+    masked_synth[~region_mask] = 0  # Zero out non-mask areas for debug visualization
+    
+    # Save the masked synthetic region for debug purposes
+    debug_mask_only = np.zeros_like(masked_synth)
+    debug_mask_only[region_mask] = synth_region[region_mask]
     
     # Replace the masked region with synthetic data
     spliced_volume[region_mask] = synth_region[region_mask]
     
     # Apply Gaussian weight blending at the boundary for smoother transition
-    # This would make the edges less obvious, but is optional
-    from scipy.ndimage import gaussian_filter
     if blend_sigma > 0:
-        # Create a weight map that transitions smoothly across the boundary
-        weight_map = gaussian_filter(region_mask.astype(float), sigma=blend_sigma)
-        weight_map = np.clip(weight_map, 0, 1)
-        
-        # Blend the synthetic and experimental data
-        blended = synth_region * weight_map + exp_crop * (1 - weight_map)
-        spliced_volume = blended
+        try:
+            # Create a weight map that transitions smoothly across the boundary
+            from scipy.ndimage import gaussian_filter
+            weight_map = gaussian_filter(region_mask.astype(float), sigma=blend_sigma)
+            weight_map = np.clip(weight_map, 0, 1)
+            
+            # Blend the synthetic and experimental data
+            blended = synth_region * weight_map + exp_crop * (1 - weight_map)
+            spliced_volume = blended
+        except Exception as e:
+            logger.error(f"Error during Gaussian blending: {e}")
+            # Fallback to the non-blended result
     
     return spliced_volume, {
         'exp_crop': exp_crop,
         'synth_region': synth_region,
-        'mask': region_mask
+        'mask': region_mask,
+        'mask_only': debug_mask_only,  # Add debug data
+        'masked_synth': masked_synth    # Add debug data
     }
 
 def render_orthogonal_views(volume_data, title=None, savepath=None, colormap='viridis'):
@@ -393,8 +449,8 @@ def render_comparison_views(original, spliced, metadata, title=None, savepath=No
         savepath: Path to save the rendered image
         colormap: Matplotlib colormap to use
     """
-    # Create a 3×3 grid for comparisons
-    fig, axes = plt.subplots(3, 3, figsize=(15, 15))
+    # Create a 4×3 grid for more detailed comparisons
+    fig, axes = plt.subplots(4, 3, figsize=(15, 20))
     
     # Get central slices
     z_mid = original.shape[0] // 2
@@ -414,7 +470,7 @@ def render_comparison_views(original, spliced, metadata, title=None, savepath=No
     if 'mask' in metadata:
         mask_slice = metadata['mask'][z_mid, :, :]
         axes[0, 2].imshow(mask_slice, cmap='gray')
-        axes[0, 2].set_title('Structure Mask')
+        axes[0, 2].set_title('Structure Mask (Slice)')
     else:
         # If no mask, show exp data from another angle
         axes[0, 2].imshow(np.max(original, axis=1), cmap=colormap, vmin=vmin, vmax=vmax)
@@ -432,23 +488,50 @@ def render_comparison_views(original, spliced, metadata, title=None, savepath=No
         # Show masked synthetic data in third column
         if 'mask' in metadata:
             mask = metadata['mask']
-            masked_synth = synth_region.copy()
-            masked_synth[~mask] = 0  # Zero out non-mask areas for sum projection
-            axes[1, 2].imshow(np.sum(masked_synth, axis=0), cmap=colormap)
-            axes[1, 2].set_title('Masked Synthetic (Sum Z Proj)')
+            axes[1, 2].imshow(np.max(mask, axis=0), cmap='gray')
+            axes[1, 2].set_title('Mask (Max Z Proj)')
         else:
             axes[1, 2].imshow(np.max(synth_region, axis=1), cmap=colormap, vmin=vmin, vmax=vmax)
             axes[1, 2].set_title('Synthetic (Max Y Proj)')
     
-    # Row 3: Spliced result
-    axes[2, 0].imshow(spliced[z_mid, :, :], cmap=colormap, vmin=vmin, vmax=vmax)
-    axes[2, 0].set_title(f'Spliced Result (z={z_mid})')
+    # Row 3: Synthetic data with mask applied
+    if 'masked_synth' in metadata:
+        masked_synth = metadata['masked_synth']
+        axes[2, 0].imshow(masked_synth[z_mid, :, :], cmap=colormap)
+        axes[2, 0].set_title(f'Masked Synthetic (z={z_mid})')
+        
+        # Sum projection of the masked synthetic region
+        axes[2, 1].imshow(np.sum(masked_synth, axis=0), cmap=colormap)
+        axes[2, 1].set_title('Masked Synthetic (Sum Z Proj)')
+        
+        # Max projection of the masked synthetic region
+        axes[2, 2].imshow(np.max(masked_synth, axis=0), cmap=colormap)
+        axes[2, 2].set_title('Masked Synthetic (Max Z Proj)')
+    elif 'mask_only' in metadata:
+        # If masked_synth isn't available but mask_only is
+        mask_only = metadata['mask_only']
+        axes[2, 0].imshow(mask_only[z_mid, :, :], cmap=colormap)
+        axes[2, 0].set_title(f'Mask Only (z={z_mid})')
+        
+        axes[2, 1].imshow(np.sum(mask_only, axis=0), cmap=colormap)
+        axes[2, 1].set_title('Mask Only (Sum Z Proj)')
+        
+        axes[2, 2].imshow(np.max(mask_only, axis=0), cmap=colormap)
+        axes[2, 2].set_title('Mask Only (Max Z Proj)')
+    else:
+        # If neither is available, show empty plots
+        for i in range(3):
+            axes[2, i].axis('off')
     
-    axes[2, 1].imshow(np.max(spliced, axis=0), cmap=colormap, vmin=vmin, vmax=vmax)
-    axes[2, 1].set_title('Spliced Result (Max Z Proj)')
+    # Row 4: Spliced result
+    axes[3, 0].imshow(spliced[z_mid, :, :], cmap=colormap, vmin=vmin, vmax=vmax)
+    axes[3, 0].set_title(f'Spliced Result (z={z_mid})')
     
-    axes[2, 2].imshow(np.max(spliced, axis=1), cmap=colormap, vmin=vmin, vmax=vmax)
-    axes[2, 2].set_title('Spliced Result (Max Y Proj)')
+    axes[3, 1].imshow(np.max(spliced, axis=0), cmap=colormap, vmin=vmin, vmax=vmax)
+    axes[3, 1].set_title('Spliced Result (Max Z Proj)')
+    
+    axes[3, 2].imshow(np.max(spliced, axis=1), cmap=colormap, vmin=vmin, vmax=vmax)
+    axes[3, 2].set_title('Spliced Result (Max Y Proj)')
     
     # Add overall title if provided
     if title:
@@ -527,15 +610,19 @@ def main(args):
         synth_tomogram_obj = random.choice(synth_tomograms)
         synth_zarr = zarr.open(synth_tomogram_obj.zarr(), "r")
         synth_data = synth_zarr["0"][:]
+        logger.info(f"Synthetic tomogram shape: {synth_data.shape}")
         
         # Select a random experimental tomogram
         exp_tomogram_obj = random.choice(exp_tomograms)
         exp_zarr = zarr.open(exp_tomogram_obj.zarr(), "r")
         exp_data = exp_zarr["0"][:]
+        logger.info(f"Experimental tomogram shape: {exp_data.shape}")
         
         # Normalize tomogram data
         synth_data = (synth_data - np.mean(synth_data)) / np.std(synth_data)
         exp_data = (exp_data - np.mean(exp_data)) / np.std(exp_data)
+        logger.info(f"Normalized synthetic tomogram range: [{np.min(synth_data):.2f}, {np.max(synth_data):.2f}]")
+        logger.info(f"Normalized experimental tomogram range: [{np.min(exp_data):.2f}, {np.max(exp_data):.2f}]")
         
         # Process each bounding box
         for i, bbox in enumerate(bboxes):
@@ -665,7 +752,7 @@ if __name__ == "__main__":
                         help="Tomogram type to use")
     
     # Processing parameters
-    parser.add_argument("--num-examples", type=int, default=5,
+    parser.add_argument("--num-examples", type=int, default=3,
                         help="Number of example pairs to create")
     parser.add_argument("--structures-per-mask", type=int, default=1,
                         help="Number of structures to extract per mask")

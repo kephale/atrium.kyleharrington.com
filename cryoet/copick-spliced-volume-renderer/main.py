@@ -159,12 +159,17 @@ def extract_bounding_boxes(mask_data, min_size=100, box_size=48):
     labels = measure.label(mask_data > 0)
     regions = measure.regionprops(labels)
     
+    # Log some information about the mask
+    logger.info(f"Mask data shape: {mask_data.shape}, min: {np.min(mask_data)}, max: {np.max(mask_data)}")
+    logger.info(f"Found {len(regions)} regions in the mask")
+    
     # Extract bounding boxes
     bounding_boxes = []
     for region in regions:
         if region.area >= min_size:
             # Get the centroid of the region
             z_center, y_center, x_center = region.centroid
+            logger.info(f"Processing region with center ({z_center}, {y_center}, {x_center}) and area {region.area}")
             
             # Calculate box boundaries centered on the particle
             half_size = box_size // 2
@@ -175,23 +180,27 @@ def extract_bounding_boxes(mask_data, min_size=100, box_size=48):
             
             # Adjust if box would go beyond bounds
             if z_min + box_size > mask_data.shape[0]:
-                z_min = mask_data.shape[0] - box_size
+                z_min = max(0, mask_data.shape[0] - box_size)
             if y_min + box_size > mask_data.shape[1]:
-                y_min = mask_data.shape[1] - box_size
+                y_min = max(0, mask_data.shape[1] - box_size)
             if x_min + box_size > mask_data.shape[2]:
-                x_min = mask_data.shape[2] - box_size
-            
-            # Ensure we don't have negative indices
-            z_min = max(0, z_min)
-            y_min = max(0, y_min)
-            x_min = max(0, x_min)
+                x_min = max(0, mask_data.shape[2] - box_size)
             
             # Calculate max coordinates
             z_max = min(mask_data.shape[0], z_min + box_size)
             y_max = min(mask_data.shape[1], y_min + box_size)
             x_max = min(mask_data.shape[2], x_min + box_size)
             
-            # Create a mask for this region
+            # Log the chosen box coordinates
+            logger.info(f"Box coordinates: ({z_min}, {y_min}, {x_min}) to ({z_max}, {y_max}, {x_max})")
+            
+            # Check if we can extract a full box
+            if (z_max - z_min) != box_size or (y_max - y_min) != box_size or (x_max - x_min) != box_size:
+                logger.warning(f"Cannot extract a full {box_size}^3 box at the edge of the volume. "
+                              f"Got size {(z_max - z_min, y_max - y_min, x_max - x_min)}")
+                continue
+            
+            # Create a mask for this specific region
             region_mask = np.zeros(mask_data.shape, dtype=bool)
             region_mask[labels == region.label] = True
             
@@ -199,13 +208,14 @@ def extract_bounding_boxes(mask_data, min_size=100, box_size=48):
             dilated_mask = binary_dilation(region_mask, iterations=2)
             
             # Extract the fixed-size box from the mask
-            box_mask = dilated_mask[z_min:z_max, y_min:y_max, x_min:x_max]
+            box_mask = dilated_mask[z_min:z_max, y_min:y_max, x_min:x_max].copy()
             
-            # Skip if box size is not as expected (e.g., at image boundaries)
+            # Verify box mask has expected dimensions
             if box_mask.shape != (box_size, box_size, box_size):
-                # If we can't get a full box_size cube, skip this region
-                logger.warning(f"Region at {region.centroid} couldn't be extracted as a {box_size}^3 box. Got {box_mask.shape} instead.")
+                logger.warning(f"Box mask has unexpected shape: {box_mask.shape}")
                 continue
+            
+            logger.info(f"Final box mask shape: {box_mask.shape}, non-zero elements: {np.count_nonzero(box_mask)}")
             
             bounding_boxes.append({
                 'bbox': (z_min, y_min, x_min, z_max, y_max, x_max),
@@ -213,6 +223,12 @@ def extract_bounding_boxes(mask_data, min_size=100, box_size=48):
                 'center': region.centroid,
                 'size': region.area
             })
+    
+    # Sort by size (largest first)
+    bounding_boxes.sort(key=lambda x: x['size'], reverse=True)
+    
+    logger.info(f"Generated {len(bounding_boxes)} valid bounding boxes")
+    return bounding_boxes
     
     # Sort by size (largest first)
     bounding_boxes.sort(key=lambda x: x['size'], reverse=True)

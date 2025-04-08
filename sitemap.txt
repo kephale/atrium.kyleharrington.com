@@ -18,6 +18,11 @@ Name: Copick Tomogram Visualization Server
 Description: A FastAPI server that extends copick-server to provide visualization of tomogram samples.
 URL: https://atrium.kyleharrington.com/cryoet/copick-torch-inspector
 
+Group: cryoet
+Name: Copick Spliced Volume Renderer
+Description: Renders orthogonal views of spliced 3D volumes, combining synthetic and experimental CryoET data.
+URL: https://atrium.kyleharrington.com/cryoet/copick-spliced-volume-renderer
+
 Group: grn
 Name: Fit oscillatory GRN
 Description: Optimize a GRN to produce antiphase oscillations among 4 species.

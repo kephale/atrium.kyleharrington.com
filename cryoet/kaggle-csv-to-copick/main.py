@@ -37,13 +37,14 @@ def load_and_process_data(picks_file: str, mapping_file: str):
     mapping_df = pd.read_csv(mapping_file)
     
     # Create a mapping dictionary from original to mapped names
-    name_mapping = dict(zip(mapping_df['orig_id'], mapping_df['experiment']))
-    
-    # Replace the mapped names with original names
-    picks_df['experiment'] = picks_df['experiment'].map(
-        {v: k for k, v in name_mapping.items()}
-    )
-    
+    if mapping_file:
+        name_mapping = dict(zip(mapping_df['orig_id'], mapping_df['experiment']))
+        
+        # Replace the mapped names with original names
+        picks_df['experiment'] = picks_df['experiment'].map(
+            {v: k for k, v in name_mapping.items()}
+        )
+        
     return picks_df
 
 def add_picks_to_copick(picks_df: pd.DataFrame, copick_config_path: str, session_id: str, user_id: str):
@@ -98,7 +99,7 @@ def add_picks_to_copick(picks_df: pd.DataFrame, copick_config_path: str, session
 def main():
     parser = argparse.ArgumentParser(description='Import picks to Copick project')
     parser.add_argument('--picks', required=True, help='Path to picks CSV file')
-    parser.add_argument('--mapping', required=True, help='Path to name mapping CSV file')
+    parser.add_argument('--mapping', required=False, help='Path to name mapping CSV file')
     parser.add_argument('--config', required=True, help='Path to Copick config file')
     parser.add_argument('--session-id', required=True, help='Session ID for the picking session')
     parser.add_argument('--user-id', required=True, help='User ID performing the import')
@@ -106,7 +107,8 @@ def main():
     args = parser.parse_args()
     
     # Load and process the data
-    picks_df = load_and_process_data(args.picks, args.mapping)
+    mapping = args.mapping if args.mapping else None
+    picks_df = load_and_process_data(args.picks, mapping)
     
     # Add picks to Copick project with provided session and user IDs
     add_picks_to_copick(picks_df, args.config, args.session_id, args.user_id)

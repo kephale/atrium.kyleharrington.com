@@ -14,6 +14,11 @@ Description: Generates synthetic cryo-electron tomography data using Polnet, inc
 URL: https://atrium.kyleharrington.com/cryoet/polnet
 
 Group: cryoet
+Name: kaggle-csv-to-copick
+Description: Import particle picks from CSV files into a Copick project
+URL: https://atrium.kyleharrington.com/cryoet/kaggle-csv-to-copick
+
+Group: cryoet
 Name: Copick Tomogram Visualization Server
 Description: A FastAPI server that extends copick-server to provide visualization of tomogram samples.
 URL: https://atrium.kyleharrington.com/cryoet/copick-torch-inspector

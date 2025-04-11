@@ -34,10 +34,11 @@ def load_and_process_data(picks_file: str, mapping_file: str):
     """
     # Read the CSVs
     picks_df = pd.read_csv(picks_file)
-    mapping_df = pd.read_csv(mapping_file)
-    
-    # Create a mapping dictionary from original to mapped names
     if mapping_file:
+        mapping_df = pd.read_csv(mapping_file)
+    
+        # Create a mapping dictionary from original to mapped names
+    
         name_mapping = dict(zip(mapping_df['orig_id'], mapping_df['experiment']))
         
         # Replace the mapped names with original names

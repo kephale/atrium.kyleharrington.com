@@ -108,21 +108,8 @@ class NeuroglancerMeshWriter:
             "@type": "neuroglancer_multilod_draco",
             "vertex_quantization_bits": self.vertex_quantization_bits,
             "transform": self.transform,
-            "lod_scale_multiplier": self.lod_scale_multiplier,
-            # Add required fields for viewer compatibility
-            "data_type": self.data_type,  # Standard for segmentation data
-            "num_channels": 1,      # Single channel for mesh data
-            "type": "segmentation",  # Important for Neuroglancer to recognize as meshes
-            "scales": [
-                {
-                    "chunk_sizes": [[64, 64, 64]],
-                    "encoding": "compressed_segmentation",
-                    "key": "64_64_64",
-                    "resolution": [1, 1, 1],
-                    "size": [256, 256, 256],  # Match the size of our data
-                    "voxel_offset": [0, 0, 0]
-                }
-            ]
+            "lod_scale_multiplier": self.lod_scale_multiplier
+            # Removed fields that are for precomputed volume metadata, not mesh metadata
         }
         
         with open(self.output_dir / "info", "w") as f:

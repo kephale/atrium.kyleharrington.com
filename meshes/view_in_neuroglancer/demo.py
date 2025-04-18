@@ -1,5 +1,19 @@
 #!/usr/bin/env python
-# Neuroglancer viewer for multiscale meshes
+# /// script
+# title = "Neuroglancer Precomputed Mesh Viewer"
+# description = "A Python script to view precomputed multiscale mesh data in Neuroglancer"
+# author = "Kyle Harrington"
+# license = "MIT"
+# version = "0.1.0"
+# keywords = ["mesh", "3D", "visualization", "neuroglancer", "precomputed"]
+# documentation = "https://github.com/google/neuroglancer"
+# requires-python = ">=3.8"
+# dependencies = [
+#     "neuroglancer",
+#     "numpy",
+#     "zarr>=3.0.0"
+# ]
+# ///
 
 import argparse
 import neuroglancer

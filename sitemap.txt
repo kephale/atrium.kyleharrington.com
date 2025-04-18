@@ -88,6 +88,11 @@ Name: Napari Precomputed Mesh Viewer
 Description: A Python script to view precomputed mesh data in napari with proper multiscale mesh rendering that automatically scales meshes to match image data
 URL: https://atrium.kyleharrington.com/meshes/view_in_napari
 
+Group: meshes
+Name: Neuroglancer Precomputed Mesh Viewer
+Description: A Python script to view precomputed multiscale mesh data in Neuroglancer
+URL: https://atrium.kyleharrington.com/meshes/view_in_neuroglancer
+
 Group: visualization
 Name: napari tiled zarr
 Description: Open a multiscale zarr with napari and use multiscale tiled loading

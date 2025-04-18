@@ -109,7 +109,7 @@ class NeuroglancerMeshWriter:
             "vertex_quantization_bits": self.vertex_quantization_bits,
             "transform": self.transform,
             "lod_scale_multiplier": self.lod_scale_multiplier,
-            # Add required fields for viewer compatibility
+            # Required fields for viewer compatibility
             "data_type": self.data_type,  # Standard for segmentation data
             "num_channels": 1,      # Single channel for mesh data
             "type": "segmentation",  # Important for Neuroglancer to recognize as meshes

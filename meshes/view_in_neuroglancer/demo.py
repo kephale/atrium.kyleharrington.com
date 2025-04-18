@@ -54,6 +54,9 @@ def serve_directory(directory, port=8000):
     server_thread = threading.Thread(target=httpd.serve_forever)
     server_thread.daemon = True
     server_thread.start()
+    print(f"Serving directory: {directory}")
+    print(f"Access server directly at: http://localhost:{port}")
+    print(f"You can manually check mesh files at: http://localhost:{port}/meshes/")
     return httpd, port
 
 

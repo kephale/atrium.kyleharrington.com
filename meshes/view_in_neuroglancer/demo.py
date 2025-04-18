@@ -127,6 +127,25 @@ def main():
         # Set default view options
         s.layers['multiscale_mesh'].visible = True
         
+        # Find all available segment IDs
+        mesh_dir = os.path.join(zarr_path, "meshes")
+        segment_ids = []
+        for filename in os.listdir(mesh_dir):
+            # Look for files that are segment IDs (integers)
+            try:
+                if os.path.isfile(os.path.join(mesh_dir, filename)) and filename != "info":
+                    segment_id = int(filename)
+                    segment_ids.append(segment_id)
+            except ValueError:
+                pass
+        
+        # Set segments to show in the layer
+        if segment_ids:
+            s.layers['multiscale_mesh'].segments = set(segment_ids)
+            print(f"Found segment IDs: {segment_ids}")
+        else:
+            print("Warning: No segment IDs found in the meshes directory")
+        
         # Set dimensions which is supported by Neuroglancer
         s.dimensions = neuroglancer.CoordinateSpace(
             names=['x', 'y', 'z'],

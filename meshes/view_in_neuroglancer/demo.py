@@ -43,18 +43,18 @@ def main():
     viewer = neuroglancer.Viewer()
     
     # Path where the precomputed mesh data is stored
-    # This assumes that the meshes are stored in the same directory as the zarr file
-    # in a 'precomputed' directory structure
+    # This assumes that meshes are stored in the same directory as the zarr file
     mesh_dir = os.path.dirname(os.path.abspath(args.zarr_path))
+    mesh_url = f"precomputed://{mesh_dir}"
     
     # Load zarr data to extract metadata if needed
     zarr_data = zarr.open(args.zarr_path, mode='r')
     
     # Add the mesh layer using precomputed format
     with viewer.txn() as s:
-        s.layers['multiscale_mesh'] = neuroglancer.LocalVolume(
-            volume_type='precomputed',
-            mesh=mesh_dir,
+        # Add the mesh as a SegmentationLayer which can display precomputed meshes
+        s.layers['multiscale_mesh'] = neuroglancer.SegmentationLayer(
+            source=mesh_url
         )
         
         # Set default view options
@@ -71,9 +71,9 @@ def main():
     
     print(f"Neuroglancer URL: {viewer.get_viewer_url()}")
     
-    # Keep the script running
-    print("Press Ctrl+C to exit")
-    input("Press Enter to exit...")
+    # Keep the script running until user input
+    print("Press Enter to exit...")
+    input()
 
 
 if __name__ == '__main__':

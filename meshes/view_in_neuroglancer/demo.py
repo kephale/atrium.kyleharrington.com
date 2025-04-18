@@ -17,10 +17,8 @@
 
 import argparse
 import neuroglancer
-import numpy as np
 import os
 import sys
-import zarr
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import threading
 import webbrowser
@@ -30,7 +28,7 @@ import time
 def parse_args():
     parser = argparse.ArgumentParser(description='View multiscale mesh in Neuroglancer')
     parser.add_argument('--zarr-path', type=str, required=True,
-                        help='Path to the zarr file containing the data')
+                        help='Path to the zarr directory containing the data')
     return parser.parse_args()
 
 
@@ -48,16 +46,25 @@ def main():
     args = parse_args()
     
     # Ensure the zarr path exists
-    if not os.path.exists(args.zarr_path):
-        print(f"Error: Zarr file {args.zarr_path} does not exist")
+    zarr_path = os.path.abspath(args.zarr_path)
+    if not os.path.exists(zarr_path) or not os.path.isdir(zarr_path):
+        print(f"Error: Zarr directory {zarr_path} does not exist or is not a directory")
         sys.exit(1)
     
-    # Get the directory containing the precomputed data
-    mesh_dir = os.path.dirname(os.path.abspath(args.zarr_path))
-    print(f"Serving precomputed data from: {mesh_dir}")
+    # Get the parent directory containing both the zarr data and meshes
+    data_dir = os.path.dirname(zarr_path)
+    print(f"Data directory: {data_dir}")
     
-    # Start a local HTTP server to serve the precomputed data
-    http_server, http_port = serve_directory(mesh_dir)
+    # Check if meshes directory exists
+    mesh_dir = os.path.join(data_dir, "meshes")
+    if not os.path.exists(mesh_dir):
+        print(f"Warning: Mesh directory {mesh_dir} not found. Using data directory.")
+        mesh_dir = data_dir
+    else:
+        print(f"Mesh directory found: {mesh_dir}")
+    
+    # Start a local HTTP server to serve the data directory
+    http_server, http_port = serve_directory(data_dir)
     precomputed_url = f"http://localhost:{http_port}"
     print(f"HTTP server started at {precomputed_url}")
     
@@ -65,14 +72,11 @@ def main():
     neuroglancer.set_server_bind_address('127.0.0.1')
     viewer = neuroglancer.Viewer()
     
-    # Load zarr data to extract metadata if needed
-    zarr_data = zarr.open(args.zarr_path, mode='r')
-    
     # Add the mesh layer using precomputed format with proper URL
     with viewer.txn() as s:
-        # Add the mesh as a SegmentationLayer with proper precomputed URL
+        # Add the mesh as a SegmentationLayer with proper precomputed URL pointing to meshes
         s.layers['multiscale_mesh'] = neuroglancer.SegmentationLayer(
-            source=f"precomputed://{precomputed_url}"
+            source=f"precomputed://{precomputed_url}/meshes"
         )
         
         # Set default view options

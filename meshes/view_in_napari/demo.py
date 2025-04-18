@@ -816,8 +816,25 @@ def main():
                                             mesh_scale = scale.copy() / mesh_transform_scale
                                             print(f"Applying uniform scale adjustment of 1/{mesh_transform_scale}")
                                         else:
-                                            mesh_scale = scale.copy()
-                                            print("Using default 1 scale adjustment for all LOD levels")
+                                            # Check if there's scale info in the Neuroglancer info file
+                                            if hasattr(mesh_loader, 'scales') and mesh_loader.scales:
+                                                # Try to extract resolution from scales
+                                                try:
+                                                    ng_resolution = mesh_loader.scales[0].get('resolution', [1, 1, 1])
+                                                    if len(ng_resolution) == 3:
+                                                        print(f"Found resolution in Neuroglancer scales: {ng_resolution}")
+                                                        # Adjust mesh scale based on the resolution
+                                                        mesh_scale = scale.copy() * np.array(ng_resolution)
+                                                        print(f"Adjusting mesh scale to match resolution: {mesh_scale}")
+                                                    else:
+                                                        mesh_scale = scale.copy()
+                                                        print("Using default scale (resolution format not recognized)")
+                                                except Exception as e:
+                                                    print(f"Error applying scale from Neuroglancer info: {e}")
+                                                    mesh_scale = scale.copy()
+                                            else:
+                                                mesh_scale = scale.copy()
+                                                print("Using default 1 scale adjustment for all LOD levels")
                                     
                                     viewer.add_surface(
                                         data=(vertices, faces),

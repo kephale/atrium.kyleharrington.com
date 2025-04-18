@@ -4,7 +4,7 @@
 # description = "A Python script to view precomputed multiscale mesh data in Neuroglancer"
 # author = "Kyle Harrington"
 # license = "MIT"
-# version = "0.1.0"
+# version = "0.1.1"
 # keywords = ["mesh", "3D", "visualization", "neuroglancer", "precomputed"]
 # documentation = "https://github.com/google/neuroglancer"
 # requires-python = ">=3.8"
@@ -57,7 +57,7 @@ def serve_directory(directory, port=8000):
     return httpd, port
 
 
-def ensure_info_file(mesh_dir):
+def ensure_info_file(mesh_dir, create_root_info=True):
     """Ensure that an info file exists in the mesh directory"""
     info_path = os.path.join(mesh_dir, "info")
     if not os.path.exists(info_path):
@@ -71,6 +71,20 @@ def ensure_info_file(mesh_dir):
         print(f"Created default info file at {info_path}")
     else:
         print(f"Info file already exists at {info_path}")
+    
+    # Create a copy of the info file at the root level for Neuroglancer to find
+    if create_root_info:
+        root_info_path = os.path.join(os.path.dirname(mesh_dir), "info")
+        if not os.path.exists(root_info_path):
+            # Copy the mesh info file to the root
+            with open(info_path, "r") as src:
+                info_content = json.load(src)
+            
+            with open(root_info_path, "w") as dest:
+                json.dump(info_content, dest)
+            print(f"Created root info file at {root_info_path}")
+        else:
+            print(f"Root info file already exists at {root_info_path}")
 
 
 def main():
@@ -91,8 +105,8 @@ def main():
     print(f"Zarr path: {zarr_path}")
     print(f"Mesh directory found: {mesh_dir}")
     
-    # Ensure there's an info file in the meshes directory
-    ensure_info_file(mesh_dir)
+    # Ensure there's an info file in the meshes directory and at the root
+    ensure_info_file(mesh_dir, create_root_info=True)
     
     # Start a local HTTP server to serve the zarr directory
     http_server, http_port = serve_directory(zarr_path)
@@ -106,7 +120,6 @@ def main():
     # Add the mesh layer using precomputed format with proper URL
     with viewer.txn() as s:
         # Add the mesh as a SegmentationLayer with proper precomputed URL
-        # The meshes are directly in the served directory, so no /meshes needed
         s.layers['multiscale_mesh'] = neuroglancer.SegmentationLayer(
             source=f"precomputed://{precomputed_url}"
         )

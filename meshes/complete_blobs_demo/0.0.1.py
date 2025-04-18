@@ -109,7 +109,6 @@ class NeuroglancerMeshWriter:
             "vertex_quantization_bits": self.vertex_quantization_bits,
             "transform": self.transform,
             "lod_scale_multiplier": self.lod_scale_multiplier
-            # Removed fields that are for precomputed volume metadata, not mesh metadata
         }
         
         with open(self.output_dir / "info", "w") as f:

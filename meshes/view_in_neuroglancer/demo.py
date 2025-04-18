@@ -101,6 +101,13 @@ def main():
     if not os.path.exists(mesh_dir):
         print(f"Error: Mesh directory {mesh_dir} not found. The meshes directory should be inside the zarr directory.")
         sys.exit(1)
+        
+    # Check if the mesh directory contains any files other than info
+    mesh_files = [f for f in os.listdir(mesh_dir) if os.path.isfile(os.path.join(mesh_dir, f)) and f != "info"]
+    if not mesh_files:
+        print(f"Warning: Mesh directory {mesh_dir} exists but doesn't contain any mesh files.")
+        print("If you just generated the meshes, ensure they were properly exported.")
+        # Continue anyway, as there might be meshes that aren't detected this way
     
     print(f"Zarr path: {zarr_path}")
     print(f"Mesh directory found: {mesh_dir}")

@@ -82,22 +82,20 @@ def main():
         print(f"Error: Zarr directory {zarr_path} does not exist or is not a directory")
         sys.exit(1)
     
-    # Get the parent directory containing both the zarr data and meshes
-    data_dir = os.path.dirname(zarr_path)
-    print(f"Data directory: {data_dir}")
-    
-    # Check if meshes directory exists
-    mesh_dir = os.path.join(data_dir, "meshes")
+    # The meshes directory is inside the zarr directory
+    mesh_dir = os.path.join(zarr_path, "meshes")
     if not os.path.exists(mesh_dir):
-        print(f"Warning: Mesh directory {mesh_dir} not found. Using data directory.")
-        mesh_dir = data_dir
-    else:
-        print(f"Mesh directory found: {mesh_dir}")
-        # Ensure there's an info file in the meshes directory
-        ensure_info_file(mesh_dir)
+        print(f"Error: Mesh directory {mesh_dir} not found. The meshes directory should be inside the zarr directory.")
+        sys.exit(1)
     
-    # Start a local HTTP server to serve the data directory
-    http_server, http_port = serve_directory(data_dir)
+    print(f"Zarr path: {zarr_path}")
+    print(f"Mesh directory found: {mesh_dir}")
+    
+    # Ensure there's an info file in the meshes directory
+    ensure_info_file(mesh_dir)
+    
+    # Start a local HTTP server to serve the zarr directory
+    http_server, http_port = serve_directory(zarr_path)
     precomputed_url = f"http://localhost:{http_port}"
     print(f"HTTP server started at {precomputed_url}")
     
@@ -107,16 +105,16 @@ def main():
     
     # Add the mesh layer using precomputed format with proper URL
     with viewer.txn() as s:
-        # Add the mesh as a SegmentationLayer with proper precomputed URL pointing to meshes
+        # Add the mesh as a SegmentationLayer with proper precomputed URL
+        # The meshes are directly in the served directory, so no /meshes needed
         s.layers['multiscale_mesh'] = neuroglancer.SegmentationLayer(
-            source=f"precomputed://{precomputed_url}/meshes"
+            source=f"precomputed://{precomputed_url}"
         )
         
         # Set default view options
         s.layers['multiscale_mesh'].visible = True
         
-        # Don't use navigation as it's not supported
-        # Instead set dimensions which is supported
+        # Set dimensions which is supported by Neuroglancer
         s.dimensions = neuroglancer.CoordinateSpace(
             names=['x', 'y', 'z'],
             units=['nm', 'nm', 'nm'],

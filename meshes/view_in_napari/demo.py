@@ -67,6 +67,19 @@ class PrecomputedMeshLoader:
             if "vertex_quantization_bits" in info:
                 self.vertex_quantization_bits = info["vertex_quantization_bits"]
                 print(f"Found vertex_quantization_bits: {self.vertex_quantization_bits}")
+            
+            # Check for Neuroglancer compatibility fields
+            if "data_type" in info:
+                self.data_type = info["data_type"]
+                print(f"Found data_type: {self.data_type}")
+                
+            if "type" in info:
+                self.mesh_type = info["type"]
+                print(f"Found mesh type: {self.mesh_type}")
+                
+            if "scales" in info:
+                self.scales = info["scales"]
+                print(f"Found scales information: {len(self.scales)} scale(s)")
                 
             # Store the whole info object for reference
             self.info = info

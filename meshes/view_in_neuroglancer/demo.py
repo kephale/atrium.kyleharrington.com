@@ -54,6 +54,9 @@ def serve_directory(directory, port=8000):
     server_thread = threading.Thread(target=httpd.serve_forever)
     server_thread.daemon = True
     server_thread.start()
+    print(f"Serving directory: {directory}")
+    print(f"Access server directly at: http://localhost:{port}")
+    print(f"You can manually check mesh files at: http://localhost:{port}/meshes/")
     return httpd, port
 
 
@@ -101,6 +104,13 @@ def main():
     if not os.path.exists(mesh_dir):
         print(f"Error: Mesh directory {mesh_dir} not found. The meshes directory should be inside the zarr directory.")
         sys.exit(1)
+        
+    # Check if the mesh directory contains any files other than info
+    mesh_files = [f for f in os.listdir(mesh_dir) if os.path.isfile(os.path.join(mesh_dir, f)) and f != "info"]
+    if not mesh_files:
+        print(f"Warning: Mesh directory {mesh_dir} exists but doesn't contain any mesh files.")
+        print("If you just generated the meshes, ensure they were properly exported.")
+        # Continue anyway, as there might be meshes that aren't detected this way
     
     print(f"Zarr path: {zarr_path}")
     print(f"Mesh directory found: {mesh_dir}")
@@ -126,6 +136,25 @@ def main():
         
         # Set default view options
         s.layers['multiscale_mesh'].visible = True
+        
+        # Find all available segment IDs
+        mesh_dir = os.path.join(zarr_path, "meshes")
+        segment_ids = []
+        for filename in os.listdir(mesh_dir):
+            # Look for files that are segment IDs (integers)
+            try:
+                if os.path.isfile(os.path.join(mesh_dir, filename)) and filename != "info":
+                    segment_id = int(filename)
+                    segment_ids.append(segment_id)
+            except ValueError:
+                pass
+        
+        # Set segments to show in the layer
+        if segment_ids:
+            s.layers['multiscale_mesh'].segments = set(segment_ids)
+            print(f"Found segment IDs: {segment_ids}")
+        else:
+            print("Warning: No segment IDs found in the meshes directory")
         
         # Set dimensions which is supported by Neuroglancer
         s.dimensions = neuroglancer.CoordinateSpace(

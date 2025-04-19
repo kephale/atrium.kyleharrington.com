@@ -107,6 +107,7 @@ class PrecomputedMeshLoader:
         numeric_files = [f for f in all_files if f.name.split('.')[0].isdigit()]
         
         # Separate mesh data and index files
+        # Mesh files are just the numeric name, index files have .index extension
         mesh_files = {int(p.stem): p for p in numeric_files if not p.name.endswith('.index')}
         index_files = {int(p.stem): p for p in numeric_files if p.name.endswith('.index')}
         

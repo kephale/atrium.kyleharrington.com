@@ -258,6 +258,8 @@ class NeuroglancerMeshWriter:
             print(f"\nProcessing LOD {lod}")
             print(f"LOD mesh: {len(lod_mesh.vertices)} vertices, {len(lod_mesh.faces)} faces")
             
+            # Apply coordinate offset - mesh vertices need to be in the same coordinate system as the voxel data
+            # Offset should be 0 instead of the previous (-1,-1,-1) to align correctly with the image/labels
             lod_mesh.vertices = lod_mesh.vertices - grid_origin
             fragments = self.generate_fragments(lod_mesh, lod)
             
@@ -275,7 +277,21 @@ class NeuroglancerMeshWriter:
             # Write manifest and fragment data
             self.write_binary_manifest(mesh_id, fragments_by_lod, grid_origin, num_lods)
             self.write_fragment_data(mesh_id, fragments_by_lod)
-            print(f"Successfully processed mesh {mesh_id}")
+            
+            # Verify the files exist and are accessible
+            mesh_id_str = str(mesh_id)
+            index_path = self.output_dir / f"{mesh_id_str}.index"
+            data_path = self.output_dir / mesh_id_str
+            
+            if index_path.exists() and data_path.exists():
+                print(f"Successfully processed mesh {mesh_id}")
+                print(f"  Index file: {index_path} ({index_path.stat().st_size} bytes)")
+                print(f"  Data file: {data_path} ({data_path.stat().st_size} bytes)")
+            else:
+                if not index_path.exists():
+                    print(f"ERROR: Index file {index_path} does not exist!")
+                if not data_path.exists():
+                    print(f"ERROR: Data file {data_path} does not exist!")
         except Exception as e:
             print(f"Error processing mesh {mesh_id}: {str(e)}")
             raise
@@ -866,40 +882,84 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
     # If mesh_writer is provided, copy mesh data into the zarr store
     if mesh_writer is not None:
         mesh_source_dir = mesh_writer.output_dir
-        # Copy all contents from the mesh writer's output directory to the zarr meshes directory
-        for item in os.listdir(mesh_source_dir):
+        print(f"\nCopying mesh files from {mesh_source_dir} to {mesh_dir}")
+        
+        # First check what files exist in the source directory
+        source_files = os.listdir(mesh_source_dir)
+        index_files = [f for f in source_files if f.endswith('.index')]
+        data_files = [f for f in source_files if f.isdigit() and os.path.isfile(os.path.join(mesh_source_dir, f))]
+        
+        print(f"Source directory contains {len(index_files)} index files and {len(data_files)} data files")
+        print(f"Index files: {index_files[:5]}... (showing first 5)" if len(index_files) > 5 else f"Index files: {index_files}")
+        print(f"Data files: {data_files[:5]}... (showing first 5)" if len(data_files) > 5 else f"Data files: {data_files}")
+        
+        # Manually copy each index and data file to ensure they're correctly placed
+        for item in source_files:
             src_path = os.path.join(mesh_source_dir, item)
             dst_path = os.path.join(mesh_dir, item)
-            if os.path.isfile(src_path):
-                print(f"Copying file: {src_path} -> {dst_path}")
+            
+            if not os.path.isfile(src_path):
+                continue  # Skip directories
+                
+            # Special handling for info file
+            if item == "info":
+                print(f"Copying info file: {src_path} -> {dst_path}")
                 shutil.copy2(src_path, dst_path)
-            elif os.path.isdir(src_path):
-                print(f"Copying directory: {src_path} -> {dst_path}")
-                shutil.copytree(src_path, dst_path, dirs_exist_ok=True)
+                continue
+                
+            # Copy index files
+            if item.endswith('.index'):
+                print(f"Copying index file: {src_path} -> {dst_path}")
+                shutil.copy2(src_path, dst_path)
+                # Check if copied successfully
+                if os.path.exists(dst_path):
+                    print(f"  ✓ Successfully copied {item} ({os.path.getsize(dst_path)} bytes)")
+                else:
+                    print(f"  ✗ Failed to copy {item}!")
+                continue
+                
+            # Copy data files (numeric filenames)
+            if item.isdigit():
+                print(f"Copying data file: {src_path} -> {dst_path}")
+                shutil.copy2(src_path, dst_path)
+                # Check if copied successfully
+                if os.path.exists(dst_path):
+                    print(f"  ✓ Successfully copied {item} ({os.path.getsize(dst_path)} bytes)")
+                else:
+                    print(f"  ✗ Failed to copy {item}!")
+                continue
+                
+            # Copy any other files
+            print(f"Copying other file: {src_path} -> {dst_path}")
+            shutil.copy2(src_path, dst_path)
                 
         # Verify all necessary files were copied
         print(f"\nVerifying mesh files in destination directory {mesh_dir}:")
-        for item in os.listdir(mesh_dir):
-            file_path = os.path.join(mesh_dir, item)
-            if os.path.isfile(file_path):
-                file_size = os.path.getsize(file_path)
-                print(f"  {item}: {file_size} bytes")
-                
-        # Check for paired .index files and data files
-        index_files = [f for f in os.listdir(mesh_dir) if f.endswith('.index')]
-        data_files = [f for f in os.listdir(mesh_dir) if f.isdigit() and os.path.isfile(os.path.join(mesh_dir, f))]
+        dest_files = os.listdir(mesh_dir)
+        dest_index_files = [f for f in dest_files if f.endswith('.index')]
+        dest_data_files = [f for f in dest_files if f.isdigit() and os.path.isfile(os.path.join(mesh_dir, f))]
         
-        print(f"\nFound {len(index_files)} index files and {len(data_files)} data files")
+        print(f"Destination directory contains {len(dest_index_files)} index files and {len(dest_data_files)} data files")
         
-        # Check for any missing pairs
+        # Check for any missing index files
         for idx_file in index_files:
-            base_name = idx_file[:-6]  # Remove .index suffix
-            if base_name not in data_files:
-                print(f"Warning: Missing data file for index {idx_file}")
+            if idx_file not in dest_files:
+                print(f"WARNING: Index file {idx_file} not copied to destination!")
                 
+        # Check for any missing data files
         for data_file in data_files:
-            if f"{data_file}.index" not in index_files:
-                print(f"Warning: Missing index file for data {data_file}")
+            if data_file not in dest_files:
+                print(f"WARNING: Data file {data_file} not copied to destination!")
+                
+        # Check for paired files
+        for idx_file in dest_index_files:
+            base_name = idx_file[:-6]  # Remove .index suffix
+            if base_name not in dest_data_files:
+                print(f"WARNING: Missing data file for index {idx_file}")
+                
+        for data_file in dest_data_files:
+            if f"{data_file}.index" not in dest_index_files:
+                print(f"WARNING: Missing index file for data {data_file}")
     
     return zarr_path
 
@@ -981,9 +1041,10 @@ def main():
         
         trimesh_mesh.fix_normals()
         
-        # Apply a (-1,-1,-1) offset to mesh vertices to correct alignment with image/labels layers
-        print(f"Applying (-1,-1,-1) offset to mesh {mesh_id} to align with image/labels layers")
-        trimesh_mesh.vertices = trimesh_mesh.vertices - np.array([1, 1, 1])
+        # Apply a consistent offset of 0 (no offset) to mesh vertices to align correctly with image/labels layers
+        print(f"Removing previous offset approach for mesh coordinate alignment")
+        # We used to apply (-1,-1,-1) offset, now we use (0,0,0) for proper alignment
+        trimesh_mesh.vertices = trimesh_mesh.vertices - np.array([0, 0, 0])
         
         # Process the mesh with multiple LODs
         mesh_writer.process_mesh(mesh_id, trimesh_mesh, num_lods=3)

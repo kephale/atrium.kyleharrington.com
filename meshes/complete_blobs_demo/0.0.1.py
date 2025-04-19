@@ -932,8 +932,8 @@ def main():
         print(f"Applying (-1,-1,-1) offset to mesh {mesh_id} to align with image/labels layers")
         trimesh_mesh.vertices = trimesh_mesh.vertices - np.array([1, 1, 1])
         
-        # Process the mesh with multiple LODs
-        mesh_writer.process_mesh(mesh_id, trimesh_mesh, num_lods=3)
+        # Process the mesh with a single LOD for standard Neuroglancer format
+        mesh_writer.process_mesh(mesh_id, trimesh_mesh, num_lods=1)
         mesh_id += 1
         mesh_object_count += 1
         mesher.erase(obj_id)

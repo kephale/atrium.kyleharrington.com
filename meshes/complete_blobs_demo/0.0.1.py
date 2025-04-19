@@ -212,41 +212,42 @@ class NeuroglancerMeshWriter:
             print(f"Error writing fragment data for mesh {mesh_id}: {str(e)}")
             raise
 
-    def process_mesh(self, mesh_id: int, mesh: trimesh.Trimesh, num_lods: int = 3):
-        """Process a single mesh with additional debug logging."""
+    def process_mesh(self, mesh_id: int, mesh: trimesh.Trimesh, num_lods: int = 1):
+        """Process a single mesh for standard Neuroglancer format."""
         print(f"\nProcessing mesh {mesh_id}")
         print(f"Original mesh: {len(mesh.vertices)} vertices, {len(mesh.faces)} faces")
         
-        # Generate LODs
-        lod_meshes = self.generate_lods(mesh, num_lods)
+        # Generate LODs - for standard format, we only use one LOD
+        lod_meshes = self.generate_lods(mesh, num_lods=1)
         print(f"Generated {len(lod_meshes)} LOD levels")
         
         # Calculate grid origin
         grid_origin = (mesh.vertices.min(axis=0) // self.box_size - 1) * self.box_size
         print(f"Grid origin: {grid_origin}")
         
-        # Generate fragments for each LOD
+        # Generate fragments for LOD 0 only
         fragments_by_lod = {}
-        for lod, lod_mesh in enumerate(lod_meshes):
-            print(f"\nProcessing LOD {lod}")
-            print(f"LOD mesh: {len(lod_mesh.vertices)} vertices, {len(lod_mesh.faces)} faces")
-            
-            lod_mesh.vertices = lod_mesh.vertices - grid_origin
-            fragments = self.generate_fragments(lod_mesh, lod)
-            
-            if fragments:
-                fragments_by_lod[lod] = fragments
-                print(f"Generated {len(fragments)} fragments for LOD {lod}")
-            else:
-                print(f"No fragments generated for LOD {lod}")
+        lod_mesh = lod_meshes[0]
+        
+        print(f"Processing base LOD")
+        print(f"LOD mesh: {len(lod_mesh.vertices)} vertices, {len(lod_mesh.faces)} faces")
+        
+        lod_mesh.vertices = lod_mesh.vertices - grid_origin
+        fragments = self.generate_fragments(lod_mesh, 0)
+        
+        if fragments:
+            fragments_by_lod[0] = fragments
+            print(f"Generated {len(fragments)} fragments for base LOD")
+        else:
+            print(f"No fragments generated for base LOD")
         
         if not fragments_by_lod:
-            print(f"Warning: No fragments generated for any LOD level")
+            print(f"Warning: No fragments generated for mesh {mesh_id}")
             return
         
         try:
             # Write manifest and fragment data
-            self.write_binary_manifest(mesh_id, fragments_by_lod, grid_origin, num_lods)
+            self.write_binary_manifest(mesh_id, fragments_by_lod, grid_origin, 1)
             self.write_fragment_data(mesh_id, fragments_by_lod)
             print(f"Successfully processed mesh {mesh_id}")
         except Exception as e:

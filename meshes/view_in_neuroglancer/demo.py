@@ -61,13 +61,19 @@ def serve_directory(directory, port=8000):
 
 
 def ensure_info_file(mesh_dir, create_root_info=True):
-    """Ensure that an info file exists in the mesh directory"""
+    """Ensure that an info file exists in the mesh directory following the Neuroglancer precomputed format.
+    
+    The mesh info format is described at:
+    https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/meshes.md#multi-resolution-mesh-info-json-file-format
+    """
     info_path = os.path.join(mesh_dir, "info")
     if not os.path.exists(info_path):
-        # Create a basic info file for meshes
+        # Create a basic info file for meshes that conforms to the Neuroglancer spec
         info = {
-            "type": "segmentation",
-            "mesh": "mesh"
+            "@type": "neuroglancer_multilod_draco",
+            "vertex_quantization_bits": 16,
+            "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0],
+            "lod_scale_multiplier": 2.0
         }
         with open(info_path, "w") as f:
             json.dump(info, f)
@@ -75,16 +81,24 @@ def ensure_info_file(mesh_dir, create_root_info=True):
     else:
         print(f"Info file already exists at {info_path}")
     
-    # Create a copy of the info file at the root level for Neuroglancer to find
+    # Create a segmentation info file at the root level for Neuroglancer to find
     if create_root_info:
         root_info_path = os.path.join(os.path.dirname(mesh_dir), "info")
         if not os.path.exists(root_info_path):
-            # Copy the mesh info file to the root
-            with open(info_path, "r") as src:
-                info_content = json.load(src)
+            # Create a segmentation info file that references the mesh
+            root_info = {
+                "@type": "neuroglancer_segmentation",
+                "mesh": "meshes",
+                "scales": [
+                    {
+                        "key": "1",
+                        "size": [1, 1, 1]
+                    }
+                ]
+            }
             
             with open(root_info_path, "w") as dest:
-                json.dump(info_content, dest)
+                json.dump(root_info, dest)
             print(f"Created root info file at {root_info_path}")
         else:
             print(f"Root info file already exists at {root_info_path}")
@@ -137,17 +151,17 @@ def main():
         # Set default view options
         s.layers['multiscale_mesh'].visible = True
         
-        # Find all available segment IDs
+        # Find all available segment IDs based on .index files
         mesh_dir = os.path.join(zarr_path, "meshes")
         segment_ids = []
         for filename in os.listdir(mesh_dir):
-            # Look for files that are segment IDs (integers)
-            try:
-                if os.path.isfile(os.path.join(mesh_dir, filename)) and filename != "info":
-                    segment_id = int(filename)
+            # Look for files ending with .index where the base name is an integer
+            if filename.endswith('.index'):
+                try:
+                    segment_id = int(filename[:-6])  # Remove '.index' suffix
                     segment_ids.append(segment_id)
-            except ValueError:
-                pass
+                except ValueError:
+                    pass
         
         # Set segments to show in the layer
         if segment_ids:

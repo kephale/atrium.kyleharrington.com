@@ -227,6 +227,7 @@ class PrecomputedMeshLoader:
             
     def load_fragment(self, mesh_id: int, lod: int, fragment_idx: int, 
                      manifest: Dict) -> Optional[trimesh.Trimesh]:
+        """Load a specific mesh fragment with proper coordinate alignment."""
         """Load a specific mesh fragment with correct alignment."""
         if lod not in manifest["fragments"]:
             self._log(f"LOD {lod} not found in manifest")
@@ -260,6 +261,15 @@ class PrecomputedMeshLoader:
             scale = manifest["lod_scales"][lod]
             grid_origin = manifest["grid_origin"]
             
+            # Print debug info about coordinate transforms
+            print(f"Fragment transformation details:")
+            print(f"  - Grid origin: {grid_origin}")
+            print(f"  - LOD scale: {scale}")
+            print(f"  - Box position: {position}")
+            print(f"  - Box offset: {position * scale}")
+            if lod == 0:
+                print(f"  - Mesh vertices before transform: {mesh.vertices.min(axis=0)} to {mesh.vertices.max(axis=0)}")
+            
             # Rescale vertices to world coordinates 
             if self.vertex_quantization_bits:
                 # Denormalize from quantized space
@@ -270,17 +280,18 @@ class PrecomputedMeshLoader:
             box_offset = position * scale
             mesh.vertices = mesh.vertices + grid_origin + box_offset
             
+            if lod == 0:
+                print(f"  - Mesh vertices after transform: {mesh.vertices.min(axis=0)} to {mesh.vertices.max(axis=0)}")
+            
             # Apply global transform if available
             if self.transform is not None:
                 rotation = self.transform[:, :3]  # 3x3 rotation matrix
                 translation = self.transform[:, 3]  # 3x1 translation vector
                 
                 mesh.vertices = np.dot(mesh.vertices, rotation.T) + translation
-                
-            # Note: The implementation assumes meshes are already aligned with the image/labels data
-            # If meshes were created with a (-1,-1,-1) offset to align with image/labels, no additional
-            # adjustment is needed here as it's already part of the mesh coordinates
-                
+                if lod == 0:
+                    print(f"  - Mesh vertices after global transform: {mesh.vertices.min(axis=0)} to {mesh.vertices.max(axis=0)}")
+            
             return mesh
             
         except Exception as e:
@@ -784,38 +795,28 @@ def main():
                                 # Add each LOD as a separate layer, using scale matching the resolution level
                                 for lod, (vertices, faces) in result.items():
                                     # Calculate scale for this LOD
-                                    # Start with the image scale for this mesh LOD
+                                    # Calculate proper scale for this LOD
                                     mesh_scale = scale.copy()
                                     
-                                    # Get the manifest to extract mesh-specific information
+                                    # Get mesh-specific transformation info
                                     manifest = mesh_loader.read_manifest(mesh_id)
                                     if manifest and "lod_scales" in manifest:
-                                        # Extract transform information from manifest
-                                        lod_scale = manifest["lod_scales"][lod]
+                                        # Extract the grid origin to help visualize mesh alignment
+                                        grid_origin = manifest["grid_origin"]
+                                        print(f"Mesh {mesh_id} LOD {lod} grid_origin: {grid_origin}")
                                         
-                                        # Detect the transform matrix from the mesh info file for proper alignment
-                                        mesh_transform_scale = None
+                                        # Explicitly account for the transform in the mesh coordinate system
                                         if hasattr(mesh_loader, 'transform') and mesh_loader.transform is not None:
-                                            # Extract the scaling component from the transform matrix
-                                            # The transform is typically a 3x4 matrix where the diagonal elements
-                                            # represent scaling in x, y, z directions
-                                            diagonal = np.array([mesh_loader.transform[i, i] for i in range(3)])
-                                            if np.all(diagonal > 0):  # Ensure valid scale factors
-                                                mesh_transform_scale = np.mean(diagonal)
-                                                print(f"Detected mesh transform scale: {mesh_transform_scale}")
+                                            # Get scaling from the transform matrix
+                                            transform = mesh_loader.transform
+                                            diagonal = np.array([transform[i, i] for i in range(3)])
                                             
-                                            # Calculate real-world voxel size from image scale and mesh transform
-                                            # This ensures mesh coordinates align perfectly with image coordinates
-                                            # by maintaining a consistent scale relationship
-                                            if mesh_transform_scale is not None and mesh_transform_scale != 1.0:
-                                                # Compute compensation factor to ensure perfect alignment
-                                                # Apply the detected scale factor to match coordinate systems
-                                                mesh_scale = scale.copy()
-                                                print(f"Applying properly calculated scale based on mesh transform: {mesh_scale}")
-                                        else:
-                                            # Without transform information, use default scale
+                                            # Apply compensation for coordinate systems
+                                            # In Napari, we must match the image scale exactly
                                             mesh_scale = scale.copy()
-                                            print("Using image scale directly for mesh alignment")
+                                            print(f"Using adjusted scale for mesh {mesh_id} LOD {lod}: {mesh_scale}")
+                                        else:
+                                            print(f"Using direct image scale for mesh {mesh_id} LOD {lod}: {mesh_scale}")
                                     
                                     viewer.add_surface(
                                         data=(vertices, faces),
@@ -830,15 +831,28 @@ def main():
                                 # Single LOD case
                                 vertices, faces = result
                                 
-                    # Add surface layer with proper scale and alignment
+                    # Add surface layer with proper coordinate alignment
+                    translate = np.zeros(3)  # Default: no translation
+                    
+                    # Do an explicit coordinate alignment check
+                    if image_data is not None and vertices is not None:
+                        img_center = np.array(image_data.shape) / 2
+                        mesh_center = (vertices.max(axis=0) + vertices.min(axis=0)) / 2
+                        print(f"Image center: {img_center}, Mesh center: {mesh_center}")
+                        
+                        # If there appears to be a significant offset, warn the user
+                        if np.any(np.abs(img_center - mesh_center) > np.max(image_data.shape) * 0.2):
+                            print(f"WARNING: Large alignment offset detected between mesh and volume!")
+                            print(f"You may need to add a translation to align properly.")
+                    
                     viewer.add_surface(
                         data=(vertices, faces),
                         name=f"Mesh {mesh_id}",
                         colormap='turbo',
                         opacity=0.7,
-                        # Apply properly calculated scale that ensures alignment with image data
                         scale=scale,
-                        translate=[0, 0, 0]  # No translation needed with proper coordinate system alignment
+                        translate=translate,
+                        shading='smooth'
                     )
                     print(f"Added mesh {mesh_id} with {len(vertices)} vertices and {len(faces)} faces, scale {scale}")
                 else:

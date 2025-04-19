@@ -123,7 +123,7 @@ class PrecomputedMeshLoader:
         return valid_meshes, missing_index, missing_data
         
     def read_manifest(self, mesh_id: int) -> Dict:
-        """Read the binary manifest file for a mesh and ensure proper alignment."""
+        """Read the binary manifest file for a mesh."""
         index_path = self.precomputed_dir / f"{mesh_id}.index"
         manifest = {}
         
@@ -184,7 +184,6 @@ class PrecomputedMeshLoader:
                         }
             
             print(f"Manifest for mesh {mesh_id}: {manifest['num_lods']} LODs, {total_fragments} total fragments")
-            print(f"Grid origin: {manifest['grid_origin']}")
             return manifest
             
         except Exception as e:
@@ -228,7 +227,7 @@ class PrecomputedMeshLoader:
             
     def load_fragment(self, mesh_id: int, lod: int, fragment_idx: int, 
                      manifest: Dict) -> Optional[trimesh.Trimesh]:
-        """Load a specific mesh fragment with correct alignment."""
+        """Load a specific mesh fragment."""
         if lod not in manifest["fragments"]:
             self._log(f"LOD {lod} not found in manifest")
             return None
@@ -269,9 +268,6 @@ class PrecomputedMeshLoader:
             
             # Add grid origin and fragment position offsets
             box_offset = position * scale
-            
-            # Ensure proper alignment with voxel data by not applying additional offsets
-            # that might have been used in mesh generation for alignment
             mesh.vertices = mesh.vertices + grid_origin + box_offset
             
             # Apply global transform if available
@@ -280,7 +276,11 @@ class PrecomputedMeshLoader:
                 translation = self.transform[:, 3]  # 3x1 translation vector
                 
                 mesh.vertices = np.dot(mesh.vertices, rotation.T) + translation
-            
+                
+            # Note: The implementation assumes meshes are already aligned with the image/labels data
+            # If meshes were created with a (-1,-1,-1) offset to align with image/labels, no additional
+            # adjustment is needed here as it's already part of the mesh coordinates
+                
             return mesh
             
         except Exception as e:
@@ -819,16 +819,14 @@ def main():
                                 # Single LOD case
                                 vertices, faces = result
                                 
-                    # Add surface layer with the same scale as images and labels
-                    viewer.add_surface(
-                        data=(vertices, faces),
-                        name=f"Mesh {mesh_id}",
-                        colormap='turbo',
-                        opacity=0.7,
-                        # Apply consistent offset to align meshes with the segmentation data
-                        scale=scale,
-                        translate=[0, 0, 0]  # No additional translation needed now that meshes are properly aligned
-                    )
+                                # Add surface layer with the same scale as images and labels
+                                viewer.add_surface(
+                                    data=(vertices, faces),
+                                    name=f"Mesh {mesh_id}",
+                                    colormap='turbo',
+                                    opacity=0.7,
+                                    scale=scale
+                                )
                                 print(f"Added mesh {mesh_id} with {len(vertices)} vertices and {len(faces)} faces, scale {scale}")
                 else:
                     print("No valid meshes found")

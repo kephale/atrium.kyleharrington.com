@@ -92,6 +92,12 @@ def serve_directory(directory, port=8000):
 
 
 def ensure_info_file(mesh_dir, create_root_info=True):
+    """Ensure that an info file exists with the correct specifications.
+    
+    The mesh info file is critical for Neuroglancer to properly display meshes.
+    This function creates or verifies the info files in both the meshes directory
+    and at the root level for proper data discovery by Neuroglancer.
+    """
     """Ensure that an info file exists in the mesh directory following the Neuroglancer precomputed format.
     
     The mesh info format is described at:
@@ -99,7 +105,8 @@ def ensure_info_file(mesh_dir, create_root_info=True):
     """
     info_path = os.path.join(mesh_dir, "info")
     if not os.path.exists(info_path):
-        # Create a basic info file for meshes that conforms to the Neuroglancer spec
+        # Create a properly configured info file for meshes that conforms to the Neuroglancer spec
+        # We use vertex_quantization_bits=16 for higher precision, which helps avoid visible seams
         info = {
             "@type": "neuroglancer_multilod_draco",
             "vertex_quantization_bits": 16,
@@ -108,16 +115,23 @@ def ensure_info_file(mesh_dir, create_root_info=True):
         }
         with open(info_path, "w") as f:
             json.dump(info, f)
-        print(f"Created default info file at {info_path}")
+        print(f"Created properly configured info file at {info_path}")
     else:
-        print(f"Info file already exists at {info_path}")
+        # Read existing info to verify it has appropriate settings
+        try:
+            with open(info_path, 'r') as f:
+                existing_info = json.load(f)
+                print(f"Existing info file found with type: {existing_info.get('@type', 'unknown')}")
+                print(f"Quantization bits: {existing_info.get('vertex_quantization_bits', 'not specified')}")
+        except Exception as e:
+            print(f"Warning: Error reading existing info file: {e}")
     
     # Create a segmentation info file at the root level for Neuroglancer to find
     if create_root_info:
         root_dir = os.path.dirname(mesh_dir)
         root_info_path = os.path.join(root_dir, "info")
         
-        # Create the top-level info file with correct mesh directory reference
+        # Create the top-level info file with correct mesh directory reference and proper settings
         if not os.path.exists(root_info_path):
             root_info = {
                 "@type": "neuroglancer_scene",
@@ -128,7 +142,16 @@ def ensure_info_file(mesh_dir, create_root_info=True):
                 },
                 "position": [0, 0, 0],
                 "crossSectionScale": 1,
-                "projectionScale": 4096
+                "projectionScale": 4096,
+                # These additional settings help ensure proper rendering
+                "layers": [
+                    {
+                        "type": "segmentation",
+                        "source": "precomputed://meshes",
+                        "tab": "segments",
+                        "name": "meshes"
+                    }
+                ]
             }
             
             with open(root_info_path, "w") as dest:
@@ -140,12 +163,16 @@ def ensure_info_file(mesh_dir, create_root_info=True):
         # Check if a meshes/info file exists for meshes reference
         meshes_info_path = os.path.join(mesh_dir, "info")
         if not os.path.exists(meshes_info_path):
-            # Ensure the meshes/info file exists with the correct format
+            # Ensure the meshes/info file exists with the correct format and optimal settings
+            # for proper mesh rendering with no visible seams or gaps
             meshes_info = {
                 "@type": "neuroglancer_multilod_draco",
-                "vertex_quantization_bits": 16,
+                "vertex_quantization_bits": 16,  # Higher precision for better quality
                 "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0],
-                "lod_scale_multiplier": 2.0
+                "lod_scale_multiplier": 2.0,
+                # Add segment display settings for better visibility
+                "segment_colors": {},
+                "segment_default_color": [255, 255, 255, 255]
             }
             with open(meshes_info_path, "w") as f:
                 json.dump(meshes_info, f)

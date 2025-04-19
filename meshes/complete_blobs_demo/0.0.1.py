@@ -103,7 +103,9 @@ class NeuroglancerMeshWriter:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
     def write_info_file(self):
-        """Write the Neuroglancer info JSON file."""
+        """Write the Neuroglancer info JSON file according to the specification at:
+        https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/meshes.md#multi-resolution-mesh-info-json-file-format
+        """
         info = {
             "@type": "neuroglancer_multilod_draco",
             "vertex_quantization_bits": self.vertex_quantization_bits,
@@ -118,8 +120,15 @@ class NeuroglancerMeshWriter:
 
     def write_binary_manifest(self, mesh_id: int, fragments_by_lod: Dict[int, List[Fragment]], 
                             grid_origin: np.ndarray, num_lods: int):
+        """Write the binary manifest file following the Neuroglancer precomputed mesh format.
+        
+        The manifest file format is described at:
+        https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/meshes.md#multi-resolution-mesh-manifest-file-format
+        """
         """Write the binary manifest file with debug logging."""
-        manifest_path = self.output_dir / f"{mesh_id}.index"
+        # Ensure mesh ID is written as a base-10 string representation, as required by the spec
+        mesh_id_str = str(mesh_id)
+        manifest_path = self.output_dir / f"{mesh_id_str}.index"
         print(f"\nWriting manifest for mesh {mesh_id} to {manifest_path}")
         print(f"Number of LODs: {num_lods}")
         print(f"Grid origin: {grid_origin}")
@@ -193,8 +202,15 @@ class NeuroglancerMeshWriter:
             raise
 
     def write_fragment_data(self, mesh_id: int, fragments_by_lod: Dict[int, List[Fragment]]):
+        """Write the fragment data file following the Neuroglancer precomputed mesh format.
+        
+        The fragment data file format is described at:
+        https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/meshes.md#multi-resolution-mesh-fragment-data-file-format
+        """
         """Write the fragment data file with debug logging."""
-        data_path = self.output_dir / str(mesh_id)
+        # Ensure mesh ID is written as a base-10 string representation, as required by the spec
+        mesh_id_str = str(mesh_id)
+        data_path = self.output_dir / mesh_id_str
         print(f"\nWriting fragment data for mesh {mesh_id} to {data_path}")
         
         try:
@@ -528,6 +544,7 @@ class NeuroglancerMeshWriter:
         return lods
 
 def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writer=None):
+    """Create an OME-NGFF Zarr store with Neuroglancer-compatible meshes"""
     """
     Create an OME-NGFF Zarr store following the 0.5 specification.
     
@@ -854,9 +871,35 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
             src_path = os.path.join(mesh_source_dir, item)
             dst_path = os.path.join(mesh_dir, item)
             if os.path.isfile(src_path):
+                print(f"Copying file: {src_path} -> {dst_path}")
                 shutil.copy2(src_path, dst_path)
             elif os.path.isdir(src_path):
+                print(f"Copying directory: {src_path} -> {dst_path}")
                 shutil.copytree(src_path, dst_path, dirs_exist_ok=True)
+                
+        # Verify all necessary files were copied
+        print(f"\nVerifying mesh files in destination directory {mesh_dir}:")
+        for item in os.listdir(mesh_dir):
+            file_path = os.path.join(mesh_dir, item)
+            if os.path.isfile(file_path):
+                file_size = os.path.getsize(file_path)
+                print(f"  {item}: {file_size} bytes")
+                
+        # Check for paired .index files and data files
+        index_files = [f for f in os.listdir(mesh_dir) if f.endswith('.index')]
+        data_files = [f for f in os.listdir(mesh_dir) if f.isdigit() and os.path.isfile(os.path.join(mesh_dir, f))]
+        
+        print(f"\nFound {len(index_files)} index files and {len(data_files)} data files")
+        
+        # Check for any missing pairs
+        for idx_file in index_files:
+            base_name = idx_file[:-6]  # Remove .index suffix
+            if base_name not in data_files:
+                print(f"Warning: Missing data file for index {idx_file}")
+                
+        for data_file in data_files:
+            if f"{data_file}.index" not in index_files:
+                print(f"Warning: Missing index file for data {data_file}")
     
     return zarr_path
 

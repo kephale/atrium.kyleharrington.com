@@ -26,7 +26,7 @@ import webbrowser
 
 
 class CORSHTTPRequestHandler(SimpleHTTPRequestHandler):
-    """Custom HTTP request handler with CORS headers"""
+    """Custom HTTP request handler with CORS headers and special handling for mesh files"""
     
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -38,6 +38,33 @@ class CORSHTTPRequestHandler(SimpleHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200)
         self.end_headers()
+    
+    def do_GET(self):
+        # Check if the path is a direct request for an index file at root level
+        # like /123.index where the actual file is in /meshes/123.index
+        if self.path.endswith('.index') and '/' not in self.path[1:]:
+            # Extract the segment ID
+            segment_id = self.path[1:-6]  # Remove leading '/' and trailing '.index'
+            # Construct the path to the meshes directory
+            mesh_file_path = os.path.join('meshes', f"{segment_id}.index")
+            
+            # Check if the file exists in the meshes directory
+            if os.path.exists(mesh_file_path):
+                self.path = f"/meshes/{segment_id}.index"  # Redirect to the meshes directory
+                return SimpleHTTPRequestHandler.do_GET(self)
+        
+        # For regular segment data requests like /123 (without .index)
+        if '/' not in self.path[1:] and self.path[1:].isdigit():
+            segment_id = self.path[1:]  # Remove leading '/'
+            mesh_file_path = os.path.join('meshes', segment_id)
+            
+            # Check if the file exists in the meshes directory
+            if os.path.exists(mesh_file_path):
+                self.path = f"/meshes/{segment_id}"  # Redirect to the meshes directory
+                return SimpleHTTPRequestHandler.do_GET(self)
+        
+        # Default handling for all other requests
+        return SimpleHTTPRequestHandler.do_GET(self)
 
 
 def parse_args():
@@ -48,7 +75,12 @@ def parse_args():
 
 
 def serve_directory(directory, port=8000):
-    """Start an HTTP server with CORS support to serve the directory"""
+    """Start an HTTP server with CORS support to serve the directory
+    
+    This server needs to handle the Neuroglancer mesh format properly,
+    ensuring that .index files and mesh segment data are accessible with
+    the correct URLs.
+    """
     os.chdir(directory)
     httpd = HTTPServer(('', port), CORSHTTPRequestHandler)
     server_thread = threading.Thread(target=httpd.serve_forever)
@@ -83,18 +115,21 @@ def ensure_info_file(mesh_dir, create_root_info=True):
     
     # Create a segmentation info file at the root level for Neuroglancer to find
     if create_root_info:
-        root_info_path = os.path.join(os.path.dirname(mesh_dir), "info")
+        root_dir = os.path.dirname(mesh_dir)
+        root_info_path = os.path.join(root_dir, "info")
+        
+        # Create the top-level info file with correct mesh directory reference
         if not os.path.exists(root_info_path):
-            # Create a segmentation info file that references the mesh
             root_info = {
-                "@type": "neuroglancer_segmentation",
-                "mesh": "meshes",
-                "scales": [
-                    {
-                        "key": "1",
-                        "size": [1, 1, 1]
-                    }
-                ]
+                "@type": "neuroglancer_scene",
+                "dimensions": {
+                    "x": [1, "nm"],
+                    "y": [1, "nm"],
+                    "z": [1, "nm"]
+                },
+                "position": [0, 0, 0],
+                "crossSectionScale": 1,
+                "projectionScale": 4096
             }
             
             with open(root_info_path, "w") as dest:
@@ -102,6 +137,20 @@ def ensure_info_file(mesh_dir, create_root_info=True):
             print(f"Created root info file at {root_info_path}")
         else:
             print(f"Root info file already exists at {root_info_path}")
+        
+        # Check if a meshes/info file exists for meshes reference
+        meshes_info_path = os.path.join(mesh_dir, "info")
+        if not os.path.exists(meshes_info_path):
+            # Ensure the meshes/info file exists with the correct format
+            meshes_info = {
+                "@type": "neuroglancer_multilod_draco",
+                "vertex_quantization_bits": 16,
+                "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0],
+                "lod_scale_multiplier": 2.0
+            }
+            with open(meshes_info_path, "w") as f:
+                json.dump(meshes_info, f)
+            print(f"Created meshes info file at {meshes_info_path}")
 
 
 def main():
@@ -143,9 +192,13 @@ def main():
     
     # Add the mesh layer using precomputed format with proper URL
     with viewer.txn() as s:
-        # Add the mesh as a SegmentationLayer with proper precomputed URL
+        # Explicitly specify the precomputed source URL to include the 'meshes/' directory
+        source_url = f"precomputed://{precomputed_url}/meshes"
+        print(f"Using mesh source URL: {source_url}")
+        
+        # Add the mesh as a SegmentationLayer with proper URL path
         s.layers['multiscale_mesh'] = neuroglancer.SegmentationLayer(
-            source=f"precomputed://{precomputed_url}"
+            source=source_url
         )
         
         # Set default view options

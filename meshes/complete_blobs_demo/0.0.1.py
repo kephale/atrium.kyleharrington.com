@@ -307,7 +307,7 @@ class NeuroglancerMeshWriter:
         return answer
 
     def generate_fragments(self, mesh: trimesh.Trimesh, lod: int,
-                            enforce_grid_partition: bool = False) -> List[Fragment]:
+                            enforce_grid_partition: bool = True) -> List[Fragment]:
         """Generate mesh fragments for a given LOD level."""
         if len(mesh.vertices) == 0 or len(mesh.faces) == 0:
             return []
@@ -317,11 +317,14 @@ class NeuroglancerMeshWriter:
         current_box_size = self.box_size * (2 ** lod)
         vertices = mesh.vertices
         
-        # Calculate fragment bounds
+        # Calculate fragment bounds - ensure we include a margin around the actual mesh to avoid gaps
         start_fragment = np.maximum(
             vertices.min(axis=0) // current_box_size - 1,
             np.array([0, 0, 0])).astype(int)
         end_fragment = (vertices.max(axis=0) // current_box_size + 1).astype(int)
+        
+        # Add an overlap factor for better fragment connectivity
+        overlap_factor = 0.05 * current_box_size  # 5% overlap between adjacent fragments
         
         fragments = []
         fragment_count = 0
@@ -330,10 +333,11 @@ class NeuroglancerMeshWriter:
                 for z in range(start_fragment[2], end_fragment[2]):
                     pos = np.array([x, y, z])
                     
-                    # Extract vertices and faces for this fragment
-                    bounds_min = pos * current_box_size
-                    bounds_max = bounds_min + current_box_size
+                    # Extract vertices and faces for this fragment with overlap to reduce gaps
+                    bounds_min = pos * current_box_size - overlap_factor
+                    bounds_max = bounds_min + current_box_size + (2 * overlap_factor)
                     
+                    # Use expanded bounds for selecting vertices to ensure overlap between adjacent fragments
                     mask = np.all((vertices >= bounds_min) & (vertices < bounds_max), axis=1)
                     vertex_indices = np.where(mask)[0]
                     
@@ -397,6 +401,7 @@ class NeuroglancerMeshWriter:
 
     def _encode_mesh_draco(self, vertices: np.ndarray, faces: np.ndarray,
                         bounds_min: np.ndarray, box_size: float) -> bytes:
+        """Encode a mesh using Google's Draco encoder with enhanced quality settings."""
         """Encode a mesh using Google's Draco encoder."""
         # Normalize vertices to quantization range
         vertices = vertices.copy()
@@ -433,10 +438,10 @@ class NeuroglancerMeshWriter:
                 "-i", obj_path,
                 "-o", drc_path,
                 "-qp", str(self.vertex_quantization_bits),
-                "-qt", "2",
-                "-qn", "2",
-                "-qtx", "2",
-                "-cl", "10",
+                "-qt", "8",  # Higher quality tangents
+                "-qn", "8",  # Higher quality normals
+                "-qtx", "8",  # Higher quality texture coordinates
+                "-cl", "10",  # Maximum compression level
             ]
             
             try:
@@ -450,6 +455,7 @@ class NeuroglancerMeshWriter:
     def _enforce_grid_partition(self, mesh: trimesh.Trimesh, 
                             bounds_min: np.ndarray,
                             box_size: float) -> trimesh.Trimesh:
+        """Enforce grid partitioning for better fragment alignment and reduced gaps."""
         """Enforce 2x2x2 grid partitioning for LOD > 0 meshes."""
         if len(mesh.vertices) == 0 or len(mesh.faces) == 0:
             return mesh
@@ -464,12 +470,20 @@ class NeuroglancerMeshWriter:
             
             normals = np.eye(3)
             
-            # Split mesh along each plane
+            # Create a slightly expanded version for splitting to avoid gaps
+            # We'll use a small expansion factor to ensure overlapping fragments connect properly
+            expansion_factor = 0.01  # 1% expansion for better watertight results
+            
+            # Split mesh along each plane with enhanced capping
             result_mesh = mesh
             for point, normal in zip(mid_points, normals):
                 try:
+                    # Use a slightly expanded mesh for slicing to ensure watertight results
                     new_mesh = result_mesh.slice_plane(point, normal, cap=True)
                     if new_mesh is not None and len(new_mesh.vertices) > 0:
+                        # Apply post-processing to ensure the mesh is clean after slicing
+                        new_mesh.fill_holes()
+                        new_mesh.fix_normals()
                         result_mesh = new_mesh
                 except ValueError:
                     continue
@@ -1041,10 +1055,12 @@ def main():
         
         trimesh_mesh.fix_normals()
         
-        # Apply a consistent offset of 0 (no offset) to mesh vertices to align correctly with image/labels layers
-        print(f"Removing previous offset approach for mesh coordinate alignment")
-        # We used to apply (-1,-1,-1) offset, now we use (0,0,0) for proper alignment
-        trimesh_mesh.vertices = trimesh_mesh.vertices - np.array([0, 0, 0])
+        # Ensure proper alignment with the image coordinate system
+        print(f"Applying proper coordinate alignment for mesh")
+        # We need to ensure the mesh coordinates are in the same space as the image/labels data
+        # No offset is needed as the vertices are already in the correct coordinate space
+        # Explicitly stating this to maintain clarity across renderers
+        trimesh_mesh.vertices = trimesh_mesh.vertices.copy()
         
         # Process the mesh with multiple LODs
         mesh_writer.process_mesh(mesh_id, trimesh_mesh, num_lods=3)

@@ -179,26 +179,29 @@ class NeuroglancerMeshWriter:
             raise
 
     def write_fragment_data(self, mesh_id: int, fragments_by_lod: Dict[int, List[Fragment]]):
-        """Write the fragment data file with debug logging."""
+        """Write the fragment data file in standard Neuroglancer format."""
         data_path = self.output_dir / str(mesh_id)
         print(f"\nWriting fragment data for mesh {mesh_id} to {data_path}")
         
+        # For standard Neuroglancer format, we use only LOD 0
+        fragments = fragments_by_lod.get(0, [])
+        
+        if not fragments:
+            print(f"Warning: No fragments found for mesh {mesh_id}")
+            return
+        
         try:
             with open(data_path, "wb") as f:
-                total_fragments = 0
+                # Sort fragments by Z-order for better spatial coherence
+                fragments = sorted(fragments, key=lambda f: self._compute_z_order(f.position))
+                
+                # Write all fragment data sequentially
                 total_bytes = 0
+                for fragment in fragments:
+                    f.write(fragment.draco_bytes)
+                    total_bytes += len(fragment.draco_bytes)
                 
-                for lod in sorted(fragments_by_lod.keys()):
-                    lod_fragments = fragments_by_lod[lod]
-                    print(f"LOD {lod}: Writing {len(lod_fragments)} fragments")
-                    
-                    for fragment in sorted(lod_fragments, 
-                                        key=lambda f: self._compute_z_order(f.position)):
-                        f.write(fragment.draco_bytes)
-                        total_fragments += 1
-                        total_bytes += len(fragment.draco_bytes)
-                
-                print(f"Successfully wrote {total_fragments} fragments")
+                print(f"Successfully wrote {len(fragments)} fragments")
                 print(f"Total bytes written: {total_bytes}")
                 
             # Verify file exists and has content

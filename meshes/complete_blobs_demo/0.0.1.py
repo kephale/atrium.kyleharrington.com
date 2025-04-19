@@ -813,7 +813,7 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
     mesh_dir = os.path.join(zarr_path, "meshes")
     os.makedirs(mesh_dir, exist_ok=True)
     
-    # Create zarr.json for the mesh group according to RFC-8
+    # Create zarr.json for the mesh group
     mesh_metadata = {
         "zarr_format": 3,
         "node_type": "external",
@@ -822,7 +822,7 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
                 "version": "0.5",
                 "mesh": {
                     "version": "0.1",
-                    "type": "neuroglancer_multilod_draco",
+                    "type": "neuroglancer_legacy_mesh",
                     "source": {
                         "image": "../",
                         "labels": "../labels/segmentation"

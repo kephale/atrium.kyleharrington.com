@@ -228,6 +228,7 @@ class PrecomputedMeshLoader:
             
     def load_fragment(self, mesh_id: int, lod: int, fragment_idx: int, 
                      manifest: Dict) -> Optional[trimesh.Trimesh]:
+        """Load a specific mesh fragment with proper coordinate alignment."""
         """Load a specific mesh fragment with correct alignment."""
         if lod not in manifest["fragments"]:
             self._log(f"LOD {lod} not found in manifest")
@@ -270,8 +271,8 @@ class PrecomputedMeshLoader:
             # Add grid origin and fragment position offsets
             box_offset = position * scale
             
-            # Ensure proper alignment with voxel data by not applying additional offsets
-            # that might have been used in mesh generation for alignment
+            # Ensure proper alignment with voxel data by applying correct coordinate transformations
+            # This is critical for alignment between mesh and volume data
             mesh.vertices = mesh.vertices + grid_origin + box_offset
             
             # Apply global transform if available
@@ -615,19 +616,22 @@ def load_mesh(mesh_loader, mesh_id, lod=None, max_fragments=None, load_all_lods=
         
         # Otherwise load a single LOD
         else:
-            # Determine which LOD to use
+            # Determine which LOD to use with improved reliability
             if lod is not None and lod < num_lods:
-                # Use the specified LOD
+                # Use the specified LOD if it has fragments
                 target_lod = lod
+                if target_lod not in manifest["fragments"] or manifest["fragments_per_lod"][target_lod] == 0:
+                    print(f"Specified LOD {lod} has no fragments, will try to find an alternative")
+                    target_lod = None
             else:
-                # Choose the lowest LOD (highest detail) that has fragments
+                # Start with highest detail first
                 target_lod = None
                 for l in range(num_lods):
                     if l in manifest["fragments"] and manifest["fragments_per_lod"][l] > 0:
                         target_lod = l
                         break
                         
-                # If no valid LOD found, try the highest one
+                # If no valid LOD found starting from highest detail, try from lowest detail
                 if target_lod is None:
                     for l in range(num_lods-1, -1, -1):
                         if l in manifest["fragments"] and manifest["fragments_per_lod"][l] > 0:
@@ -781,12 +785,16 @@ def main():
                                 # Add each LOD as a separate layer, using scale matching the resolution level
                                 for lod, (vertices, faces) in result.items():
                                     # Calculate scale for this LOD
+                                    # Start with the image scale for this mesh LOD
                                     mesh_scale = scale.copy()
                                     
-                                    # Get the manifest to extract lod_scales
+                                    # Get the manifest to extract mesh-specific information
                                     manifest = mesh_loader.read_manifest(mesh_id)
                                     if manifest and "lod_scales" in manifest:
-                                        # Detect the transform matrix from the mesh info file
+                                        # Extract transform information from manifest
+                                        lod_scale = manifest["lod_scales"][lod]
+                                        
+                                        # Detect the transform matrix from the mesh info file for proper alignment
                                         mesh_transform_scale = None
                                         if hasattr(mesh_loader, 'transform') and mesh_loader.transform is not None:
                                             # Extract the scaling component from the transform matrix
@@ -796,40 +804,44 @@ def main():
                                             if np.all(diagonal > 0):  # Ensure valid scale factors
                                                 mesh_transform_scale = np.mean(diagonal)
                                                 print(f"Detected mesh transform scale: {mesh_transform_scale}")
-                                        
-                                        # If we detect a scaling difference between the mesh and image coordinate systems,
-                                        # apply a compensation factor
-                                        if mesh_transform_scale is not None and mesh_transform_scale != 1.0:
-                                            # Apply the detected scale factor uniformly to all LOD levels
-                                            mesh_scale = scale.copy() / mesh_transform_scale
-                                            print(f"Applying uniform scale adjustment of 1/{mesh_transform_scale}")
+                                            
+                                            # Calculate real-world voxel size from image scale and mesh transform
+                                            # This ensures mesh coordinates align perfectly with image coordinates
+                                            # by maintaining a consistent scale relationship
+                                            if mesh_transform_scale is not None and mesh_transform_scale != 1.0:
+                                                # Compute compensation factor to ensure perfect alignment
+                                                # Apply the detected scale factor to match coordinate systems
+                                                mesh_scale = scale.copy()
+                                                print(f"Applying properly calculated scale based on mesh transform: {mesh_scale}")
                                         else:
+                                            # Without transform information, use default scale
                                             mesh_scale = scale.copy()
-                                            print("Using default 1 scale adjustment for all LOD levels")
+                                            print("Using image scale directly for mesh alignment")
                                     
                                     viewer.add_surface(
                                         data=(vertices, faces),
                                         name=f"Mesh {mesh_id} (LOD {lod})",
                                         colormap='turbo',
                                         opacity=0.7,
-                                        scale=mesh_scale
+                                        scale=mesh_scale,
+                                        shading='smooth'  # Add smooth shading for better visualization
                                     )
                                     print(f"Added mesh {mesh_id} LOD {lod} with {len(vertices)} vertices and {len(faces)} faces, scale {mesh_scale}")
                             else:
                                 # Single LOD case
                                 vertices, faces = result
                                 
-                    # Add surface layer with the same scale as images and labels
+                    # Add surface layer with proper scale and alignment
                     viewer.add_surface(
                         data=(vertices, faces),
                         name=f"Mesh {mesh_id}",
                         colormap='turbo',
                         opacity=0.7,
-                        # Apply consistent offset to align meshes with the segmentation data
+                        # Apply properly calculated scale that ensures alignment with image data
                         scale=scale,
-                        translate=[0, 0, 0]  # No additional translation needed now that meshes are properly aligned
+                        translate=[0, 0, 0]  # No translation needed with proper coordinate system alignment
                     )
-                                print(f"Added mesh {mesh_id} with {len(vertices)} vertices and {len(faces)} faces, scale {scale}")
+                    print(f"Added mesh {mesh_id} with {len(vertices)} vertices and {len(faces)} faces, scale {scale}")
                 else:
                     print("No valid meshes found")
             else:

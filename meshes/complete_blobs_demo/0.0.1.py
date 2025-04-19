@@ -104,11 +104,15 @@ class NeuroglancerMeshWriter:
         
     def write_info_file(self):
         """Write the Neuroglancer info JSON file."""
+        # For standard Neuroglancer precomputed format
         info = {
-            "@type": "neuroglancer_multilod_draco",
-            "vertex_quantization_bits": self.vertex_quantization_bits,
-            "transform": self.transform,
-            "lod_scale_multiplier": self.lod_scale_multiplier
+            "@type": "neuroglancer_legacy_mesh",
+            "scales": [{
+                "resolution": [1, 1, 1],
+                "size": [self.box_size, self.box_size, self.box_size],
+                "voxel_offset": [0, 0, 0]
+            }],
+            "vertex_quantization_bits": self.vertex_quantization_bits
         }
         
         with open(self.output_dir / "info", "w") as f:

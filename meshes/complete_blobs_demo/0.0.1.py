@@ -122,70 +122,52 @@ class NeuroglancerMeshWriter:
 
     def write_binary_manifest(self, mesh_id: int, fragments_by_lod: Dict[int, List[Fragment]], 
                             grid_origin: np.ndarray, num_lods: int):
-        """Write the binary manifest file with debug logging."""
+        """Write the binary manifest file in standard Neuroglancer format."""
         manifest_path = self.output_dir / f"{mesh_id}.index"
         print(f"\nWriting manifest for mesh {mesh_id} to {manifest_path}")
-        print(f"Number of LODs: {num_lods}")
-        print(f"Grid origin: {grid_origin}")
         
-        fragments_per_lod = [len(fragments_by_lod.get(lod, [])) 
-                            for lod in range(num_lods)]
-        print(f"Fragments per LOD: {fragments_per_lod}")
+        # For standard Neuroglancer format, we use fragments from LOD 0 only
+        fragments = fragments_by_lod.get(0, [])
+        
+        if not fragments:
+            print(f"Warning: No fragments found for mesh {mesh_id}")
+            return
+        
+        print(f"Writing {len(fragments)} fragments for mesh {mesh_id}")
         
         try:
             with open(manifest_path, "wb") as f:
-                # Write chunk shape (3x float32le)
-                chunk_shape = np.array([self.box_size] * 3, dtype=np.float32)
-                f.write(chunk_shape.tobytes())
-                print(f"Wrote chunk shape: {chunk_shape}")
+                # Standard Neuroglancer mesh format has a simple structure:
+                # 1. Number of vertices (uint32)
+                # 2. Number of triangles (uint32)
+                # 3. Vertex positions (float32 x 3 per vertex)
+                # 4. Triangle indices (uint32 x 3 per triangle)
                 
-                # Write grid origin (3x float32le)
-                grid_origin = np.array(grid_origin, dtype=np.float32)
-                f.write(grid_origin.tobytes())
-                print(f"Wrote grid origin: {grid_origin}")
+                # Since we're using Draco for compression, we just need to store:
+                # 1. Number of fragments (uint32)
+                # 2. Offsets to each fragment in the data file (uint64)
+                # 3. Sizes of each fragment (uint32)
                 
-                # Write num_lods (uint32le)
-                f.write(struct.pack("<I", num_lods))
-                print(f"Wrote num_lods: {num_lods}")
+                # Write number of fragments
+                f.write(struct.pack("<I", len(fragments)))
                 
-                # Write lod_scales (num_lods x float32le)
-                lod_scales = np.array([self.box_size * (2 ** i) for i in range(num_lods)], 
-                                    dtype=np.float32)
-                f.write(lod_scales.tobytes())
-                print(f"Wrote lod_scales: {lod_scales}")
+                # Calculate offsets
+                offset = 0
+                offsets = []
+                sizes = []
                 
-                # Write vertex_offsets ([num_lods, 3] array of float32le)
-                vertex_offsets = np.zeros((num_lods, 3), dtype=np.float32)
-                f.write(vertex_offsets.tobytes())
-                print(f"Wrote vertex_offsets")
+                for fragment in fragments:
+                    offsets.append(offset)
+                    sizes.append(fragment.size)
+                    offset += fragment.size
                 
-                # Write num_fragments_per_lod (num_lods x uint32le)
-                fragments_per_lod_arr = np.array(fragments_per_lod, dtype=np.uint32)
-                f.write(fragments_per_lod_arr.tobytes())
-                print(f"Wrote fragments_per_lod: {fragments_per_lod_arr}")
+                # Write offsets (uint64)
+                for offset in offsets:
+                    f.write(struct.pack("<Q", offset))
                 
-                # Write fragment data for each LOD
-                for lod in range(num_lods):
-                    fragments = fragments_by_lod.get(lod, [])
-                    if not fragments:
-                        print(f"No fragments for LOD {lod}")
-                        continue
-                    
-                    print(f"Writing {len(fragments)} fragments for LOD {lod}")
-                    
-                    # Sort fragments by Z-order
-                    fragments = sorted(fragments, 
-                                    key=lambda f: self._compute_z_order(f.position))
-                    
-                    # Write fragment positions ([num_fragments, 3] array of uint32le)
-                    positions = np.array([f.position for f in fragments], dtype=np.uint32)
-                    f.write(positions.tobytes())
-                    print(f"Wrote fragment positions for LOD {lod}")
-                    
-                    # Write fragment sizes (num_fragments x uint32le)
-                    sizes = np.array([f.size for f in fragments], dtype=np.uint32)
-                    f.write(sizes.tobytes())
-                    print(f"Wrote fragment sizes for LOD {lod}")
+                # Write sizes (uint32)
+                for size in sizes:
+                    f.write(struct.pack("<I", size))
             
             print(f"Successfully wrote manifest file: {manifest_path}")
             # Verify file exists and has content

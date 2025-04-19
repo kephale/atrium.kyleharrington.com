@@ -244,6 +244,16 @@ class NeuroglancerMeshWriter:
         print(f"\nProcessing mesh {mesh_id}")
         print(f"Original mesh: {len(mesh.vertices)} vertices, {len(mesh.faces)} faces")
         
+        # Ensure mesh is watertight before processing
+        if not mesh.is_watertight:
+            print(f"Making mesh watertight before processing")
+            mesh.fill_holes()
+            mesh.fix_normals()
+            
+        # Apply moderate smoothing to improve quality
+        print(f"Applying pre-processing smoothing")
+        mesh = mesh.smoothed(lamb=0.5, iterations=3)
+        
         # Generate LODs
         lod_meshes = self.generate_lods(mesh, num_lods)
         print(f"Generated {len(lod_meshes)} LOD levels")
@@ -324,7 +334,7 @@ class NeuroglancerMeshWriter:
         end_fragment = (vertices.max(axis=0) // current_box_size + 1).astype(int)
         
         # Add an overlap factor for better fragment connectivity
-        overlap_factor = 0.05 * current_box_size  # 5% overlap between adjacent fragments
+        overlap_factor = 0.2 * current_box_size  # 20% overlap between adjacent fragments (increased from 5%)
         
         fragments = []
         fragment_count = 0
@@ -402,9 +412,15 @@ class NeuroglancerMeshWriter:
     def _encode_mesh_draco(self, vertices: np.ndarray, faces: np.ndarray,
                         bounds_min: np.ndarray, box_size: float) -> bytes:
         """Encode a mesh using Google's Draco encoder with enhanced quality settings."""
-        """Encode a mesh using Google's Draco encoder."""
         # Normalize vertices to quantization range
         vertices = vertices.copy()
+        
+        # Improved quantization to prevent vertex snapping at boundaries
+        # Add a slight padding to avoid precision issues at the boundaries
+        padding = box_size * 0.001  # 0.1% padding
+        bounds_min = bounds_min - padding
+        box_size = box_size + 2 * padding
+        
         vertices -= bounds_min
         vertices /= box_size
         vertices *= (2**self.vertex_quantization_bits - 1)

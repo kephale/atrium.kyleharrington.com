@@ -44,14 +44,14 @@ app = typer.Typer()
 api = FastAPI(title="FastAPI Zarr Server")
 
 # Global variables to store configuration
-zarr_store: Optional[zarr.hierarchy.Group] = None
+zarr_store: Optional[Union[zarr.Group, zarr.Array]] = None
 zarr_path_prefix: str = ""
 allow_write: bool = False
 
 
-def get_zarr_info(z: Union[zarr.Array, zarr.Group]) -> Dict[str, Any]:
+def get_zarr_info(z: Union[zarr.Array, zarr.Group, zarr.core.Array, zarr.core.Group]) -> Dict[str, Any]:
     """Get information about a zarr array or group."""
-    if isinstance(z, zarr.Array):
+    if hasattr(z, 'shape') and hasattr(z, 'dtype'):
         return {
             "type": "array",
             "shape": z.shape,
@@ -65,7 +65,7 @@ def get_zarr_info(z: Union[zarr.Array, zarr.Group]) -> Dict[str, Any]:
             "nbytes_stored": z.nbytes_stored if hasattr(z, "nbytes_stored") else None,
             "attrs": dict(z.attrs.asdict()),
         }
-    elif isinstance(z, zarr.Group):
+    elif hasattr(z, 'array_keys') and hasattr(z, 'group_keys'):
         return {
             "type": "group",
             "path": z.path,
@@ -160,7 +160,11 @@ def configure_app(
     
     # Configure CORS if origins are provided
     if allowed_origins:
-        api.add_middleware(
+        # Print allowed origins
+    for origin in allowed_origins:
+        print(f"CORS: Allowing {origin}")
+    
+    api.add_middleware(
             CORSMiddleware,
             allow_origins=allowed_origins,
             allow_credentials=True,
@@ -200,6 +204,17 @@ def serve(
     configure_app(path, allow_write, allowed_origins)
     
     # Start server
+    # We need to set an environment variable to indicate this is being run as a module
+    os.environ["FASTAPI_ZARR_SERVER_MODULE"] = "1"
+    
+    # Get the current script path
+    script_path = Path(__file__).resolve()
+    script_dir = script_path.parent
+    
+    # Change to the script directory to ensure imports work
+    os.chdir(script_dir)
+    
+    # Run the server
     uvicorn.run(
         "main:api",
         host=host,

@@ -168,3 +168,8 @@ Name: Convert Directory of PDBs to PNS Files
 Description: Processes a directory of PDB files to create corresponding PNS files using pure Python
 URL: https://atrium.kyleharrington.com/bioinformatics/pdb-to-pns
 
+Group: zarr
+Name: FastAPI Zarr Server
+Description: A simple FastAPI server for sharing Zarr arrays over HTTP with CORS support
+URL: https://atrium.kyleharrington.com/zarr/server
+

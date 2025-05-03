@@ -123,7 +123,7 @@ class PrecomputedMeshLoader:
         return valid_meshes, missing_index, missing_data
         
     def read_manifest(self, mesh_id: int) -> Dict:
-        """Read the binary manifest file for a mesh and ensure proper alignment."""
+        """Read the binary manifest file for a mesh."""
         index_path = self.precomputed_dir / f"{mesh_id}.index"
         manifest = {}
         
@@ -184,7 +184,6 @@ class PrecomputedMeshLoader:
                         }
             
             print(f"Manifest for mesh {mesh_id}: {manifest['num_lods']} LODs, {total_fragments} total fragments")
-            print(f"Grid origin: {manifest['grid_origin']}")
             return manifest
             
         except Exception as e:
@@ -229,6 +228,7 @@ class PrecomputedMeshLoader:
     def load_fragment(self, mesh_id: int, lod: int, fragment_idx: int, 
                      manifest: Dict) -> Optional[trimesh.Trimesh]:
         """Load a specific mesh fragment with proper coordinate alignment."""
+        """Load a specific mesh fragment with correct alignment."""
         if lod not in manifest["fragments"]:
             self._log(f"LOD {lod} not found in manifest")
             return None
@@ -278,9 +278,6 @@ class PrecomputedMeshLoader:
             
             # Add grid origin and fragment position offsets
             box_offset = position * scale
-            
-            # Apply coordinate transformations
-            # Careful: order matters! First apply quantization scale, then add offsets
             mesh.vertices = mesh.vertices + grid_origin + box_offset
             
             if lod == 0:

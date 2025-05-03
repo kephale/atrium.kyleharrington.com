@@ -311,9 +311,9 @@ class NeuroglancerMeshWriter:
         x, y, z = pos
         answer = 0
         for i in range(21):  # Support up to 21 bits per dimension
-            answer |= ((x & (1 << i)) << (2 * i)) | \
-                     ((y & (1 << i)) << (2 * i + 1)) | \
-                     ((z & (1 << i)) << (2 * i + 2))
+            answer |= ((x & (1 << i)) << (3 * i)) | \
+                     ((y & (1 << i)) << (3 * i + 1)) | \
+                     ((z & (1 << i)) << (3 * i + 2))
         return answer
 
     def generate_fragments(self, mesh: trimesh.Trimesh, lod: int,

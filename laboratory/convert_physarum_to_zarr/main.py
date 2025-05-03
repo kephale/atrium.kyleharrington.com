@@ -3,7 +3,7 @@
 # description = "Extract and compress physarum petri dish images from time-series into efficient Zarr format"
 # author = "Kyle Harrington <atrium@kyleharrington.com>"
 # license = "MIT"
-# version = "0.2.0"
+# version = "0.3.0"
 # keywords = ["physarum", "time-series", "zarr", "image-processing", "compression", "circular-detection"]
 # classifiers = [
 #     "Development Status :: 4 - Beta", 
@@ -36,7 +36,7 @@ from tqdm import tqdm
 import typer
 from pathlib import Path
 import cv2
-from skimage import measure
+from skimage import measure, filters, morphology, feature
 
 app = typer.Typer()
 
@@ -57,16 +57,16 @@ def detect_dish_layout(image: Image.Image) -> tuple[int, int]:
     """
     # For now, let's assume 2x3 (2 rows, 3 columns) based on the aspect ratio
     # You may need to adjust this based on visual inspection
-    height, width = image.size
-    if height > width:  # Taller than wide
+    width, height = image.size
+    if width < height:  # Taller than wide
         return 2, 3  # 2 rows, 3 columns
     else:
         return 3, 2  # 3 rows, 2 columns
 
-def detect_circular_dish(image: np.ndarray) -> tuple[int, int, int, np.ndarray]:
+def improved_circular_dish_detection(image: np.ndarray) -> tuple[int, int, int, np.ndarray]:
     """
-    Detect the circular petri dish in the image and return its center and radius.
-    Also returns a binary mask of the petri dish area.
+    Enhanced detection for circular glass petri dishes.
+    Uses multiple detection strategies and selects the best one.
     
     Args:
         image: Input image array
@@ -80,57 +80,198 @@ def detect_circular_dish(image: np.ndarray) -> tuple[int, int, int, np.ndarray]:
     else:
         gray = image.copy()
     
-    # Apply Gaussian blur to reduce noise
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    height, width = gray.shape
     
-    # Apply binary thresholding (adjust threshold as needed)
-    _, binary = cv2.threshold(blurred, 100, 255, cv2.THRESH_BINARY_INV)
+    # Multiple detection strategies
+    strategies = []
     
-    # Find contours in the binary image
-    contours = measure.find_contours(binary, 0.5)
-    
-    # Filter contours by area and circularity
-    dish_contour = None
-    max_area = 0
-    
-    for contour in contours:
-        # Convert to format expected by OpenCV
-        contour_int = np.around(contour).astype(np.int32)
+    # 1. Edge-based detection (good for glass dishes with clear edges)
+    try:
+        # Apply edge detection
+        edges = feature.canny(gray, sigma=3.0)
         
-        # Calculate area and perimeter
-        area = cv2.contourArea(contour_int)
-        perimeter = cv2.arcLength(contour_int, True)
+        # Dilate edges to connect any gaps
+        edges = morphology.dilation(edges, morphology.disk(2))
         
-        # Calculate circularity (perfect circle has circularity = 1)
-        if perimeter > 0:
-            circularity = 4 * np.pi * area / (perimeter ** 2)
-        else:
-            circularity = 0
+        # Apply Hough Circle Transform to find circles in the edge image
+        circles = cv2.HoughCircles(
+            edges.astype(np.uint8) * 255, 
+            cv2.HOUGH_GRADIENT, 
+            dp=1, 
+            minDist=min(width, height)/2,  # Only detect one circle
+            param1=50, 
+            param2=30, 
+            minRadius=int(min(width, height) * 0.3),  # Dish should be at least 30% of image size
+            maxRadius=int(min(width, height) * 0.5)   # Dish should be at most 50% of image size
+        )
+        
+        if circles is not None:
+            # Convert circle parameters to integers
+            circles = np.round(circles[0, :]).astype(int)
             
-        # Check if this could be our dish (large, circular)
-        if area > max_area and circularity > 0.7:  # Adjust threshold as needed
-            dish_contour = contour_int
-            max_area = area
+            # Take the first circle (assuming only one was detected)
+            x, y, r = circles[0]
+            
+            # Create a circular mask
+            mask = np.zeros_like(gray, dtype=np.uint8)
+            cv2.circle(mask, (x, y), r, 255, -1)
+            
+            # Add to strategies
+            strategies.append((x, y, r, mask, "edge_hough"))
+    except Exception:
+        pass
     
-    if dish_contour is None:
-        # Fallback to using the entire image if no good dish contour is found
-        height, width = gray.shape
+    # 2. Contour-based detection with adaptive thresholding
+    try:
+        # Apply adaptive thresholding to handle uneven lighting
+        binary = cv2.adaptiveThreshold(
+            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+            cv2.THRESH_BINARY_INV, 101, 5
+        )
+        
+        # Find contours
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Find the largest contour
+        largest_contour = max(contours, key=cv2.contourArea, default=None)
+        
+        if largest_contour is not None:
+            # Find the minimum enclosing circle
+            (x, y), radius = cv2.minEnclosingCircle(largest_contour)
+            
+            # Ensure the circle fits within the image
+            x, y, radius = int(x), int(y), int(radius)
+            radius = min(radius, min(x, y, width-x, height-y))
+            
+            # Create a circular mask
+            mask = np.zeros_like(gray, dtype=np.uint8)
+            cv2.circle(mask, (x, y), radius, 255, -1)
+            
+            # Calculate circularity
+            area = cv2.contourArea(largest_contour)
+            perimeter = cv2.arcLength(largest_contour, True)
+            if perimeter > 0:
+                circularity = 4 * np.pi * area / (perimeter ** 2)
+            else:
+                circularity = 0
+                
+            # Add to strategies
+            strategies.append((x, y, radius, mask, "adaptive_contour", circularity))
+    except Exception:
+        pass
+    
+    # 3. Simple circular approximation (based on image size)
+    try:
+        # Assume dish is centered and nearly filling the image
         center_x, center_y = width // 2, height // 2
-        radius = min(width, height) // 2 - 10  # Slightly smaller than half the shortest dimension
+        
+        # The dish typically takes up most of the image
+        # Estimate radius to be 40% of the smaller dimension to ensure we get the inner area
+        radius = min(width, height) * 0.4
         
         # Create a circular mask
         mask = np.zeros_like(gray, dtype=np.uint8)
-        cv2.circle(mask, (center_x, center_y), radius, 255, -1)
-    else:
-        # Find the center and radius of the best fitting circle
-        (center_x, center_y), radius = cv2.minEnclosingCircle(dish_contour)
-        center_x, center_y, radius = int(center_x), int(center_y), int(radius)
+        cv2.circle(mask, (int(center_x), int(center_y)), int(radius), 255, -1)
         
-        # Create a circular mask
-        mask = np.zeros_like(gray, dtype=np.uint8)
-        cv2.circle(mask, (center_x, center_y), radius, 255, -1)
+        # Add to strategies
+        strategies.append((int(center_x), int(center_y), int(radius), mask, "estimated"))
+    except Exception:
+        pass
     
-    return center_x, center_y, radius, mask > 0
+    # 4. Try classic Hough Circle detection with the original image
+    try:
+        # Blur the image to reduce noise
+        blurred = cv2.GaussianBlur(gray, (9, 9), 2)
+        
+        # Apply Hough Circle Transform
+        circles = cv2.HoughCircles(
+            blurred, 
+            cv2.HOUGH_GRADIENT, 
+            dp=1, 
+            minDist=min(width, height)/2,
+            param1=50, 
+            param2=30, 
+            minRadius=int(min(width, height) * 0.3), 
+            maxRadius=int(min(width, height) * 0.48)
+        )
+        
+        if circles is not None:
+            # Convert circle parameters to integers
+            circles = np.round(circles[0, :]).astype(int)
+            
+            # Take the first circle (assuming only one was detected)
+            x, y, r = circles[0]
+            
+            # Create a circular mask
+            mask = np.zeros_like(gray, dtype=np.uint8)
+            cv2.circle(mask, (x, y), r, 255, -1)
+            
+            # Add to strategies
+            strategies.append((x, y, r, mask, "direct_hough"))
+    except Exception:
+        pass
+    
+    # 5. Use OTSU thresholding with morphological operations
+    try:
+        # Apply OTSU thresholding 
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        
+        # Apply morphological operations to clean up the mask
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=2)
+        binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=2)
+        
+        # Find contours
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if contours:
+            # Find the largest contour
+            largest_contour = max(contours, key=cv2.contourArea)
+            
+            # Find the minimum enclosing circle
+            (x, y), radius = cv2.minEnclosingCircle(largest_contour)
+            x, y, radius = int(x), int(y), int(radius)
+            
+            # Create a circular mask
+            mask = np.zeros_like(gray, dtype=np.uint8)
+            cv2.circle(mask, (x, y), radius, 255, -1)
+            
+            # Add to strategies
+            strategies.append((x, y, radius, mask, "otsu"))
+    except Exception:
+        pass
+    
+    # If no strategies worked, use a fallback
+    if not strategies:
+        # Fallback to using a centered circle covering most of the image
+        center_x, center_y = width // 2, height // 2
+        radius = int(min(width, height) * 0.45)  # Cover most of the image
+        
+        mask = np.zeros_like(gray, dtype=np.uint8)
+        cv2.circle(mask, (center_x, center_y), radius, 255, -1)
+        
+        return center_x, center_y, radius, mask > 0
+    
+    # Choose the best strategy:
+    # Preference: direct_hough > edge_hough > adaptive_contour > otsu > estimated
+    # This is based on how reliable each method typically is for glass petri dishes
+    
+    method_preference = {
+        "direct_hough": 1,
+        "edge_hough": 2,
+        "adaptive_contour": 3,
+        "otsu": 4,
+        "estimated": 5
+    }
+    
+    # Sort strategies by preference
+    strategies.sort(key=lambda s: method_preference.get(s[4], 99))
+    
+    # Select the best strategy
+    best = strategies[0]
+    
+    # Return the results
+    return best[0], best[1], best[2], best[3] > 0
 
 def extract_dishes(image: Image.Image, rows: int = 2, cols: int = 3, apply_mask: bool = True) -> tuple[list[np.ndarray], list[tuple[int, int, int, np.ndarray]]]:
     """
@@ -166,7 +307,7 @@ def extract_dishes(image: Image.Image, rows: int = 2, cols: int = 3, apply_mask:
             
             if apply_mask:
                 # Detect the circular dish and create a mask
-                cx, cy, radius, mask = detect_circular_dish(dish)
+                cx, cy, radius, mask = improved_circular_dish_detection(dish)
                 
                 # Apply the mask (set background to black)
                 masked_dish = dish.copy()
@@ -437,6 +578,73 @@ def example():
     plt.tight_layout()
     plt.show()
     """)
+
+@app.command()
+def test_detection(
+    image_path: str = typer.Argument(..., help="Path to input image with petri dishes"),
+    dish_index: int = typer.Option(0, "--dish", "-d", help="Index of the dish to test (0-5)"),
+    save_path: str = typer.Option(None, "--save", "-s", help="Path to save visualization (optional)")
+):
+    """Test the dish detection algorithm on a single dish from an image"""
+    # Load image
+    image = Image.open(image_path)
+    img_array = np.array(image)
+    
+    # Detect dish layout
+    rows, cols = detect_dish_layout(image)
+    typer.echo(f"Detected dish layout: {rows}x{cols}")
+    
+    # Calculate dish dimensions
+    height, width = img_array.shape[:2]
+    dish_height = height // rows
+    dish_width = width // cols
+    
+    # Calculate dish coordinates
+    row = dish_index // cols
+    col = dish_index % cols
+    
+    top = row * dish_height
+    left = col * dish_width
+    bottom = top + dish_height
+    right = left + dish_width
+    
+    # Extract the dish region
+    dish = img_array[top:bottom, left:right].copy()
+    
+    # Detect the circular dish using the improved algorithm
+    cx, cy, radius, mask = improved_circular_dish_detection(dish)
+    
+    # Apply the mask
+    masked_dish = dish.copy()
+    if len(dish.shape) == 3:
+        for c in range(dish.shape[2]):
+            masked_dish[:,:,c] = dish[:,:,c] * mask
+    else:
+        masked_dish = dish * mask
+    
+    # Visualize the results
+    plt.figure(figsize=(15, 5))
+    
+    plt.subplot(1, 3, 1)
+    plt.imshow(dish)
+    plt.title("Original Dish")
+    
+    plt.subplot(1, 3, 2)
+    plt.imshow(mask, cmap='gray')
+    plt.title(f"Detected Mask (center: {cx},{cy}, radius: {radius})")
+    
+    plt.subplot(1, 3, 3)
+    plt.imshow(masked_dish)
+    plt.title("Masked Dish")
+    
+    plt.tight_layout()
+    
+    # Save if requested
+    if save_path:
+        plt.savefig(save_path, dpi=150)
+        typer.echo(f"Saved visualization to {save_path}")
+    
+    plt.show()
 
 if __name__ == "__main__":
     app()

@@ -15,7 +15,7 @@
 # ]
 # requires-python = ">=3.11"
 # dependencies = [
-#     "zarr>=2.15.0",
+#     "zarr>=2.15.0,<3",
 #     "numpy>=1.24.0",
 #     "pillow>=10.0.0",
 #     "tqdm>=4.65.0",

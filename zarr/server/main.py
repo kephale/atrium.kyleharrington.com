@@ -44,14 +44,16 @@ app = typer.Typer()
 api = FastAPI(title="FastAPI Zarr Server")
 
 # Global variables to store configuration
-zarr_store: Optional[zarr.hierarchy.Group] = None
+zarr_store = None  # Will hold the zarr Group or Array
 zarr_path_prefix: str = ""
 allow_write: bool = False
 
 
-def get_zarr_info(z: Union[zarr.Array, zarr.Group]) -> Dict[str, Any]:
+def get_zarr_info(z) -> Dict[str, Any]:
     """Get information about a zarr array or group."""
-    if isinstance(z, zarr.Array):
+    # Use attribute checks instead of isinstance for more robustness
+    if hasattr(z, 'shape') and hasattr(z, 'dtype'):
+        # This is an Array
         return {
             "type": "array",
             "shape": z.shape,
@@ -65,7 +67,8 @@ def get_zarr_info(z: Union[zarr.Array, zarr.Group]) -> Dict[str, Any]:
             "nbytes_stored": z.nbytes_stored if hasattr(z, "nbytes_stored") else None,
             "attrs": dict(z.attrs.asdict()),
         }
-    elif isinstance(z, zarr.Group):
+    elif hasattr(z, 'array_keys') and hasattr(z, 'group_keys'):
+        # This is a Group
         return {
             "type": "group",
             "path": z.path,
@@ -153,22 +156,37 @@ def configure_app(
     """Configure the FastAPI application with a zarr store."""
     global zarr_store, zarr_path_prefix, allow_write
     
-    # Set global variables
-    zarr_store = zarr.open(zarr_path, mode="a" if write_mode else "r")
-    zarr_path_prefix = zarr_store.path if zarr_store.path else ""
-    allow_write = write_mode
-    
-    # Configure CORS if origins are provided
-    if allowed_origins:
-        api.add_middleware(
-            CORSMiddleware,
-            allow_origins=allowed_origins,
-            allow_credentials=True,
-            allow_methods=["GET", "PUT"] if write_mode else ["GET"],
-            allow_headers=["*"],
-        )
-    
-    return api
+    try:
+        # Set global variables
+        zarr_store = zarr.open(zarr_path, mode="a" if write_mode else "r")
+        zarr_path_prefix = zarr_store.path if zarr_store.path else ""
+        allow_write = write_mode
+        
+        # Configure CORS if origins are provided
+        if allowed_origins:
+            # Print allowed origins
+            for origin in allowed_origins:
+                print(f"CORS: Allowing {origin}")
+            
+            api.add_middleware(
+                CORSMiddleware,
+                allow_origins=allowed_origins,
+                allow_credentials=True,
+                allow_methods=["GET", "PUT"] if write_mode else ["GET"],
+                allow_headers=["*"],
+            )
+        
+        return api
+    except Exception as e:
+        print(f"Error configuring app: {e}")
+        raise
+
+
+def run_server(app, host, port, **kwargs):
+    """Run the uvicorn server directly without module reference"""
+    config = uvicorn.Config(app=app, host=host, port=port, **kwargs)
+    server = uvicorn.Server(config)
+    server.run()
 
 
 @app.command()
@@ -197,15 +215,15 @@ def serve(
             print(f"CORS: Allowing requests from: {', '.join(allowed_origins)}")
     
     # Configure FastAPI app
-    configure_app(path, allow_write, allowed_origins)
+    api_app = configure_app(path, allow_write, allowed_origins)
     
-    # Start server
-    uvicorn.run(
-        "main:api",
+    # Instead of using module reference, we pass the app directly
+    run_server(
+        app=api_app,
         host=host,
         port=port,
         reload=reload,
-        workers=workers,
+        workers=workers
     )
 
 
@@ -260,12 +278,7 @@ def list_info(
 
 def main():
     """CLI entry point."""
-    if "FASTAPI_ZARR_SERVER_MODULE" in os.environ:
-        # This is being run by uvicorn
-        return api
-    else:
-        # This is being run directly
-        app()
+    app()
 
 
 if __name__ == "__main__":

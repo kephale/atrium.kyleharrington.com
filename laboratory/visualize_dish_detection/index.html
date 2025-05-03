@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Physarum Time-Series to Zarr - atrium.kyleharrington.com</title>
+    <title>Visualize Physarum Petri Dish Detection - atrium.kyleharrington.com</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
@@ -530,7 +530,7 @@
     <main class="container">
         <section class="script-section">
             <div class="script-header">
-                <h1 class="script-title">Physarum Time-Series to Zarr</h1><div class="description-section">
+                <h1 class="script-title">Visualize Physarum Petri Dish Detection</h1><div class="description-section">
                     <p class="description-content"></p>
                 </div>
 
@@ -540,7 +540,7 @@
                             <i class="fas fa-code-branch"></i>
                             Version
                         </div>
-                        <div class="metadata-value">0.2.0</div>
+                        <div class="metadata-value">0.1.0</div>
                     </div>
                     
 
@@ -576,15 +576,11 @@
                             
                             <span class="tag">physarum</span>
                             
-                            <span class="tag">time-series</span>
-                            
-                            <span class="tag">zarr</span>
-                            
                             <span class="tag">image-processing</span>
                             
-                            <span class="tag">compression</span>
-                            
                             <span class="tag">circular-detection</span>
+                            
+                            <span class="tag">visualization</span>
                             
                         </div>
                     </div>
@@ -595,7 +591,7 @@
             <div class="command-section">
                 <h2 class="command-title">Run this script</h2>
                 <div class="command-box">
-                    <code>uv run https://atrium.kyleharrington.com/laboratory/convert_physarum_to_zarr/main.py</code>
+                    <code>uv run https://atrium.kyleharrington.com/laboratory/visualize_dish_detection/main.py</code>
                 </div>
                 <button class="copy-button" onclick="copyCommand()">
                     <i class="fas fa-copy"></i>
@@ -608,7 +604,7 @@
                 <h2>Command Line Arguments</h2>
                 
                 <div class="cli-arg-item">
-                    <code>--input_dir</code>
+                    <code>--image_path</code>
                     
                     <span class="arg-type">(str)</span>
                     
@@ -617,59 +613,26 @@
                 </div>
                 
                 <div class="cli-arg-item">
-                    <code>--output_path</code>
+                    <code>--output_dir</code>
                     
                     <span class="arg-type">(str)</span>
                     
+                    
+                    <p class="arg-help">Directory to save visualization (optional)</p>
                     
                     
                 </div>
                 
                 <div class="cli-arg-item">
-                    <code>--chunk_size</code>
-                    
-                    <span class="arg-type">(str)</span>
-                    
-                    
-                    <p class="arg-help">Chunk size as comma-separated values</p>
-                    
-                    
-                    <p class="arg-default">Default: 10,1,400,400,3</p>
-                    
-                </div>
-                
-                <div class="cli-arg-item">
-                    <code>--apply_mask</code>
+                    <code>--show_plots</code>
                     
                     <span class="arg-type">(bool)</span>
                     
                     
-                    <p class="arg-help">Apply circular dish masking</p>
+                    <p class="arg-help">Show visualization plots</p>
                     
                     
                     <p class="arg-default">Default: True</p>
-                    
-                </div>
-                
-                <div class="cli-arg-item">
-                    <code>--mask_background</code>
-                    
-                    <span class="arg-type">(bool)</span>
-                    
-                    
-                    <p class="arg-help">Set background outside dish to black</p>
-                    
-                    
-                    <p class="arg-default">Default: True</p>
-                    
-                </div>
-                
-                <div class="cli-arg-item">
-                    <code>--zarr_path</code>
-                    
-                    <span class="arg-type">(str)</span>
-                    
-                    
                     
                 </div>
                 
@@ -681,13 +644,9 @@
                 <h2>Dependencies</h2>
                 <ul class="dependencies-list">
                     
-                    <li class="dependency-item">zarr>=2.15.0,<3</li>
-                    
                     <li class="dependency-item">numpy>=1.24.0</li>
                     
                     <li class="dependency-item">pillow>=10.0.0</li>
-                    
-                    <li class="dependency-item">tqdm>=4.65.0</li>
                     
                     <li class="dependency-item">typer>=0.9.0</li>
                     
@@ -695,13 +654,15 @@
                     
                     <li class="dependency-item">scikit-image>=0.21.0</li>
                     
+                    <li class="dependency-item">matplotlib>=3.7.0</li>
+                    
                 </ul>
             </div>
             
 
         <div class="links-section">
             
-                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/laboratory/convert_physarum_to_zarr/main.py" target="_blank" class="link-item">
+                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/laboratory/visualize_dish_detection/main.py" target="_blank" class="link-item">
                     <i class="fab fa-github"></i>
                     View Source Code on GitHub
                 </a>

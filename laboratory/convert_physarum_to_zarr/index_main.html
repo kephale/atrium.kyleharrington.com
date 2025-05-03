@@ -540,7 +540,7 @@
                             <i class="fas fa-code-branch"></i>
                             Version
                         </div>
-                        <div class="metadata-value">0.1.0</div>
+                        <div class="metadata-value">0.2.0</div>
                     </div>
                     
 
@@ -583,6 +583,8 @@
                             <span class="tag">image-processing</span>
                             
                             <span class="tag">compression</span>
+                            
+                            <span class="tag">circular-detection</span>
                             
                         </div>
                     </div>
@@ -637,6 +639,32 @@
                 </div>
                 
                 <div class="cli-arg-item">
+                    <code>--apply_mask</code>
+                    
+                    <span class="arg-type">(bool)</span>
+                    
+                    
+                    <p class="arg-help">Apply circular dish masking</p>
+                    
+                    
+                    <p class="arg-default">Default: True</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--mask_background</code>
+                    
+                    <span class="arg-type">(bool)</span>
+                    
+                    
+                    <p class="arg-help">Set background outside dish to black</p>
+                    
+                    
+                    <p class="arg-default">Default: True</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
                     <code>--zarr_path</code>
                     
                     <span class="arg-type">(str)</span>
@@ -662,6 +690,10 @@
                     <li class="dependency-item">tqdm>=4.65.0</li>
                     
                     <li class="dependency-item">typer>=0.9.0</li>
+                    
+                    <li class="dependency-item">opencv-python>=4.8.0</li>
+                    
+                    <li class="dependency-item">scikit-image>=0.21.0</li>
                     
                 </ul>
             </div>

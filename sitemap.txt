@@ -38,6 +38,11 @@ Name: Physarum Time-Series to Zarr
 Description: Extract and compress physarum petri dish images from time-series into efficient Zarr format
 URL: https://atrium.kyleharrington.com/laboratory/convert_physarum_to_zarr
 
+Group: laboratory
+Name: Visualize Physarum Petri Dish Detection
+Description: Demonstration tool for visualizing the circular dish detection used in physarum zarr conversion
+URL: https://atrium.kyleharrington.com/laboratory/visualize_dish_detection
+
 Group: meshes
 Name: 3D Blob Meshing with NGFF Export
 Description: A Python script to generate and visualize 3D meshes from scikit-image blobs, with export to OME-NGFF Zarr format with Neuroglancer Precomputed meshes

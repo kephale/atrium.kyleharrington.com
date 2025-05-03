@@ -3,7 +3,7 @@
 # description = "A simple FastAPI server for sharing Zarr arrays over HTTP with CORS support"
 # author = "Kyle Harrington <atrium@kyleharrington.com>"
 # license = "MIT"
-# version = "0.1.0"
+# version = "0.2.0"
 # keywords = ["zarr", "server", "fastapi", "http", "cors", "data-sharing"]
 # classifiers = [
 #     "Development Status :: 4 - Beta", 
@@ -47,6 +47,7 @@ api = FastAPI(title="FastAPI Zarr Server")
 zarr_store = None  # Will hold the zarr Group or Array
 zarr_path_prefix: str = ""
 allow_write: bool = False
+custom_endpoint: str = ""
 
 
 def get_zarr_info(z) -> Dict[str, Any]:
@@ -89,6 +90,7 @@ async def get_info() -> Dict[str, Any]:
     result = get_zarr_info(zarr_store)
     result["allow_write"] = allow_write
     result["zarr_path"] = zarr_path_prefix
+    result["custom_endpoint"] = custom_endpoint
     
     return result
 
@@ -151,16 +153,18 @@ async def put_zarr_data(path: str, request: Request) -> Response:
 def configure_app(
     zarr_path: str, 
     write_mode: bool = False, 
-    allowed_origins: Optional[List[str]] = None
+    allowed_origins: Optional[List[str]] = None,
+    endpoint: str = ""
 ) -> FastAPI:
     """Configure the FastAPI application with a zarr store."""
-    global zarr_store, zarr_path_prefix, allow_write
+    global zarr_store, zarr_path_prefix, allow_write, custom_endpoint
     
     try:
         # Set global variables
         zarr_store = zarr.open(zarr_path, mode="a" if write_mode else "r")
         zarr_path_prefix = zarr_store.path if zarr_store.path else ""
         allow_write = write_mode
+        custom_endpoint = endpoint
         
         # Configure CORS if origins are provided
         if allowed_origins:
@@ -175,6 +179,11 @@ def configure_app(
                 allow_methods=["GET", "PUT"] if write_mode else ["GET"],
                 allow_headers=["*"],
             )
+        
+        # Set custom root path if specified
+        if custom_endpoint:
+            api.root_path = custom_endpoint
+            print(f"Custom endpoint set: {custom_endpoint}")
         
         return api
     except Exception as e:
@@ -197,10 +206,13 @@ def serve(
     cors: Optional[str] = typer.Option(None, help="Origin to allow CORS from (use '*' for any)"),
     allow_write: bool = typer.Option(False, "--allow-write", "-w", help="Allow writing to zarr store"),
     reload: bool = typer.Option(False, help="Enable auto-reload for development"),
-    workers: int = typer.Option(1, help="Number of worker processes")
+    workers: int = typer.Option(1, help="Number of worker processes"),
+    endpoint: str = typer.Option("", "--endpoint", "-e", help="Custom root endpoint path (e.g., '/zarr' or '/api/v1')")
 ):
     """Serve a zarr file/directory over HTTP using FastAPI."""
     print(f"Starting FastAPI Zarr Server on {host}:{port}")
+    if endpoint:
+        print(f"Using custom endpoint: {endpoint}")
     print(f"Serving zarr from: {path}")
     print(f"Write mode: {'enabled' if allow_write else 'disabled'}")
     
@@ -215,15 +227,16 @@ def serve(
             print(f"CORS: Allowing requests from: {', '.join(allowed_origins)}")
     
     # Configure FastAPI app
-    api_app = configure_app(path, allow_write, allowed_origins)
+    api_app = configure_app(path, allow_write, allowed_origins, endpoint)
     
-    # Instead of using module reference, we pass the app directly
+    # Run server with or without custom endpoint
     run_server(
         app=api_app,
         host=host,
         port=port,
         reload=reload,
-        workers=workers
+        workers=workers,
+        root_path=endpoint  # Pass endpoint to Uvicorn
     )
 
 

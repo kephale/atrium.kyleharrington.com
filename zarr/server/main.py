@@ -20,7 +20,7 @@
 # dependencies = [
 #     "fastapi>=0.103.0",
 #     "uvicorn>=0.23.0",
-#     "zarr>=2.15.0",
+#     "zarr>=2.15.0,<3",
 #     "numpy>=1.24.0",
 #     "typer>=0.9.0"
 # ]

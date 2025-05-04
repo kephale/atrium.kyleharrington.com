@@ -8,11 +8,6 @@ Name: Mandelbrot Set
 Description: Visualize the Mandelbrot set interactively using napari.
 URL: https://atrium.kyleharrington.com/fractals/napari-mandelbrot
 
-Group: fractals
-Name: Mandelbrot Set (0.0.2)
-Description: Visualize the Mandelbrot set interactively using napari.
-URL: https://atrium.kyleharrington.com/fractals/napari-mandelbrot
-
 Group: cryoet
 Name: Generate Synthetic CryoET Data with Polnet
 Description: Generates synthetic cryo-electron tomography data using Polnet, including protein placements and membrane simulations
@@ -104,16 +99,6 @@ Description: Open a multiscale zarr with napari and use multiscale tiled loading
 URL: https://atrium.kyleharrington.com/visualization/napari-tiled-zarr
 
 Group: visualization
-Name: napari tiled zarr (0.0.2)
-Description: Open a multiscale zarr with napari and use multiscale tiled loading
-URL: https://atrium.kyleharrington.com/visualization/napari-tiled-zarr
-
-Group: visualization
-Name: napari tiled zarr (0.0.3)
-Description: Open a multiscale zarr with napari and use multiscale tiled loading
-URL: https://atrium.kyleharrington.com/visualization/napari-tiled-zarr
-
-Group: visualization
 Name: Napari PNS Browser
 Description: A napari-based viewer for browsing PNS files with widget controls
 URL: https://atrium.kyleharrington.com/visualization/napari-pns-browser
@@ -144,22 +129,7 @@ Description: Simulates Langton's Ant using napari for visualization.
 URL: https://atrium.kyleharrington.com/alife/langtons-ant
 
 Group: alife
-Name: 3D Swarm Simulation with Genetic Algorithms in Napari
-Description: A 3D swarm simulation with agents using mutation and crossover for behavior control, including energy dynamics and reproduction.
-URL: https://atrium.kyleharrington.com/alife/evolving-swarm
-
-Group: alife
-Name: 3D Swarm Simulation with Enhanced Dynamics in Napari (0.0.2)
-Description: A 3D swarm simulation using energy dynamics, collision handling, and reproduction.
-URL: https://atrium.kyleharrington.com/alife/evolving-swarm
-
-Group: alife
-Name: 3D evolving swarm (0.0.4)
-Description: A 3D swarm simulation using energy dynamics, collision handling, and reproduction.
-URL: https://atrium.kyleharrington.com/alife/evolving-swarm
-
-Group: alife
-Name: 3D evolving swarm (0.0.3)
+Name: 3D evolving swarm
 Description: A 3D swarm simulation using energy dynamics, collision handling, and reproduction.
 URL: https://atrium.kyleharrington.com/alife/evolving-swarm
 

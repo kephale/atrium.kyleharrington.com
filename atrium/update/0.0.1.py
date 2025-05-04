@@ -51,6 +51,16 @@ INDEX_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_config.project_name }} - UV Script Collection</title>
+    <!-- Open Graph / Social Media Meta Tags -->
+    <meta property="og:title" content="{{ site_config.project_name }}">
+    <meta property="og:description" content="{{ site_config.project_description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ site_config.base_url }}/">
+    <meta property="og:image" content="{{ site_config.base_url }}/icon_transparent.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ site_config.project_name }}">
+    <meta name="twitter:description" content="{{ site_config.project_description }}">
+    <meta name="twitter:image" content="{{ site_config.base_url }}/icon_transparent.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
@@ -441,6 +451,24 @@ SOLUTION_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }} - {{ site_config.project_name }}</title>
+    <!-- Open Graph / Social Media Meta Tags -->
+    <meta property="og:title" content="{{ title }} - {{ site_config.project_name }}">
+    <meta property="og:description" content="{{ description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ site_config.base_url }}/{{ link }}/">
+    {% if cover_image %}
+    <meta property="og:image" content="{{ cover_image }}">
+    {% else %}
+    <meta property="og:image" content="{{ site_config.base_url }}/icon_transparent.png">
+    {% endif %}
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ title }} - {{ site_config.project_name }}">
+    <meta name="twitter:description" content="{{ description }}">
+    {% if cover_image %}
+    <meta name="twitter:image" content="{{ cover_image }}">
+    {% else %}
+    <meta name="twitter:image" content="{{ site_config.base_url }}/icon_transparent.png">
+    {% endif %}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
@@ -1154,6 +1182,16 @@ SOURCE_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title> - Source Code</title>
+    <!-- Open Graph / Social Media Meta Tags -->
+    <meta property="og:title" content="Source Code - {{ site_config.project_name }}">
+    <meta property="og:description" content="View the source code for this script">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ site_config.base_url }}/{{ link }}/source.html">
+    <meta property="og:image" content="{{ site_config.base_url }}/icon_transparent.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Source Code - {{ site_config.project_name }}">
+    <meta name="twitter:description" content="View the source code for this script">
+    <meta name="twitter:image" content="{{ site_config.base_url }}/icon_transparent.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css">

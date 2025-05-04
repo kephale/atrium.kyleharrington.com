@@ -540,7 +540,7 @@
                             <i class="fas fa-code-branch"></i>
                             Version
                         </div>
-                        <div class="metadata-value">0.2.0</div>
+                        <div class="metadata-value">0.3.0</div>
                     </div>
                     
 
@@ -586,6 +586,8 @@
                             
                             <span class="tag">circular-detection</span>
                             
+                            <span class="tag">glass-dish</span>
+                            
                         </div>
                     </div>
                     
@@ -606,6 +608,78 @@
             
             <div class="cli-arguments-section">
                 <h2>Command Line Arguments</h2>
+                
+                <div class="cli-arg-item">
+                    <code>--image_path</code>
+                    
+                    <span class="arg-type">(str)</span>
+                    
+                    
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--output_path</code>
+                    
+                    <span class="arg-type">(str)</span>
+                    
+                    
+                    <p class="arg-help">Path to save visualization</p>
+                    
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--rows</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Number of rows in dish layout</p>
+                    
+                    
+                    <p class="arg-default">Default: 3</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--cols</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Number of columns in dish layout</p>
+                    
+                    
+                    <p class="arg-default">Default: 2</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--margin_factor</code>
+                    
+                    <span class="arg-type">(float)</span>
+                    
+                    
+                    <p class="arg-help">Margin factor for dish detection</p>
+                    
+                    
+                    <p class="arg-default">Default: 0.03</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--downsample_ratio</code>
+                    
+                    <span class="arg-type">(float)</span>
+                    
+                    
+                    <p class="arg-help">Downsample ratio for processing</p>
+                    
+                    
+                    <p class="arg-default">Default: 0.5</p>
+                    
+                </div>
                 
                 <div class="cli-arg-item">
                     <code>--input_dir</code>
@@ -639,6 +713,32 @@
                 </div>
                 
                 <div class="cli-arg-item">
+                    <code>--rows</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Number of rows in dish layout</p>
+                    
+                    
+                    <p class="arg-default">Default: 3</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--cols</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Number of columns in dish layout</p>
+                    
+                    
+                    <p class="arg-default">Default: 2</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
                     <code>--apply_mask</code>
                     
                     <span class="arg-type">(bool)</span>
@@ -652,15 +752,41 @@
                 </div>
                 
                 <div class="cli-arg-item">
-                    <code>--mask_background</code>
+                    <code>--margin_factor</code>
                     
-                    <span class="arg-type">(bool)</span>
-                    
-                    
-                    <p class="arg-help">Set background outside dish to black</p>
+                    <span class="arg-type">(float)</span>
                     
                     
-                    <p class="arg-default">Default: True</p>
+                    <p class="arg-help">Margin factor for dish detection</p>
+                    
+                    
+                    <p class="arg-default">Default: 0.03</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--downsample_ratio</code>
+                    
+                    <span class="arg-type">(float)</span>
+                    
+                    
+                    <p class="arg-help">Downsample ratio for processing</p>
+                    
+                    
+                    <p class="arg-default">Default: 0.5</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--sample_interval</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Interval for checking dish position consistency</p>
+                    
+                    
+                    <p class="arg-default">Default: 10</p>
                     
                 </div>
                 
@@ -669,6 +795,91 @@
                     
                     <span class="arg-type">(str)</span>
                     
+                    
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--image_path</code>
+                    
+                    <span class="arg-type">(str)</span>
+                    
+                    
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--dish_index</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Index of the dish to test (0-5)</p>
+                    
+                    
+                    <p class="arg-default">Default: 0</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--rows</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Number of rows in dish layout</p>
+                    
+                    
+                    <p class="arg-default">Default: 3</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--cols</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Number of columns in dish layout</p>
+                    
+                    
+                    <p class="arg-default">Default: 2</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--margin_factor</code>
+                    
+                    <span class="arg-type">(float)</span>
+                    
+                    
+                    <p class="arg-help">Margin factor for dish detection</p>
+                    
+                    
+                    <p class="arg-default">Default: 0.03</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--downsample_ratio</code>
+                    
+                    <span class="arg-type">(float)</span>
+                    
+                    
+                    <p class="arg-help">Downsample ratio for processing</p>
+                    
+                    
+                    <p class="arg-default">Default: 0.5</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--save_path</code>
+                    
+                    <span class="arg-type">(str)</span>
+                    
+                    
+                    <p class="arg-help">Path to save visualization (optional)</p>
                     
                     
                 </div>
@@ -694,6 +905,8 @@
                     <li class="dependency-item">opencv-python>=4.8.0</li>
                     
                     <li class="dependency-item">scikit-image>=0.21.0</li>
+                    
+                    <li class="dependency-item">matplotlib>=3.7.0</li>
                     
                 </ul>
             </div>

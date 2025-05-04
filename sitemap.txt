@@ -35,12 +35,12 @@ URL: https://atrium.kyleharrington.com/cryoet/copick-torch-inspector
 
 Group: laboratory
 Name: Physarum Time-Series to Zarr
-Description: Extract and compress physarum petri dish images from time-series into efficient Zarr format
+Description: Extract and compress physarum petri dish images from time-series into efficient Zarr format with optimized glass dish detection
 URL: https://atrium.kyleharrington.com/laboratory/convert_physarum_to_zarr
 
 Group: laboratory
 Name: Visualize Physarum Petri Dish Detection
-Description: Demonstration tool for visualizing the circular dish detection used in physarum zarr conversion
+Description: Demonstration tool for visualizing the glass petri dish detection used in physarum zarr conversion
 URL: https://atrium.kyleharrington.com/laboratory/visualize_dish_detection
 
 Group: meshes

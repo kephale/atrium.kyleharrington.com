@@ -540,7 +540,7 @@
                             <i class="fas fa-code-branch"></i>
                             Version
                         </div>
-                        <div class="metadata-value">0.1.0</div>
+                        <div class="metadata-value">0.2.0</div>
                     </div>
                     
 
@@ -582,6 +582,8 @@
                             
                             <span class="tag">visualization</span>
                             
+                            <span class="tag">glass-dish</span>
+                            
                         </div>
                     </div>
                     
@@ -613,26 +615,222 @@
                 </div>
                 
                 <div class="cli-arg-item">
-                    <code>--output_dir</code>
+                    <code>--output_path</code>
                     
                     <span class="arg-type">(str)</span>
                     
                     
-                    <p class="arg-help">Directory to save visualization (optional)</p>
+                    <p class="arg-help">Path to save visualization image</p>
                     
                     
                 </div>
                 
                 <div class="cli-arg-item">
-                    <code>--show_plots</code>
+                    <code>--show_plot</code>
                     
                     <span class="arg-type">(bool)</span>
                     
                     
-                    <p class="arg-help">Show visualization plots</p>
+                    <p class="arg-help">Whether to display the plot</p>
                     
                     
                     <p class="arg-default">Default: True</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--margin_factor</code>
+                    
+                    <span class="arg-type">(float)</span>
+                    
+                    
+                    <p class="arg-help">Margin factor to leave from edges (0-0.2)</p>
+                    
+                    
+                    <p class="arg-default">Default: 0.03</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--manual_rows</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Number of rows in dish layout</p>
+                    
+                    
+                    <p class="arg-default">Default: 3</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--manual_cols</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Number of columns in dish layout</p>
+                    
+                    
+                    <p class="arg-default">Default: 2</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--downsample</code>
+                    
+                    <span class="arg-type">(float)</span>
+                    
+                    
+                    <p class="arg-help">Downsample ratio for processing (0.1-1.0)</p>
+                    
+                    
+                    <p class="arg-default">Default: 0.5</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--image_path</code>
+                    
+                    <span class="arg-type">(str)</span>
+                    
+                    
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--dish_index</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Index of the dish to analyze (0-5)</p>
+                    
+                    
+                    <p class="arg-default">Default: 0</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--rows</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Number of rows in dish layout</p>
+                    
+                    
+                    <p class="arg-default">Default: 3</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--cols</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Number of columns in dish layout</p>
+                    
+                    
+                    <p class="arg-default">Default: 2</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--output_path</code>
+                    
+                    <span class="arg-type">(str)</span>
+                    
+                    
+                    <p class="arg-help">Path to save comparison image</p>
+                    
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--input_dir</code>
+                    
+                    <span class="arg-type">(str)</span>
+                    
+                    
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--pattern</code>
+                    
+                    <span class="arg-type">(str)</span>
+                    
+                    
+                    <p class="arg-help">File pattern to match</p>
+                    
+                    
+                    <p class="arg-default">Default: *.png</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--rows</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Number of rows in dish layout</p>
+                    
+                    
+                    <p class="arg-default">Default: 3</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--cols</code>
+                    
+                    <span class="arg-type">(int)</span>
+                    
+                    
+                    <p class="arg-help">Number of columns in dish layout</p>
+                    
+                    
+                    <p class="arg-default">Default: 2</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--margin_factor</code>
+                    
+                    <span class="arg-type">(float)</span>
+                    
+                    
+                    <p class="arg-help">Margin factor for detection</p>
+                    
+                    
+                    <p class="arg-default">Default: 0.03</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--downsample</code>
+                    
+                    <span class="arg-type">(float)</span>
+                    
+                    
+                    <p class="arg-help">Downsample ratio for processing</p>
+                    
+                    
+                    <p class="arg-default">Default: 0.5</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--output_dir</code>
+                    
+                    <span class="arg-type">(str)</span>
+                    
+                    
+                    <p class="arg-help">Directory to save visualizations</p>
+                    
                     
                 </div>
                 

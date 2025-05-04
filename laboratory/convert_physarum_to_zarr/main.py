@@ -3,7 +3,7 @@
 # description = "Extract and compress physarum petri dish images from time-series into efficient Zarr format with optimized glass dish detection"
 # author = "Kyle Harrington <atrium@kyleharrington.com>"
 # license = "MIT"
-# version = "0.3.0"
+# version = "0.4.0"
 # keywords = ["physarum", "time-series", "zarr", "image-processing", "compression", "circular-detection", "glass-dish"]
 # classifiers = [
 #     "Development Status :: 4 - Beta", 
@@ -90,7 +90,8 @@ def extract_dish_region(image: np.ndarray, row: int, col: int, rows: int, cols: 
 
 def detect_glass_dish(image: np.ndarray, 
                      margin_factor: float = 0.03, 
-                     downsample_ratio: float = 0.5) -> tuple:
+                     downsample_ratio: float = 0.5,
+                     pad_radius: int = 0) -> tuple:
     """
     Specialized detection for glass petri dishes with clear boundaries
     
@@ -159,9 +160,12 @@ def detect_glass_dish(image: np.ndarray,
         # Get the circle with highest detection confidence
         x, y, r = np.round(circles[0, 0]).astype(int)
         
+        # Apply padding to radius if specified
+        r_padded = r + pad_radius if pad_radius > 0 else r
+        
         # Create mask
         mask = np.zeros((new_height, new_width), dtype=np.uint8)
-        cv2.circle(mask, (x, y), r, 255, -1)
+        cv2.circle(mask, (x, y), r_padded, 255, -1)
         
         # If downsampled, scale back the coordinates and mask
         if downsample_ratio < 1.0:
@@ -170,12 +174,17 @@ def detect_glass_dish(image: np.ndarray,
             y_orig = int(y * scale)
             r_orig = int(r * scale)
             
+            # Apply padding to the full-size radius if specified
+            r_orig_padded = r_orig + pad_radius if pad_radius > 0 else r_orig
+            
             # Create full-size mask
             full_mask = np.zeros((orig_height, orig_width), dtype=np.uint8)
-            cv2.circle(full_mask, (x_orig, y_orig), r_orig, 255, -1)
+            cv2.circle(full_mask, (x_orig, y_orig), r_orig_padded, 255, -1)
             
             return x_orig, y_orig, r_orig, full_mask > 0
         else:
+            # Apply padding to radius if specified
+            r_padded = r + pad_radius if pad_radius > 0 else r
             return x, y, r, mask > 0
     
     # If Hough transform fails, try direct edge-based detection
@@ -229,9 +238,12 @@ def detect_glass_dish(image: np.ndarray,
                     y_orig = int(y * scale)
                     r_orig = int(radius * scale)
                     
+                    # Apply padding to the full-size radius if specified
+                    r_orig_padded = r_orig + pad_radius if pad_radius > 0 else r_orig
+                    
                     # Create full-size mask
                     full_mask = np.zeros((orig_height, orig_width), dtype=np.uint8)
-                    cv2.circle(full_mask, (x_orig, y_orig), r_orig, 255, -1)
+                    cv2.circle(full_mask, (x_orig, y_orig), r_orig_padded, 255, -1)
                     
                     return x_orig, y_orig, r_orig, full_mask > 0
                 else:
@@ -244,8 +256,11 @@ def detect_glass_dish(image: np.ndarray,
     center_y = new_height // 2
     radius = int(min(new_width, new_height) * 0.45)
     
+    # Apply padding to radius if specified
+    radius_padded = radius + pad_radius if pad_radius > 0 else radius
+    
     mask = np.zeros((new_height, new_width), dtype=np.uint8)
-    cv2.circle(mask, (center_x, center_y), radius, 255, -1)
+    cv2.circle(mask, (center_x, center_y), radius_padded, 255, -1)
     
     # If downsampled, scale back the coordinates and mask
     if downsample_ratio < 1.0:
@@ -254,16 +269,20 @@ def detect_glass_dish(image: np.ndarray,
         y_orig = int(center_y * scale)
         r_orig = int(radius * scale)
         
+        # Apply padding to the full-size radius if specified
+        r_orig_padded = r_orig + pad_radius if pad_radius > 0 else r_orig
+        
         # Create full-size mask
         full_mask = np.zeros((orig_height, orig_width), dtype=np.uint8)
-        cv2.circle(full_mask, (x_orig, y_orig), r_orig, 255, -1)
+        cv2.circle(full_mask, (x_orig, y_orig), r_orig_padded, 255, -1)
         
         return x_orig, y_orig, r_orig, full_mask > 0
     else:
         return center_x, center_y, radius, mask > 0
 
 def detect_dishes_first_frame(image: np.ndarray, rows: int, cols: int, 
-                             margin_factor: float, downsample_ratio: float) -> list:
+                             margin_factor: float, downsample_ratio: float,
+                             pad_radius: int = 0) -> list:
     """
     Detect dishes from the first frame to use as reference
     
@@ -289,7 +308,7 @@ def detect_dishes_first_frame(image: np.ndarray, rows: int, cols: int,
             dish_img = extract_dish_region(image, row, col, rows, cols)
             
             # Detect dish
-            x, y, r, mask = detect_glass_dish(dish_img, margin_factor, downsample_ratio)
+            x, y, r, mask = detect_glass_dish(dish_img, margin_factor, downsample_ratio, pad_radius)
             
             # Convert coordinates to full image space
             full_x = x + (col * dish_width)
@@ -380,7 +399,8 @@ def create_zarr_dataset(
     apply_mask: bool = True,
     margin_factor: float = 0.03,
     downsample_ratio: float = 0.5,
-    sample_interval: int = 10
+    sample_interval: int = 10,
+    pad_radius: int = 0
 ) -> zarr.Group:
     """Create Zarr dataset from physarum images with circular masking"""
     
@@ -404,7 +424,7 @@ def create_zarr_dataset(
     typer.echo("Processing first frame to detect reference dishes...")
     first_image = np.array(Image.open(files[0]))
     reference_dishes = detect_dishes_first_frame(
-        first_image, rows, cols, margin_factor, downsample_ratio
+        first_image, rows, cols, margin_factor, downsample_ratio, pad_radius
     )
     
     # Get sample dishes to determine shape
@@ -443,6 +463,7 @@ def create_zarr_dataset(
     data.attrs['circular_masking_applied'] = apply_mask
     data.attrs['mask_margin_factor'] = margin_factor
     data.attrs['detection_downsample_ratio'] = downsample_ratio
+    data.attrs['pad_radius'] = pad_radius
     
     # Create timestamps array
     timestamp_array = root.create_dataset(
@@ -470,7 +491,7 @@ def create_zarr_dataset(
             if i > 0 and i % sample_interval == 0 and apply_mask:
                 # Detect dishes in current frame
                 current_dishes = detect_dishes_first_frame(
-                    img, rows, cols, margin_factor, downsample_ratio
+                    img, rows, cols, margin_factor, downsample_ratio, pad_radius
                 )
                 
                 # Check if positions have changed significantly
@@ -576,7 +597,8 @@ def visualize_detection(
     rows: int = typer.Option(3, "--rows", "-r", help="Number of rows in dish layout"),
     cols: int = typer.Option(2, "--cols", "-c", help="Number of columns in dish layout"),
     margin_factor: float = typer.Option(0.03, "--margin", "-m", help="Margin factor for dish detection"),
-    downsample_ratio: float = typer.Option(0.5, "--downsample", "-d", help="Downsample ratio for processing")
+    downsample_ratio: float = typer.Option(0.5, "--downsample", "-d", help="Downsample ratio for processing"),
+    pad_radius: int = typer.Option(0, "--pad", "-p", help="Additional padding in pixels to add to dish radius")
 ):
     """Visualize dish detection on a sample image"""
     try:
@@ -586,7 +608,7 @@ def visualize_detection(
         
         # Detect dishes
         reference_dishes = detect_dishes_first_frame(
-            img_array, rows, cols, margin_factor, downsample_ratio
+            img_array, rows, cols, margin_factor, downsample_ratio, pad_radius
         )
         
         # Apply masks
@@ -668,7 +690,8 @@ def convert(
     apply_mask: bool = typer.Option(True, "--mask/--no-mask", help="Apply circular dish masking"),
     margin_factor: float = typer.Option(0.03, "--margin", "-m", help="Margin factor for dish detection"),
     downsample_ratio: float = typer.Option(0.5, "--downsample", "-d", help="Downsample ratio for processing"),
-    sample_interval: int = typer.Option(10, "--interval", "-i", help="Interval for checking dish position consistency")
+    sample_interval: int = typer.Option(10, "--interval", "-i", help="Interval for checking dish position consistency"),
+    pad_radius: int = typer.Option(0, "--pad", "-p", help="Additional padding in pixels to add to dish radius")
 ):
     """Convert physarum time-series PNG images to optimized Zarr format with circular masking"""
     input_path = Path(input_dir)
@@ -702,7 +725,8 @@ def convert(
         apply_mask=apply_mask,
         margin_factor=margin_factor,
         downsample_ratio=downsample_ratio,
-        sample_interval=sample_interval
+        sample_interval=sample_interval,
+        pad_radius=pad_radius
     )
     
     # Verify the dataset
@@ -721,6 +745,7 @@ def test_detection(
     cols: int = typer.Option(2, "--cols", "-c", help="Number of columns in dish layout"),
     margin_factor: float = typer.Option(0.03, "--margin", "-m", help="Margin factor for dish detection"),
     downsample_ratio: float = typer.Option(0.5, "--downsample", "-d", help="Downsample ratio for processing"),
+    pad_radius: int = typer.Option(0, "--pad", "-p", help="Additional padding in pixels to add to dish radius"),
     save_path: str = typer.Option(None, "--save", "-s", help="Path to save visualization (optional)")
 ):
     """Test the dish detection algorithm on a single dish from an image"""
@@ -746,7 +771,7 @@ def test_detection(
     dish = extract_dish_region(img_array, row, col, rows, cols)
     
     # Detect the circular dish
-    cx, cy, radius, mask = detect_glass_dish(dish, margin_factor, downsample_ratio)
+    cx, cy, radius, mask = detect_glass_dish(dish, margin_factor, downsample_ratio, pad_radius)
     
     # Apply the mask
     masked_dish = dish.copy()

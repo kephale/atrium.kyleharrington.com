@@ -247,15 +247,28 @@ INDEX_TEMPLATE = """
             background-color: var(--background-color);
             border-radius: 0.5rem;
             margin-top: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+            justify-content: center;
         }
 
         .card-source a {
             color: var(--primary-color);
             text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
         }
 
         .card-source a:hover {
             text-decoration: underline;
+        }
+        
+        .source-separator {
+            color: var(--text-secondary);
+            opacity: 0.5;
         }
 
         @media (max-width: 768px) {
@@ -389,6 +402,10 @@ INDEX_TEMPLATE = """
                         {% else %}
                         <a href="{{ solution.link }}/source.html">View Source</a>
                         {% endif %}
+                        <span class="source-separator">|</span>
+                        <a href="https://bsky.app/intent/compose?text=Check%20out%20this%20Python%20script%20on%20Atrium:%20{{ solution.name | urlencode }}%20%23atrium%20%23python%20{{ site_config.base_url }}/{{ solution.link }}" target="_blank">
+                            <i class="fas fa-share-alt"></i> Share on Bluesky
+                        </a>
                     </div>
                 </div>
             </div>

@@ -1112,6 +1112,11 @@ SOLUTION_TEMPLATE = """
                     External Source
                 </a>
             {% endif %}
+            
+            <a href="https://bsky.app/intent/compose?text=Check%20out%20this%20Python%20script%20on%20Atrium:%20{{ title | urlencode }}%20%23atrium%20%23python{% if cover_image %}%20{{ cover_image | urlencode }}{% endif %}%20{{ site_config.base_url }}/{{ link }}" target="_blank" class="link-item">
+                <i class="fas fa-share-alt"></i>
+                Share on Bluesky
+            </a>
         </div>
     </main>
 

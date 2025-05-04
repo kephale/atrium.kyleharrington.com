@@ -1,5 +1,5 @@
 # /// script
-# title = "FastAPI Zarr Server for zarr v3"
+# title = "FastAPI Zarr Server for zarr v2"
 # description = "A simple FastAPI server for sharing Zarr arrays over HTTP with CORS support"
 # author = "Kyle Harrington <atrium@kyleharrington.com>"
 # license = "MIT"
@@ -20,7 +20,7 @@
 # dependencies = [
 #     "fastapi>=0.103.0",
 #     "uvicorn>=0.23.0",
-#     "zarr>=3",
+#     "zarr>=2.15.0,<3",
 #     "numpy>=1.24.0",
 #     "typer>=0.9.0"
 # ]

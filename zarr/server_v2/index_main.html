@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FastAPI Zarr Server for zarr v3 - atrium.kyleharrington.com</title>
+    <title>FastAPI Zarr Server for zarr v2 - atrium.kyleharrington.com</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
@@ -530,7 +530,7 @@
     <main class="container">
         <section class="script-section">
             <div class="script-header">
-                <h1 class="script-title">FastAPI Zarr Server for zarr v3</h1><div class="description-section">
+                <h1 class="script-title">FastAPI Zarr Server for zarr v2</h1><div class="description-section">
                     <p class="description-content"></p>
                 </div>
 
@@ -595,7 +595,7 @@
             <div class="command-section">
                 <h2 class="command-title">Run this script</h2>
                 <div class="command-box">
-                    <code>uv run https://atrium.kyleharrington.com/zarr/server/main.py</code>
+                    <code>uv run https://atrium.kyleharrington.com/zarr/server_v2/main.py</code>
                 </div>
                 <button class="copy-button" onclick="copyCommand()">
                     <i class="fas fa-copy"></i>
@@ -726,7 +726,7 @@
                     
                     <li class="dependency-item">uvicorn>=0.23.0</li>
                     
-                    <li class="dependency-item">zarr>=3</li>
+                    <li class="dependency-item">zarr>=2.15.0,<3</li>
                     
                     <li class="dependency-item">numpy>=1.24.0</li>
                     
@@ -738,7 +738,7 @@
 
         <div class="links-section">
             
-                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/zarr/server/main.py" target="_blank" class="link-item">
+                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/zarr/server_v2/main.py" target="_blank" class="link-item">
                     <i class="fab fa-github"></i>
                     View Source Code on GitHub
                 </a>

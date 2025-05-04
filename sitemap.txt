@@ -174,7 +174,12 @@ Description: Processes a directory of PDB files to create corresponding PNS file
 URL: https://atrium.kyleharrington.com/bioinformatics/pdb-to-pns
 
 Group: zarr
-Name: FastAPI Zarr Server
+Name: FastAPI Zarr Server for zarr v2
+Description: A simple FastAPI server for sharing Zarr arrays over HTTP with CORS support
+URL: https://atrium.kyleharrington.com/zarr/server_v2
+
+Group: zarr
+Name: FastAPI Zarr Server for zarr v3
 Description: A simple FastAPI server for sharing Zarr arrays over HTTP with CORS support
 URL: https://atrium.kyleharrington.com/zarr/server
 

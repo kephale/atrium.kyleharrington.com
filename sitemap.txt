@@ -1,32 +1,17 @@
-Group: atrium
-Name: Update an atrium in a repository
-Description: Updates an atrium configuration in a repository for GH pages
-URL: https://atrium.kyleharrington.com/atrium/update
+Group: communication
+Name: napari-webcam-filters
+Description: A Python script to launch napari with real-time webcam filters for video conferencing. Follow pyvirtualcam install instructions first.
+URL: https://atrium.kyleharrington.com/communication/napari-conference
 
 Group: fractals
 Name: Mandelbrot Set
 Description: Visualize the Mandelbrot set interactively using napari.
 URL: https://atrium.kyleharrington.com/fractals/napari-mandelbrot
 
-Group: cryoet
-Name: Generate Synthetic CryoET Data with Polnet
-Description: Generates synthetic cryo-electron tomography data using Polnet, including protein placements and membrane simulations
-URL: https://atrium.kyleharrington.com/cryoet/polnet
-
-Group: cryoet
-Name: Copick Spliced Volume Renderer
-Description: Renders orthogonal views of spliced 3D volumes, combining synthetic and experimental CryoET data.
-URL: https://atrium.kyleharrington.com/cryoet/copick-spliced-volume-renderer
-
-Group: cryoet
-Name: kaggle-csv-to-copick
-Description: Import particle picks from CSV files into a Copick project
-URL: https://atrium.kyleharrington.com/cryoet/kaggle-csv-to-copick
-
-Group: cryoet
-Name: Copick Tomogram Visualization Server
-Description: A FastAPI server that extends copick-server to provide visualization of tomogram samples.
-URL: https://atrium.kyleharrington.com/cryoet/copick-torch-inspector
+Group: reinforcement-learning
+Name: CartPole SARSA
+Description: Visualize the CartPole game optimized using SARSA in Napari.
+URL: https://atrium.kyleharrington.com/reinforcement-learning/cart-pole-sarsa
 
 Group: laboratory
 Name: Physarum Time-Series to Zarr
@@ -38,15 +23,20 @@ Name: Visualize Physarum Petri Dish Detection
 Description: Demonstration tool for visualizing the glass petri dish detection used in physarum zarr conversion
 URL: https://atrium.kyleharrington.com/laboratory/visualize_dish_detection
 
+Group: zarr
+Name: FastAPI Zarr Server for zarr v3
+Description: A simple FastAPI server for sharing Zarr arrays over HTTP with CORS support
+URL: https://atrium.kyleharrington.com/zarr/server
+
+Group: zarr
+Name: FastAPI Zarr Server for zarr v2
+Description: A simple FastAPI server for sharing Zarr arrays over HTTP with CORS support
+URL: https://atrium.kyleharrington.com/zarr/server_v2
+
 Group: meshes
 Name: 3D Blob Meshing with NGFF Export
 Description: A Python script to generate and visualize 3D meshes from scikit-image blobs, with export to OME-NGFF Zarr format with Neuroglancer Precomputed meshes
 URL: https://atrium.kyleharrington.com/meshes/complete_blobs_demo
-
-Group: meshes
-Name: 3D Blob Meshing (install drac first)
-Description: A Python script to generate and visualize 3D meshes from scikit-image blobs, with export to OBJ, PLY, and Neuroglancer Precomputed formats.
-URL: https://atrium.kyleharrington.com/meshes/generation
 
 Group: meshes
 Name: 3D Blob Meshing
@@ -54,9 +44,9 @@ Description: A Python script to generate and visualize 3D meshes from scikit-ima
 URL: https://atrium.kyleharrington.com/meshes/zmesh-ng-precomputed
 
 Group: meshes
-Name: Napari Precomputed Mesh Viewer
-Description: A Python script to view precomputed mesh data in napari with proper multiscale mesh rendering that automatically scales meshes to match image data
-URL: https://atrium.kyleharrington.com/meshes/view_in_napari
+Name: 3D Blob Meshing (install drac first)
+Description: A Python script to generate and visualize 3D meshes from scikit-image blobs, with export to OBJ, PLY, and Neuroglancer Precomputed formats.
+URL: https://atrium.kyleharrington.com/meshes/generation
 
 Group: meshes
 Name: Neuroglancer Precomputed Mesh Viewer
@@ -64,13 +54,13 @@ Description: A Python script to view precomputed multiscale mesh data in Neurogl
 URL: https://atrium.kyleharrington.com/meshes/view_in_neuroglancer
 
 Group: meshes
-Name: View All LODs
-Description: A Python script to visualize all LOD levels of precomputed mesh data simultaneously in napari
-URL: https://atrium.kyleharrington.com/meshes/visualize-ng-precomputed
+Name: Napari Precomputed Mesh Viewer
+Description: A Python script to view precomputed mesh data in napari with proper multiscale mesh rendering that automatically scales meshes to match image data
+URL: https://atrium.kyleharrington.com/meshes/view_in_napari
 
 Group: meshes
-Name: Neuroglancer Precomputed Mesh Viewer (view_in_ng)
-Description: A Python script to view precomputed mesh data using Neuroglancer with webdriver
+Name: Napari Precomputed Mesh Viewer
+Description: A Python script to view precomputed mesh data in napari with proper multiscale mesh rendering
 URL: https://atrium.kyleharrington.com/meshes/visualize-ng-precomputed
 
 Group: meshes
@@ -79,9 +69,69 @@ Description: A Python script to view precomputed mesh data in napari with specif
 URL: https://atrium.kyleharrington.com/meshes/visualize-ng-precomputed
 
 Group: meshes
-Name: Napari Precomputed Mesh Viewer (view_in_napari)
-Description: A Python script to view precomputed mesh data in napari with proper multiscale mesh rendering
+Name: View All LODs (view_all_lods)
+Description: A Python script to visualize all LOD levels of precomputed mesh data simultaneously in napari
 URL: https://atrium.kyleharrington.com/meshes/visualize-ng-precomputed
+
+Group: meshes
+Name: Neuroglancer Precomputed Mesh Viewer (view_in_ng)
+Description: A Python script to view precomputed mesh data using Neuroglancer with webdriver
+URL: https://atrium.kyleharrington.com/meshes/visualize-ng-precomputed
+
+Group: cryoet
+Name: Copick Tomogram Visualization Server
+Description: A FastAPI server that extends copick-server to provide visualization of tomogram samples.
+URL: https://atrium.kyleharrington.com/cryoet/copick-torch-inspector
+
+Group: cryoet
+Name: kaggle-csv-to-copick
+Description: Import particle picks from CSV files into a Copick project
+URL: https://atrium.kyleharrington.com/cryoet/kaggle-csv-to-copick
+
+Group: cryoet
+Name: Generate Synthetic CryoET Data with Polnet
+Description: Generates synthetic cryo-electron tomography data using Polnet, including protein placements and membrane simulations
+URL: https://atrium.kyleharrington.com/cryoet/polnet
+
+Group: cryoet
+Name: Copick Spliced Volume Renderer
+Description: Renders orthogonal views of spliced 3D volumes, combining synthetic and experimental CryoET data.
+URL: https://atrium.kyleharrington.com/cryoet/copick-spliced-volume-renderer
+
+Group: atrium
+Name: Update an atrium in a repository
+Description: Updates an atrium configuration in a repository for GH pages
+URL: https://atrium.kyleharrington.com/atrium/update
+
+Group: bioinformatics
+Name: Convert Directory of PDBs to PNS Files
+Description: Processes a directory of PDB files to create corresponding PNS files using pure Python
+URL: https://atrium.kyleharrington.com/bioinformatics/pdb-to-pns
+
+Group: grn
+Name: Fit oscillatory GRN
+Description: Optimize a GRN to produce antiphase oscillations among 4 species.
+URL: https://atrium.kyleharrington.com/grn/optimize-antiphase
+
+Group: alife
+Name: Langton's Ant
+Description: Simulates Langton's Ant using napari for visualization.
+URL: https://atrium.kyleharrington.com/alife/langtons-ant
+
+Group: alife
+Name: Lambda Chemistry Simulation
+Description: Implements a minimal lambda chemistry and plots reproducer frequency over time.
+URL: https://atrium.kyleharrington.com/alife/lambda-chemistry
+
+Group: alife
+Name: 3D evolving swarm
+Description: A 3D swarm simulation using energy dynamics, collision handling, and reproduction.
+URL: https://atrium.kyleharrington.com/alife/evolving-swarm
+
+Group: visualization
+Name: napari
+Description: A simple Python script to launch napari.
+URL: https://atrium.kyleharrington.com/visualization/napari
 
 Group: visualization
 Name: napari
@@ -102,54 +152,4 @@ Group: visualization
 Name: Napari PNS Browser
 Description: A napari-based viewer for browsing PNS files with widget controls
 URL: https://atrium.kyleharrington.com/visualization/napari-pns-browser
-
-Group: visualization
-Name: napari
-Description: A simple Python script to launch napari.
-URL: https://atrium.kyleharrington.com/visualization/napari
-
-Group: communication
-Name: napari-webcam-filters
-Description: A Python script to launch napari with real-time webcam filters for video conferencing. Follow pyvirtualcam install instructions first.
-URL: https://atrium.kyleharrington.com/communication/napari-conference
-
-Group: grn
-Name: Fit oscillatory GRN
-Description: Optimize a GRN to produce antiphase oscillations among 4 species.
-URL: https://atrium.kyleharrington.com/grn/optimize-antiphase
-
-Group: alife
-Name: Lambda Chemistry Simulation
-Description: Implements a minimal lambda chemistry and plots reproducer frequency over time.
-URL: https://atrium.kyleharrington.com/alife/lambda-chemistry
-
-Group: alife
-Name: Langton's Ant
-Description: Simulates Langton's Ant using napari for visualization.
-URL: https://atrium.kyleharrington.com/alife/langtons-ant
-
-Group: alife
-Name: 3D evolving swarm
-Description: A 3D swarm simulation using energy dynamics, collision handling, and reproduction.
-URL: https://atrium.kyleharrington.com/alife/evolving-swarm
-
-Group: reinforcement-learning
-Name: CartPole SARSA
-Description: Visualize the CartPole game optimized using SARSA in Napari.
-URL: https://atrium.kyleharrington.com/reinforcement-learning/cart-pole-sarsa
-
-Group: bioinformatics
-Name: Convert Directory of PDBs to PNS Files
-Description: Processes a directory of PDB files to create corresponding PNS files using pure Python
-URL: https://atrium.kyleharrington.com/bioinformatics/pdb-to-pns
-
-Group: zarr
-Name: FastAPI Zarr Server for zarr v2
-Description: A simple FastAPI server for sharing Zarr arrays over HTTP with CORS support
-URL: https://atrium.kyleharrington.com/zarr/server_v2
-
-Group: zarr
-Name: FastAPI Zarr Server for zarr v3
-Description: A simple FastAPI server for sharing Zarr arrays over HTTP with CORS support
-URL: https://atrium.kyleharrington.com/zarr/server
 

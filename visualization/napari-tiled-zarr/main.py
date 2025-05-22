@@ -17,6 +17,7 @@
 # ]
 # requires-python = ">=3.12"
 # dependencies = [
+#     "zarr<3",
 #     "napari @ git+https://github.com/kephale/napari.git@1e43826432aaebc9e0c7c3c5f6467476859f15de",
 #     "pyside6",
 #     "typer",

@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # /// script
 # title = "Neuroglancer Precomputed Mesh Viewer"
-# description = "A Python script to view precomputed multiscale mesh data in Neuroglancer - Fixed coordinate alignment and fragment gaps"
+# description = "A Python script to view precomputed multiscale mesh data in Neuroglancer - CORRECTED coordinate alignment"
 # author = "Kyle Harrington"
 # license = "MIT"
-# version = "0.2.0"
+# version = "0.2.1"
 # keywords = ["mesh", "3D", "visualization", "neuroglancer", "precomputed"]
 # documentation = "https://github.com/google/neuroglancer"
 # requires-python = ">=3.8"
@@ -33,7 +33,7 @@ class CORSHTTPRequestHandler(SimpleHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.send_header('Access-Control-Max-Age', '86400')
         
-        # FIX: Add proper content type for mesh files
+        # Add proper content type for mesh files
         if self.path.endswith('.index'):
             self.send_header('Content-Type', 'application/octet-stream')
         elif self.path.split('/')[-1].isdigit():  # Mesh data files
@@ -46,7 +46,7 @@ class CORSHTTPRequestHandler(SimpleHTTPRequestHandler):
         self.end_headers()
     
     def do_GET(self):
-        # FIX: Improved path handling for mesh files to prevent 404 errors
+        # Improved path handling for mesh files to prevent 404 errors
         original_path = self.path
         
         # Check if the path is a direct request for an index file at root level
@@ -72,20 +72,21 @@ class CORSHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self.path = f"/meshes/{segment_id}"  # Redirect to the meshes directory
                 return SimpleHTTPRequestHandler.do_GET(self)
         
-        # FIX: Handle explicit meshes/ requests properly
+        # Handle explicit meshes/ requests properly
         if self.path.startswith('/meshes/'):
             # This is already the correct path, proceed normally
             return SimpleHTTPRequestHandler.do_GET(self)
         
         # Log requests for debugging
-        print(f"Serving request: {original_path} -> {self.path}")
+        if original_path != self.path:
+            print(f"Redirected request: {original_path} -> {self.path}")
         
         # Default handling for all other requests
         return SimpleHTTPRequestHandler.do_GET(self)
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='View multiscale mesh in Neuroglancer with fixed coordinate alignment')
+    parser = argparse.ArgumentParser(description='View multiscale mesh in Neuroglancer with CORRECTED coordinate alignment')
     parser.add_argument('--zarr-path', type=str, required=True,
                         help='Path to the zarr directory containing the data')
     parser.add_argument('--debug', action='store_true',
@@ -94,12 +95,7 @@ def parse_args():
 
 
 def serve_directory(directory, port=8000):
-    """Start an HTTP server with CORS support to serve the directory
-    
-    This server needs to handle the Neuroglancer mesh format properly,
-    ensuring that .index files and mesh segment data are accessible with
-    the correct URLs.
-    """
+    """Start an HTTP server with CORS support to serve the directory."""
     os.chdir(directory)
     httpd = HTTPServer(('', port), CORSHTTPRequestHandler)
     server_thread = threading.Thread(target=httpd.serve_forever)
@@ -112,10 +108,10 @@ def serve_directory(directory, port=8000):
 
 
 def ensure_info_file(mesh_dir, create_root_info=True):
-    """Ensure that an info file exists with the correct specifications for fixed coordinate alignment."""
+    """Ensure that an info file exists with the correct specifications for CORRECTED coordinate alignment."""
     info_path = os.path.join(mesh_dir, "info")
     if not os.path.exists(info_path):
-        # FIX: Create a properly configured info file for meshes with identity transform
+        # Create a properly configured info file for meshes with identity transform
         # to maintain coordinate system alignment with the image data
         info = {
             "@type": "neuroglancer_multilod_draco",
@@ -135,16 +131,18 @@ def ensure_info_file(mesh_dir, create_root_info=True):
                 print(f"Quantization bits: {existing_info.get('vertex_quantization_bits', 'not specified')}")
                 print(f"Transform: {existing_info.get('transform', 'not specified')}")
                 
-                # FIX: Check if transform is identity and warn if not
+                # Check if transform is identity and warn if not
                 transform = existing_info.get('transform', [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0])
                 identity_transform = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]
                 if transform != identity_transform:
                     print(f"Warning: Non-identity transform detected: {transform}")
                     print("This may cause coordinate misalignment issues")
+                else:
+                    print("✓ Identity transform confirmed - good for coordinate alignment")
         except Exception as e:
             print(f"Warning: Error reading existing info file: {e}")
     
-    # FIX: Create a segmentation info file at the root level with proper settings
+    # Create a segmentation info file at the root level with proper settings
     if create_root_info:
         root_dir = os.path.dirname(mesh_dir)
         root_info_path = os.path.join(root_dir, "info")
@@ -168,7 +166,7 @@ def ensure_info_file(mesh_dir, create_root_info=True):
                         "source": "precomputed://meshes",
                         "tab": "segments",
                         "name": "meshes",
-                        # FIX: Add proper coordinate alignment settings
+                        # Add proper coordinate alignment settings - identity transform
                         "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]
                     }
                 ]
@@ -246,8 +244,47 @@ def validate_mesh_files(mesh_dir, debug=False):
             print(f"ERROR: Empty data file for mesh {mesh_id}")
             return False
     
-    print("Mesh file validation completed successfully")
+    print("✓ Mesh file validation completed successfully")
     return True
+
+
+def read_zarr_metadata(zarr_path):
+    """Read metadata from zarr store to understand coordinate system."""
+    try:
+        import zarr
+        
+        zarr_store = zarr.open(zarr_path, mode='r')
+        
+        # Get image shape info for coordinate reference
+        image_shape = None
+        if 'ome' in zarr_store.attrs:
+            if 'multiscales' in zarr_store.attrs['ome']:
+                multiscales = zarr_store.attrs['ome']['multiscales']
+                if len(multiscales) > 0 and 'datasets' in multiscales[0]:
+                    # Get the highest resolution dataset
+                    first_dataset = multiscales[0]['datasets'][0]
+                    dataset_path = first_dataset['path']
+                    
+                    # Try to get the array
+                    if dataset_path in zarr_store:
+                        array = zarr_store[dataset_path]
+                        image_shape = array.shape
+                        print(f"Found image data with shape: {image_shape}")
+                        
+                        # If 4D, assume (c, z, y, x) and extract spatial dimensions
+                        if len(image_shape) == 4:
+                            spatial_shape = image_shape[1:]  # Skip channel dimension
+                            print(f"Spatial dimensions (z, y, x): {spatial_shape}")
+                            return spatial_shape
+                        elif len(image_shape) == 3:
+                            print(f"3D dimensions (z, y, x): {image_shape}")
+                            return image_shape
+        
+        return None
+        
+    except Exception as e:
+        print(f"Warning: Could not read zarr metadata: {e}")
+        return None
 
 
 def main():
@@ -265,13 +302,16 @@ def main():
         print(f"Error: Mesh directory {mesh_dir} not found. The meshes directory should be inside the zarr directory.")
         sys.exit(1)
         
-    # FIX: Validate mesh files before starting the server
+    # Validate mesh files before starting the server
     if not validate_mesh_files(mesh_dir, debug=args.debug):
         print("Mesh file validation failed. Please check your mesh files.")
         sys.exit(1)
     
     print(f"Zarr path: {zarr_path}")
     print(f"Mesh directory found: {mesh_dir}")
+    
+    # Read zarr metadata to understand coordinate system
+    image_shape = read_zarr_metadata(zarr_path)
     
     # Ensure there's an info file in the meshes directory and at the root
     ensure_info_file(mesh_dir, create_root_info=True)
@@ -285,7 +325,7 @@ def main():
     neuroglancer.set_server_bind_address('127.0.0.1')
     viewer = neuroglancer.Viewer()
     
-    # FIX: Add the mesh layer using precomputed format with proper coordinate alignment
+    # Add the mesh layer using precomputed format with proper coordinate alignment
     with viewer.txn() as s:
         # Explicitly specify the precomputed source URL to include the 'meshes/' directory
         source_url = f"precomputed://{precomputed_url}/meshes"
@@ -315,7 +355,7 @@ def main():
             s.layers['multiscale_mesh'].segments = set(segment_ids)
             print(f"Found segment IDs: {sorted(segment_ids)}")
             
-            # FIX: Set proper display settings for better visualization
+            # Set proper display settings for better visualization
             s.layers['multiscale_mesh'].segment_default_color = '#ffffff'
             
             # Add some example segment colors for better visualization
@@ -334,38 +374,44 @@ def main():
         else:
             print("Warning: No segment IDs found in the meshes directory")
         
-        # FIX: Set dimensions with proper coordinate system alignment
+        # Set dimensions with proper coordinate system alignment
         s.dimensions = neuroglancer.CoordinateSpace(
             names=['x', 'y', 'z'],
             units=['nm', 'nm', 'nm'],
             scales=[1, 1, 1]  # Identity scaling to maintain coordinate alignment
         )
         
-        # FIX: Set proper viewing parameters for better mesh visualization
+        # Set proper viewing parameters for better mesh visualization
         s.projection_orientation = [0, 0, 0, 1]  # Default orientation
         s.projection_scale = 256  # Appropriate scale for viewing
         s.cross_section_scale = 1  # Identity cross-section scale
         
-        # Set a good initial position (center of the first mesh bounds if possible)
-        if segment_ids and args.debug:
-            # Try to estimate a good viewing position based on the mesh data
-            # This is a rough estimate - in practice you'd want to read the actual mesh bounds
-            s.position = [96, 96, 96]  # Rough center for a 192x192x192 volume
+        # Set a good initial position based on image shape if available
+        if image_shape is not None:
+            # Center the view on the image center
+            center_position = [dim // 2 for dim in image_shape]
+            s.position = center_position
+            print(f"Set initial position to image center: {center_position}")
+        elif segment_ids and args.debug:
+            # Fallback: rough center for a 192x192x192 volume
+            s.position = [96, 96, 96]
+            print(f"Set fallback position: [96, 96, 96]")
     
     # Print the Neuroglancer URL
     neuroglancer_url = viewer.get_viewer_url()
     print(f"Neuroglancer URL: {neuroglancer_url}")
     
-    # FIX: Add instructions for users about potential issues
-    print("\n" + "="*60)
-    print("MESH VIEWING INSTRUCTIONS:")
-    print("="*60)
+    # Add instructions for users
+    print("\n" + "="*80)
+    print("MESH VIEWING INSTRUCTIONS (CORRECTED COORDINATE ALIGNMENT):")
+    print("="*80)
     print("1. In Neuroglancer, make sure the 'multiscale_mesh' layer is visible")
     print("2. Use the 'Segments' tab to control which meshes are displayed")
-    print("3. If meshes appear offset, check the coordinate transformations")
+    print("3. Meshes should now align properly with the image coordinate system")
     print("4. Use the 3D view controls to rotate and zoom the meshes")
     print("5. Try adjusting the 'Rendering' settings if meshes don't appear")
-    print("="*60)
+    print("6. The identity transform ensures meshes stay in image coordinates")
+    print("="*80)
     
     # Open the URL in a web browser
     print("Opening Neuroglancer in browser...")

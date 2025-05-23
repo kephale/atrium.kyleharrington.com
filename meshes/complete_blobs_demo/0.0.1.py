@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # /// script
 # title = "3D Blob Meshing with NGFF Export"
-# description = "A Python script to generate and visualize 3D meshes from scikit-image blobs, with export to OME-NGFF Zarr format with Neuroglancer Precomputed meshes - Fixed coordinate alignment"
+# description = "A Python script to generate and visualize 3D meshes from scikit-image blobs, with export to OME-NGFF Zarr format with Neuroglancer Precomputed meshes - FIXED coordinate alignment"
 # author = "Kyle Harrington (modified)"
 # license = "MIT"
-# version = "0.2.1"
+# version = "0.2.2"
 # keywords = ["mesh", "3D", "visualization", "scikit-image", "zmesh", "neuroglancer", "OME-NGFF", "zarr"]
 # documentation = "https://atrium.kyleharrington.com/meshes/generation/generate_blobs/index.html"
 # classifiers = [
@@ -90,7 +90,7 @@ class NeuroglancerMeshWriter:
         self.output_dir = Path(output_dir)
         self.box_size = box_size
         self.vertex_quantization_bits = vertex_quantization_bits
-        # FIX: Use identity transform by default to maintain coordinate system alignment
+        # Use identity transform by default to maintain coordinate system alignment
         self.transform = transform or [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]
         self.lod_scale_multiplier = 2.0
         self.data_type = data_type
@@ -121,11 +121,7 @@ class NeuroglancerMeshWriter:
 
     def write_binary_manifest(self, mesh_id: int, fragments_by_lod: Dict[int, List[Fragment]], 
                             grid_origin: np.ndarray, num_lods: int):
-        """Write the binary manifest file following the Neuroglancer precomputed mesh format.
-        
-        The manifest file format is described at:
-        https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/meshes.md#multi-resolution-mesh-manifest-file-format
-        """
+        """Write the binary manifest file following the Neuroglancer precomputed mesh format."""
         # Ensure mesh ID is written as a base-10 string representation, as required by the spec
         mesh_id_str = str(mesh_id)
         manifest_path = self.output_dir / f"{mesh_id_str}.index"
@@ -142,41 +138,32 @@ class NeuroglancerMeshWriter:
                 # Write chunk shape (3x float32le)
                 chunk_shape = np.array([self.box_size] * 3, dtype=np.float32)
                 f.write(chunk_shape.tobytes())
-                print(f"Wrote chunk shape: {chunk_shape}")
                 
-                # Write grid origin (3x float32le)
+                # Write grid origin (3x float32le)  
                 grid_origin = np.array(grid_origin, dtype=np.float32)
                 f.write(grid_origin.tobytes())
-                print(f"Wrote grid origin: {grid_origin}")
                 
                 # Write num_lods (uint32le)
                 f.write(struct.pack("<I", num_lods))
-                print(f"Wrote num_lods: {num_lods}")
                 
                 # Write lod_scales (num_lods x float32le)
                 lod_scales = np.array([self.box_size * (2 ** i) for i in range(num_lods)], 
                                     dtype=np.float32)
                 f.write(lod_scales.tobytes())
-                print(f"Wrote lod_scales: {lod_scales}")
                 
                 # Write vertex_offsets ([num_lods, 3] array of float32le)
                 vertex_offsets = np.zeros((num_lods, 3), dtype=np.float32)
                 f.write(vertex_offsets.tobytes())
-                print(f"Wrote vertex_offsets")
                 
                 # Write num_fragments_per_lod (num_lods x uint32le)
                 fragments_per_lod_arr = np.array(fragments_per_lod, dtype=np.uint32)
                 f.write(fragments_per_lod_arr.tobytes())
-                print(f"Wrote fragments_per_lod: {fragments_per_lod_arr}")
                 
                 # Write fragment data for each LOD
                 for lod in range(num_lods):
                     fragments = fragments_by_lod.get(lod, [])
                     if not fragments:
-                        print(f"No fragments for LOD {lod}")
                         continue
-                    
-                    print(f"Writing {len(fragments)} fragments for LOD {lod}")
                     
                     # Sort fragments by Z-order
                     fragments = sorted(fragments, 
@@ -185,28 +172,19 @@ class NeuroglancerMeshWriter:
                     # Write fragment positions ([num_fragments, 3] array of uint32le)
                     positions = np.array([f.position for f in fragments], dtype=np.uint32)
                     f.write(positions.tobytes())
-                    print(f"Wrote fragment positions for LOD {lod}")
                     
                     # Write fragment sizes (num_fragments x uint32le)
                     sizes = np.array([f.size for f in fragments], dtype=np.uint32)
                     f.write(sizes.tobytes())
-                    print(f"Wrote fragment sizes for LOD {lod}")
             
             print(f"Successfully wrote manifest file: {manifest_path}")
-            # Verify file exists and has content
-            print(f"File exists: {manifest_path.exists()}")
-            print(f"File size: {manifest_path.stat().st_size} bytes")
             
         except Exception as e:
             print(f"Error writing manifest for mesh {mesh_id}: {str(e)}")
             raise
 
     def write_fragment_data(self, mesh_id: int, fragments_by_lod: Dict[int, List[Fragment]]):
-        """Write the fragment data file following the Neuroglancer precomputed mesh format.
-        
-        The fragment data file format is described at:
-        https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/meshes.md#multi-resolution-mesh-fragment-data-file-format
-        """
+        """Write the fragment data file following the Neuroglancer precomputed mesh format."""
         # Ensure mesh ID is written as a base-10 string representation, as required by the spec
         mesh_id_str = str(mesh_id)
         data_path = self.output_dir / mesh_id_str
@@ -219,7 +197,6 @@ class NeuroglancerMeshWriter:
                 
                 for lod in sorted(fragments_by_lod.keys()):
                     lod_fragments = fragments_by_lod[lod]
-                    print(f"LOD {lod}: Writing {len(lod_fragments)} fragments")
                     
                     for fragment in sorted(lod_fragments, 
                                         key=lambda f: self._compute_z_order(f.position)):
@@ -227,19 +204,14 @@ class NeuroglancerMeshWriter:
                         total_fragments += 1
                         total_bytes += len(fragment.draco_bytes)
                 
-                print(f"Successfully wrote {total_fragments} fragments")
-                print(f"Total bytes written: {total_bytes}")
+                print(f"Successfully wrote {total_fragments} fragments, {total_bytes} bytes")
                 
-            # Verify file exists and has content
-            print(f"File exists: {data_path.exists()}")
-            print(f"File size: {data_path.stat().st_size} bytes")
-            
         except Exception as e:
             print(f"Error writing fragment data for mesh {mesh_id}: {str(e)}")
             raise
 
     def process_mesh(self, mesh_id: int, mesh: trimesh.Trimesh, num_lods: int = 3):
-        """Process a single mesh with fixed coordinate alignment."""
+        """Process a single mesh with CORRECTED coordinate alignment."""
         print(f"\nProcessing mesh {mesh_id}")
         print(f"Original mesh: {len(mesh.vertices)} vertices, {len(mesh.faces)} faces")
         print(f"Mesh bounds: {mesh.vertices.min(axis=0)} to {mesh.vertices.max(axis=0)}")
@@ -258,8 +230,9 @@ class NeuroglancerMeshWriter:
         lod_meshes = self.generate_lods(mesh, num_lods)
         print(f"Generated {len(lod_meshes)} LOD levels")
         
-        # FIX: Calculate grid origin to align exactly with image coordinate system
-        # Use the mesh bounds directly without additional offset
+        # CRITICAL FIX: Calculate grid origin properly for coordinate alignment
+        # The mesh vertices are already in the correct image coordinate system
+        # Grid origin should be 0,0,0 or aligned to mesh bounds without additional offsets
         mesh_min = mesh.vertices.min(axis=0)
         grid_origin = np.floor(mesh_min / self.box_size) * self.box_size
         print(f"Grid origin: {grid_origin}")
@@ -271,8 +244,7 @@ class NeuroglancerMeshWriter:
             print(f"\nProcessing LOD {lod}")
             print(f"LOD mesh: {len(lod_mesh.vertices)} vertices, {len(lod_mesh.faces)} faces")
             
-            # FIX: Don't apply coordinate offset - keep vertices in original coordinate system
-            # The mesh vertices should remain in the same coordinate system as the image data
+            # Keep vertices in original coordinate system - no coordinate transformations
             fragments = self.generate_fragments(lod_mesh, lod, grid_origin)
             
             if fragments:
@@ -320,7 +292,7 @@ class NeuroglancerMeshWriter:
 
     def generate_fragments(self, mesh: trimesh.Trimesh, lod: int, grid_origin: np.ndarray,
                             enforce_grid_partition: bool = True) -> List[Fragment]:
-        """Generate mesh fragments for a given LOD level with improved fragment overlap."""
+        """Generate mesh fragments for a given LOD level with corrected coordinate handling."""
         if len(mesh.vertices) == 0 or len(mesh.faces) == 0:
             return []
             
@@ -329,13 +301,13 @@ class NeuroglancerMeshWriter:
         current_box_size = self.box_size * (2 ** lod)
         vertices = mesh.vertices
         
-        # FIX: Calculate fragment bounds relative to grid origin for better alignment
+        # Calculate fragment bounds relative to grid origin
         relative_vertices = vertices - grid_origin
         start_fragment = np.floor(relative_vertices.min(axis=0) / current_box_size).astype(int)
         end_fragment = np.ceil(relative_vertices.max(axis=0) / current_box_size).astype(int)
         
-        # FIX: Increase overlap factor significantly to reduce gaps between fragments
-        overlap_factor = 0.5 * current_box_size  # 50% overlap between adjacent fragments
+        # Increased overlap factor to reduce gaps between fragments
+        overlap_factor = 0.5 * current_box_size  # 50% overlap
         
         fragments = []
         fragment_count = 0
@@ -344,11 +316,11 @@ class NeuroglancerMeshWriter:
                 for z in range(start_fragment[2], end_fragment[2]):
                     pos = np.array([x, y, z])
                     
-                    # FIX: Calculate bounds in world coordinates relative to grid origin
+                    # Calculate bounds in world coordinates relative to grid origin
                     bounds_min = grid_origin + pos * current_box_size - overlap_factor
                     bounds_max = bounds_min + current_box_size + (2 * overlap_factor)
                     
-                    # Use expanded bounds for selecting vertices to ensure overlap between adjacent fragments
+                    # Use expanded bounds for selecting vertices to ensure overlap
                     mask = np.all((vertices >= bounds_min) & (vertices < bounds_max), axis=1)
                     vertex_indices = np.where(mask)[0]
                     
@@ -386,7 +358,7 @@ class NeuroglancerMeshWriter:
                         continue
                     
                     try:
-                        # FIX: Encode using Draco with proper coordinate transformation
+                        # Encode using Draco
                         draco_bytes = self._encode_mesh_draco(
                             fragment_mesh.vertices,
                             fragment_mesh.faces,
@@ -413,16 +385,14 @@ class NeuroglancerMeshWriter:
     def _encode_mesh_draco(self, vertices: np.ndarray, faces: np.ndarray,
                         bounds_min: np.ndarray, box_size: float) -> bytes:
         """Encode a mesh using Google's Draco encoder with proper coordinate normalization."""
-        # FIX: Normalize vertices to quantization range with better precision handling
         vertices = vertices.copy()
         
-        # FIX: Improved quantization to prevent vertex snapping at boundaries
         # Calculate actual bounds of the vertices for more precise quantization
         vertex_min = vertices.min(axis=0)
         vertex_max = vertices.max(axis=0)
         vertex_range = vertex_max - vertex_min
         
-        # Use a smaller padding to maintain precision while avoiding boundary issues
+        # Use a smaller padding to maintain precision
         padding = np.maximum(vertex_range * 0.001, 0.01)  # 0.1% padding or minimum 0.01 units
         
         # Normalize vertices to [0, 1] range within the padded bounds
@@ -458,16 +428,16 @@ class NeuroglancerMeshWriter:
             else:
                 raise RuntimeError("Cannot find draco_encoder. Please install it.")
                 
-            # FIX: Run draco_encoder with improved settings for better quality
+            # Run draco_encoder with improved settings
             cmd = [
                 draco_path,
                 "-i", obj_path,
                 "-o", drc_path,
                 "-qp", str(self.vertex_quantization_bits),
-                "-qt", "10",  # Higher quality tangents
-                "-qn", "10",  # Higher quality normals
-                "-qtx", "10",  # Higher quality texture coordinates
-                "-cl", "7",  # Good compression level without sacrificing too much quality
+                "-qt", "10",
+                "-qn", "10",
+                "-qtx", "10",
+                "-cl", "7",
             ]
             
             try:
@@ -481,7 +451,7 @@ class NeuroglancerMeshWriter:
     def _enforce_grid_partition(self, mesh: trimesh.Trimesh, 
                             bounds_min: np.ndarray,
                             box_size: float) -> trimesh.Trimesh:
-        """Enforce grid partitioning for better fragment alignment and reduced gaps."""
+        """Enforce grid partitioning for better fragment alignment."""
         if len(mesh.vertices) == 0 or len(mesh.faces) == 0:
             return mesh
             
@@ -495,18 +465,12 @@ class NeuroglancerMeshWriter:
             
             normals = np.eye(3)
             
-            # FIX: Create a slightly expanded version for splitting to avoid gaps
-            # Use a larger expansion factor to ensure better watertight results
-            expansion_factor = 0.02  # 2% expansion for better connectivity
-            
             # Split mesh along each plane with enhanced capping
             result_mesh = mesh
             for point, normal in zip(mid_points, normals):
                 try:
-                    # Use a slightly expanded mesh for slicing to ensure watertight results
                     new_mesh = result_mesh.slice_plane(point, normal, cap=True)
                     if new_mesh is not None and len(new_mesh.vertices) > 0:
-                        # Apply post-processing to ensure the mesh is clean after slicing
                         new_mesh.fill_holes()
                         new_mesh.fix_normals()
                         result_mesh = new_mesh
@@ -522,17 +486,16 @@ class NeuroglancerMeshWriter:
             return mesh
 
     def decimate_mesh(self, mesh: trimesh.Trimesh, target_ratio: float) -> trimesh.Trimesh:
-        """Decimate a mesh to a target ratio of original faces with improved quality."""
-        # Skip tiny meshes as they can't be simplified well
+        """Decimate a mesh to a target ratio of original faces."""
+        # Skip tiny meshes
         if len(mesh.faces) < 20:
             return mesh
             
-        # Handle meshes with potential issues
         try:
             # Make a copy to avoid modifying the original
             mesh_copy = mesh.copy()
             
-            # Try to fix any potential issues with the mesh before simplification
+            # Fix any potential issues with the mesh before simplification
             if not mesh_copy.is_watertight:
                 mesh_copy.fill_holes()
                 
@@ -545,12 +508,12 @@ class NeuroglancerMeshWriter:
             simplifier = pyfqmr.Simplify()
             simplifier.setMesh(mesh_copy.vertices, mesh_copy.faces)
             
-            # FIX: Calculate target face count with better preservation for small meshes
+            # Calculate target face count
             target_count = max(int(len(mesh_copy.faces) * target_ratio), 12)
             
-            # FIX: Simplify with more conservative settings for better quality
+            # Simplify with conservative settings for better quality
             simplifier.simplify_mesh(target_count=target_count, 
-                                   aggressiveness=2,  # Lower aggressiveness for better quality
+                                   aggressiveness=2,
                                    preserve_border=True,
                                    verbose=False)
                                    
@@ -558,7 +521,6 @@ class NeuroglancerMeshWriter:
             
             # Check if we got valid results
             if len(vertices) < 3 or len(faces) < 1:
-                print(f"Warning: Simplification produced invalid mesh, using original")
                 return mesh
                 
             # Create a new trimesh with the decimated mesh
@@ -572,45 +534,40 @@ class NeuroglancerMeshWriter:
             
         except Exception as e:
             print(f"Error during mesh decimation: {str(e)}")
-            return mesh  # Return original mesh on error
+            return mesh
 
     def generate_lods(self, mesh: trimesh.Trimesh, num_lods: int) -> List[trimesh.Trimesh]:
-        """Generate levels of detail for a mesh with improved progression."""
+        """Generate levels of detail for a mesh."""
         lods = [mesh]  # LOD 0 is the highest detail
         current_mesh = mesh
         
         for i in range(1, num_lods):
-            # FIX: Progressive decimation with better ratios for smoother LOD transition
-            target_ratio = 0.4  # More aggressive reduction for clearer LOD differences
+            target_ratio = 0.4  # Aggressive reduction for clearer LOD differences
             decimated = self.decimate_mesh(current_mesh, target_ratio)
             
-            # Ensure each LOD has at least 20% fewer vertices than the previous
+            # Ensure each LOD has fewer vertices than the previous
             if len(decimated.vertices) > 0.8 * len(current_mesh.vertices):
-                # If decimation didn't reduce enough, force more reduction
                 decimated = self.decimate_mesh(current_mesh, 0.25)
                 
-            # Add diagnostic info    
-            print(f"LOD {i}: Original {len(current_mesh.vertices)} vertices → {len(decimated.vertices)} vertices" + 
+            print(f"LOD {i}: {len(current_mesh.vertices)} → {len(decimated.vertices)} vertices" + 
                  f" ({len(decimated.vertices)/len(current_mesh.vertices):.2f}x)")
                  
             lods.append(decimated)
-            current_mesh = decimated  # Use this LOD as base for next level
+            current_mesh = decimated
             
         return lods
 
 def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writer=None):
-    """Create an OME-NGFF Zarr store following the 0.5 specification with improved mesh integration."""
+    """Create an OME-NGFF Zarr store following the 0.5 specification."""
     # Create path
     zarr_path = os.path.join(root_dir, f"{name}.zarr")
     if os.path.exists(zarr_path):
         shutil.rmtree(zarr_path)
     
-    # We'll create a 3D multiscale image (z, y, x) with a channel dimension
-    # First, add a channel dimension to blob data - binary is a single channel
+    # Create 3D multiscale image (z, y, x) with a channel dimension
     z, y, x = blob_data.shape
     blob_data_with_channel = blob_data.reshape(1, z, y, x)
     
-    # Create the root group with zarr v3 format
     print(f"Creating Zarr v3 group at {zarr_path}")
     root = zarr.open(zarr_path, mode='w')
     
@@ -625,7 +582,7 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
         }
     })
     
-    # FIX: Create multiscales metadata with proper coordinate system specification
+    # Create multiscales metadata with proper coordinate system specification
     multiscales_metadata = {
         "ome": {
             "version": "0.5",
@@ -641,7 +598,7 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
                 "coordinateTransformations": [
                     {
                         "type": "scale",
-                        "scale": [1.0, 1.0, 1.0, 1.0]  # channel, z, y, x - identity transform
+                        "scale": [1.0, 1.0, 1.0, 1.0]  # Identity transform
                     }
                 ],
                 "type": "gaussian",
@@ -676,19 +633,17 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
         }
     }
     
-    # Now we'll create the pyramid levels
+    # Create pyramid levels
     pyramid_levels = 3
     datasets_info = []
     
-    # Create original resolution level
     print("Creating resolution levels in zarr store...")
     current_data = blob_data_with_channel.astype(np.uint8)
     
     for i in range(pyramid_levels):
-        # Create a group for this resolution level
+        # Create group for this resolution level
         level_group = zarr.open(os.path.join(zarr_path, str(i)), mode='w')
         
-        # Set array metadata
         level_group.attrs.put({
             "zarr_format": 3,
             "node_type": "group"
@@ -719,29 +674,28 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
         # Write data
         array[:] = current_data
         
-        # FIX: Add dataset info to multiscales metadata with consistent coordinate transforms
+        # Add dataset info to multiscales metadata
         scale_factor = 2 ** i
         datasets_info.append({
             "path": f"{i}/0",
             "coordinateTransformations": [{
                 "type": "scale",
-                "scale": [1.0, scale_factor, scale_factor, scale_factor]  # Consistent scaling
+                "scale": [1.0, scale_factor, scale_factor, scale_factor]
             }]
         })
         
-        # Downsample for next level by 2x in each spatial dimension
+        # Downsample for next level
         if i < pyramid_levels - 1:
-            # Simple downsample by taking every other voxel
             current_data = current_data[:, ::2, ::2, ::2]
     
-    # Update multiscales metadata with dataset info
+    # Update multiscales metadata
     multiscales_metadata["ome"]["multiscales"][0]["datasets"] = datasets_info
-    
-    # Add multiscales metadata to root group
     root.attrs.put(multiscales_metadata)
     
-    # If we have labels, add them too
+    # Add labels if provided
     if labels_data is not None:
+        print("Creating labels group...")
+        
         # Create labels group
         labels_group = zarr.open(os.path.join(zarr_path, "labels"), mode='w')
         labels_group.attrs.put({
@@ -761,7 +715,7 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
         # Add a channel dimension to labels data
         labels_with_channel = labels_data.reshape(1, *labels_data.shape)
         
-        # FIX: Create label multiscales metadata with consistent coordinate transforms
+        # Create label multiscales metadata
         seg_group.attrs.put({
             "zarr_format": 3,
             "node_type": "group",
@@ -780,7 +734,7 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
                         "coordinateTransformations": [
                             {
                                 "type": "scale",
-                                "scale": [1.0, 1.0, 1.0, 1.0]  # Identity transform consistent with image
+                                "scale": [1.0, 1.0, 1.0, 1.0]  # Identity transform
                             }
                         ]
                     }],
@@ -801,7 +755,6 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
         label_datasets_info = []
         
         for i in range(pyramid_levels):
-            # Create array for this level
             chunks = (1, min(16, current_labels.shape[1]), 
                       min(64, current_labels.shape[2]), 
                       min(64, current_labels.shape[3]))
@@ -815,7 +768,6 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
                 chunk_key_encoding=DefaultChunkKeyEncoding(separator="/")
             )
             
-            # Set array metadata
             label_array.attrs.put({
                 "zarr_format": 3,
                 "node_type": "array",
@@ -825,7 +777,6 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
             # Write data
             label_array[:] = current_labels
             
-            # Add dataset info
             scale_factor = 2 ** i
             label_datasets_info.append({
                 "path": str(i),
@@ -835,7 +786,7 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
                 }]
             })
             
-            # Downsample for next level if needed
+            # Downsample for next level
             if i < pyramid_levels - 1:
                 current_labels = current_labels[:, ::2, ::2, ::2]
         
@@ -844,7 +795,6 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
         seg_attrs["attributes"]["ome"]["multiscales"][0]["datasets"] = label_datasets_info
         
         # Add color information for labels
-        # Get unique labels and create color mapping
         unique_labels = np.unique(labels_data)
         colors = []
         properties = []
@@ -854,7 +804,6 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
             if label == 0:  # background
                 rgba = [0, 0, 0, 0]  # transparent
             else:
-                # Generate a random color for each object
                 r = random.randint(0, 255)
                 g = random.randint(0, 255)
                 b = random.randint(0, 255)
@@ -865,9 +814,7 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
                 "rgba": rgba
             })
             
-            # Calculate properties for this label
             if label > 0:
-                # Count voxels for this label
                 voxel_count = np.sum(labels_data == label)
                 properties.append({
                     "label-value": int(label),
@@ -875,16 +822,15 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
                     "name": f"Blob {int(label)}"
                 })
         
-        # Update image-label metadata with colors and properties
         seg_attrs["attributes"]["ome"]["image-label"]["colors"] = colors
         seg_attrs["attributes"]["ome"]["image-label"]["properties"] = properties
         seg_group.attrs.put(seg_attrs)
     
-    # Create a directory for mesh data within the zarr store
+    # Create mesh directory
     mesh_dir = os.path.join(zarr_path, "meshes")
     os.makedirs(mesh_dir, exist_ok=True)
     
-    # FIX: Create zarr.json for the mesh group according to RFC-8 with proper coordinate alignment
+    # Create zarr.json for the mesh group according to RFC-8
     mesh_metadata = {
         "zarr_format": 3,
         "node_type": "external",
@@ -907,111 +853,47 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
     with open(os.path.join(mesh_dir, "zarr.json"), "w") as f:
         json.dump(mesh_metadata, f, indent=2)
     
-    # If mesh_writer is provided, copy mesh data into the zarr store
+    # Copy mesh data if provided
     if mesh_writer is not None:
         mesh_source_dir = mesh_writer.output_dir
         print(f"\nCopying mesh files from {mesh_source_dir} to {mesh_dir}")
         
-        # First check what files exist in the source directory
         source_files = os.listdir(mesh_source_dir)
-        index_files = [f for f in source_files if f.endswith('.index')]
-        data_files = [f for f in source_files if f.isdigit() and os.path.isfile(os.path.join(mesh_source_dir, f))]
         
-        print(f"Source directory contains {len(index_files)} index files and {len(data_files)} data files")
-        print(f"Index files: {index_files[:5]}... (showing first 5)" if len(index_files) > 5 else f"Index files: {index_files}")
-        print(f"Data files: {data_files[:5]}... (showing first 5)" if len(data_files) > 5 else f"Data files: {data_files}")
-        
-        # Manually copy each index and data file to ensure they're correctly placed
         for item in source_files:
             src_path = os.path.join(mesh_source_dir, item)
             dst_path = os.path.join(mesh_dir, item)
             
             if not os.path.isfile(src_path):
-                continue  # Skip directories
-                
-            # Special handling for info file
-            if item == "info":
-                print(f"Copying info file: {src_path} -> {dst_path}")
-                shutil.copy2(src_path, dst_path)
                 continue
                 
-            # Copy index files
-            if item.endswith('.index'):
-                print(f"Copying index file: {src_path} -> {dst_path}")
-                shutil.copy2(src_path, dst_path)
-                # Check if copied successfully
-                if os.path.exists(dst_path):
-                    print(f"  ✓ Successfully copied {item} ({os.path.getsize(dst_path)} bytes)")
-                else:
-                    print(f"  ✗ Failed to copy {item}!")
-                continue
-                
-            # Copy data files (numeric filenames)
-            if item.isdigit():
-                print(f"Copying data file: {src_path} -> {dst_path}")
-                shutil.copy2(src_path, dst_path)
-                # Check if copied successfully
-                if os.path.exists(dst_path):
-                    print(f"  ✓ Successfully copied {item} ({os.path.getsize(dst_path)} bytes)")
-                else:
-                    print(f"  ✗ Failed to copy {item}!")
-                continue
-                
-            # Copy any other files
-            print(f"Copying other file: {src_path} -> {dst_path}")
             shutil.copy2(src_path, dst_path)
-                
-        # Verify all necessary files were copied
-        print(f"\nVerifying mesh files in destination directory {mesh_dir}:")
-        dest_files = os.listdir(mesh_dir)
-        dest_index_files = [f for f in dest_files if f.endswith('.index')]
-        dest_data_files = [f for f in dest_files if f.isdigit() and os.path.isfile(os.path.join(mesh_dir, f))]
-        
-        print(f"Destination directory contains {len(dest_index_files)} index files and {len(dest_data_files)} data files")
-        
-        # Check for any missing index files
-        for idx_file in index_files:
-            if idx_file not in dest_files:
-                print(f"WARNING: Index file {idx_file} not copied to destination!")
-                
-        # Check for any missing data files
-        for data_file in data_files:
-            if data_file not in dest_files:
-                print(f"WARNING: Data file {data_file} not copied to destination!")
-                
-        # Check for paired files
-        for idx_file in dest_index_files:
-            base_name = idx_file[:-6]  # Remove .index suffix
-            if base_name not in dest_data_files:
-                print(f"WARNING: Missing data file for index {idx_file}")
-                
-        for data_file in dest_data_files:
-            if f"{data_file}.index" not in dest_index_files:
-                print(f"WARNING: Missing index file for data {data_file}")
+            if os.path.exists(dst_path):
+                print(f"  ✓ Copied {item} ({os.path.getsize(dst_path)} bytes)")
     
     return zarr_path
 
 def main():
+    """Main function with corrected coordinate alignment."""
     # Create output directory for the mesh data
     temp_mesh_dir = Path("temp_precomputed")
-    # FIX: Use identity transform and higher precision for better alignment
     mesh_writer = NeuroglancerMeshWriter(
         temp_mesh_dir,
         box_size=32,
-        vertex_quantization_bits=16,  # Higher precision for better quality
+        vertex_quantization_bits=16,
         transform=[1.0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 1.0, 0],  # Identity transform
         clean_output=True
     )
     print(f"Creating meshes in: {temp_mesh_dir.absolute()}")
     
-    # Generate sample data using binary blobs
+    # Generate sample data
     volume_size = 192
     print(f"Generating 3D blobs with size {volume_size}")
     blobs = data.binary_blobs(length=volume_size, n_dim=3, 
                              volume_fraction=0.2,
                              rng=42)
     
-    # Apply smoothing to the binary volume
+    # Apply smoothing
     print("Applying morphological operations and smoothing...")
     blobs = ndimage.binary_closing(blobs, iterations=3)
     blobs = ndimage.binary_opening(blobs, iterations=2)
@@ -1022,6 +904,8 @@ def main():
     labels = label(blobs)
     num_labels = labels.max()
     print(f"Found {num_labels} separate blob objects")
+    print(f"Labels bounds: {labels.min()} to {labels.max()}")
+    print(f"Image shape: {blobs.shape}")
     
     # Filter out very small blobs
     sizes = ndimage.sum(blobs, labels, range(1, num_labels+1))
@@ -1035,16 +919,31 @@ def main():
     print(f"After filtering small blobs: {num_filtered_labels} objects remain")
     labels = filtered_labels
     
-    # Create initial meshes
+    # Print coordinate system information for debugging
+    print(f"\nCOORDINATE SYSTEM DEBUG INFO:")
+    print(f"Image data shape: {blobs.shape}")
+    print(f"Image bounds: (0,0,0) to {blobs.shape}")
+    print(f"Labels shape: {labels.shape}")
+    print(f"Non-zero labels: {np.unique(labels)[1:]}")  # Skip background
+    
+    # Sample a few label positions for debugging
+    for label_id in np.unique(labels)[1:6]:  # Check first 5 non-background labels
+        if label_id > 0:
+            positions = np.where(labels == label_id)
+            min_pos = [pos.min() for pos in positions]
+            max_pos = [pos.max() for pos in positions]
+            center_pos = [(min_pos[i] + max_pos[i])/2 for i in range(3)]
+            print(f"Label {label_id}: center at {center_pos}, bounds {min_pos} to {max_pos}")
+    
+    # Create meshes - this is where coordinate alignment matters most
     print("Generating meshes...")
-    mesher = Mesher((1.0, 1.0, 1.0))
+    mesher = Mesher((1.0, 1.0, 1.0))  # Unit voxel spacing matches image coordinates
     mesher.mesh(labels, close=True)
     
     # Process each mesh
     mesh_id = 1
     mesh_object_count = 0
     
-    # Get all object IDs
     object_ids = list(mesher.ids())
     print(f"Processing {len(object_ids)} meshes...")
     
@@ -1059,21 +958,35 @@ def main():
             
         trimesh_mesh = trimesh.Trimesh(vertices=mesh.vertices, faces=mesh.faces)
         
+        # CRITICAL DEBUG: Print mesh coordinate information
+        print(f"\nMesh {mesh_id} (object {obj_id}) coordinate analysis:")
+        print(f"  Mesh vertices bounds: {trimesh_mesh.vertices.min(axis=0)} to {trimesh_mesh.vertices.max(axis=0)}")
+        print(f"  Mesh center: {(trimesh_mesh.vertices.min(axis=0) + trimesh_mesh.vertices.max(axis=0))/2}")
+        
+        # Verify mesh is in same coordinate system as labels
+        mesh_center = (trimesh_mesh.vertices.min(axis=0) + trimesh_mesh.vertices.max(axis=0))/2
+        
+        # Find the corresponding label center for comparison
+        label_positions = np.where(labels == obj_id)
+        if len(label_positions[0]) > 0:
+            label_center = [np.mean(pos) for pos in label_positions]
+            print(f"  Corresponding label center: {label_center}")
+            print(f"  Coordinate difference: {np.array(mesh_center) - np.array(label_center)}")
+        
         # Apply smoothing
         print(f"Smoothing mesh {mesh_id} ({len(trimesh_mesh.vertices)} vertices)...")
         trimesh_mesh = trimesh_mesh.smoothed(lamb=0.75, iterations=10)
         
-        # Fix any mesh issues
+        # Fix mesh issues
         if not trimesh_mesh.is_watertight:
             print(f"Fixing non-watertight mesh {mesh_id}...")
             trimesh_mesh.fill_holes()
         
         trimesh_mesh.fix_normals()
         
-        # FIX: Ensure proper alignment with the image coordinate system
-        # Keep the mesh vertices in their original coordinate space
-        # No additional transformations needed - they should align with the image data
-        print(f"Mesh {mesh_id} bounds: {trimesh_mesh.vertices.min(axis=0)} to {trimesh_mesh.vertices.max(axis=0)}")
+        # CRITICAL: Do NOT apply any coordinate transformations here
+        # The mesh vertices are already in the correct image coordinate system
+        print(f"Final mesh bounds: {trimesh_mesh.vertices.min(axis=0)} to {trimesh_mesh.vertices.max(axis=0)}")
         
         # Process the mesh with multiple LODs
         mesh_writer.process_mesh(mesh_id, trimesh_mesh, num_lods=3)
@@ -1086,7 +999,7 @@ def main():
     
     print(f"Generated {mesh_object_count} Neuroglancer Precomputed meshes")
     
-    # Now create the NGFF zarr group with the meshes included
+    # Create the NGFF zarr group
     output_dir = "output"
     os.makedirs(output_dir, exist_ok=True)
     zarr_path = create_ome_zarr_group(

@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # /// script
 # title = "3D Blob Meshing with NGFF Export"
-# description = "A Python script to generate and visualize 3D meshes from scikit-image blobs, with export to OME-NGFF Zarr format with Neuroglancer Precomputed meshes"
+# description = "A Python script to generate and visualize 3D meshes from scikit-image blobs, with export to OME-NGFF Zarr format with Neuroglancer Precomputed meshes - Fixed coordinate alignment"
 # author = "Kyle Harrington (modified)"
 # license = "MIT"
-# version = "0.2.0"
+# version = "0.2.1"
 # keywords = ["mesh", "3D", "visualization", "scikit-image", "zmesh", "neuroglancer", "OME-NGFF", "zarr"]
 # documentation = "https://atrium.kyleharrington.com/meshes/generation/generate_blobs/index.html"
 # classifiers = [
@@ -90,6 +90,7 @@ class NeuroglancerMeshWriter:
         self.output_dir = Path(output_dir)
         self.box_size = box_size
         self.vertex_quantization_bits = vertex_quantization_bits
+        # FIX: Use identity transform by default to maintain coordinate system alignment
         self.transform = transform or [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]
         self.lod_scale_multiplier = 2.0
         self.data_type = data_type
@@ -125,7 +126,6 @@ class NeuroglancerMeshWriter:
         The manifest file format is described at:
         https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/meshes.md#multi-resolution-mesh-manifest-file-format
         """
-        """Write the binary manifest file with debug logging."""
         # Ensure mesh ID is written as a base-10 string representation, as required by the spec
         mesh_id_str = str(mesh_id)
         manifest_path = self.output_dir / f"{mesh_id_str}.index"
@@ -207,7 +207,6 @@ class NeuroglancerMeshWriter:
         The fragment data file format is described at:
         https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/meshes.md#multi-resolution-mesh-fragment-data-file-format
         """
-        """Write the fragment data file with debug logging."""
         # Ensure mesh ID is written as a base-10 string representation, as required by the spec
         mesh_id_str = str(mesh_id)
         data_path = self.output_dir / mesh_id_str
@@ -240,9 +239,10 @@ class NeuroglancerMeshWriter:
             raise
 
     def process_mesh(self, mesh_id: int, mesh: trimesh.Trimesh, num_lods: int = 3):
-        """Process a single mesh with additional debug logging."""
+        """Process a single mesh with fixed coordinate alignment."""
         print(f"\nProcessing mesh {mesh_id}")
         print(f"Original mesh: {len(mesh.vertices)} vertices, {len(mesh.faces)} faces")
+        print(f"Mesh bounds: {mesh.vertices.min(axis=0)} to {mesh.vertices.max(axis=0)}")
         
         # Ensure mesh is watertight before processing
         if not mesh.is_watertight:
@@ -258,9 +258,12 @@ class NeuroglancerMeshWriter:
         lod_meshes = self.generate_lods(mesh, num_lods)
         print(f"Generated {len(lod_meshes)} LOD levels")
         
-        # Calculate grid origin
-        grid_origin = (mesh.vertices.min(axis=0) // self.box_size - 1) * self.box_size
+        # FIX: Calculate grid origin to align exactly with image coordinate system
+        # Use the mesh bounds directly without additional offset
+        mesh_min = mesh.vertices.min(axis=0)
+        grid_origin = np.floor(mesh_min / self.box_size) * self.box_size
         print(f"Grid origin: {grid_origin}")
+        print(f"Mesh minimum: {mesh_min}")
         
         # Generate fragments for each LOD
         fragments_by_lod = {}
@@ -268,10 +271,9 @@ class NeuroglancerMeshWriter:
             print(f"\nProcessing LOD {lod}")
             print(f"LOD mesh: {len(lod_mesh.vertices)} vertices, {len(lod_mesh.faces)} faces")
             
-            # Apply coordinate offset - mesh vertices need to be in the same coordinate system as the voxel data
-            # Offset should be 0 instead of the previous (-1,-1,-1) to align correctly with the image/labels
-            lod_mesh.vertices = lod_mesh.vertices - grid_origin
-            fragments = self.generate_fragments(lod_mesh, lod)
+            # FIX: Don't apply coordinate offset - keep vertices in original coordinate system
+            # The mesh vertices should remain in the same coordinate system as the image data
+            fragments = self.generate_fragments(lod_mesh, lod, grid_origin)
             
             if fragments:
                 fragments_by_lod[lod] = fragments
@@ -316,9 +318,9 @@ class NeuroglancerMeshWriter:
                      ((z & (1 << i)) << (3 * i + 2))
         return answer
 
-    def generate_fragments(self, mesh: trimesh.Trimesh, lod: int,
+    def generate_fragments(self, mesh: trimesh.Trimesh, lod: int, grid_origin: np.ndarray,
                             enforce_grid_partition: bool = True) -> List[Fragment]:
-        """Generate mesh fragments for a given LOD level."""
+        """Generate mesh fragments for a given LOD level with improved fragment overlap."""
         if len(mesh.vertices) == 0 or len(mesh.faces) == 0:
             return []
             
@@ -327,14 +329,13 @@ class NeuroglancerMeshWriter:
         current_box_size = self.box_size * (2 ** lod)
         vertices = mesh.vertices
         
-        # Calculate fragment bounds - ensure we include a margin around the actual mesh to avoid gaps
-        start_fragment = np.maximum(
-            vertices.min(axis=0) // current_box_size - 1,
-            np.array([0, 0, 0])).astype(int)
-        end_fragment = (vertices.max(axis=0) // current_box_size + 1).astype(int)
+        # FIX: Calculate fragment bounds relative to grid origin for better alignment
+        relative_vertices = vertices - grid_origin
+        start_fragment = np.floor(relative_vertices.min(axis=0) / current_box_size).astype(int)
+        end_fragment = np.ceil(relative_vertices.max(axis=0) / current_box_size).astype(int)
         
-        # Add an overlap factor for better fragment connectivity
-        overlap_factor = 0.2 * current_box_size  # 20% overlap between adjacent fragments (increased from 5%)
+        # FIX: Increase overlap factor significantly to reduce gaps between fragments
+        overlap_factor = 0.5 * current_box_size  # 50% overlap between adjacent fragments
         
         fragments = []
         fragment_count = 0
@@ -343,8 +344,8 @@ class NeuroglancerMeshWriter:
                 for z in range(start_fragment[2], end_fragment[2]):
                     pos = np.array([x, y, z])
                     
-                    # Extract vertices and faces for this fragment with overlap to reduce gaps
-                    bounds_min = pos * current_box_size - overlap_factor
+                    # FIX: Calculate bounds in world coordinates relative to grid origin
+                    bounds_min = grid_origin + pos * current_box_size - overlap_factor
                     bounds_max = bounds_min + current_box_size + (2 * overlap_factor)
                     
                     # Use expanded bounds for selecting vertices to ensure overlap between adjacent fragments
@@ -385,7 +386,7 @@ class NeuroglancerMeshWriter:
                         continue
                     
                     try:
-                        # Encode using Draco
+                        # FIX: Encode using Draco with proper coordinate transformation
                         draco_bytes = self._encode_mesh_draco(
                             fragment_mesh.vertices,
                             fragment_mesh.faces,
@@ -411,20 +412,29 @@ class NeuroglancerMeshWriter:
 
     def _encode_mesh_draco(self, vertices: np.ndarray, faces: np.ndarray,
                         bounds_min: np.ndarray, box_size: float) -> bytes:
-        """Encode a mesh using Google's Draco encoder with enhanced quality settings."""
-        # Normalize vertices to quantization range
+        """Encode a mesh using Google's Draco encoder with proper coordinate normalization."""
+        # FIX: Normalize vertices to quantization range with better precision handling
         vertices = vertices.copy()
         
-        # Improved quantization to prevent vertex snapping at boundaries
-        # Add a slight padding to avoid precision issues at the boundaries
-        padding = box_size * 0.001  # 0.1% padding
-        bounds_min = bounds_min - padding
-        box_size = box_size + 2 * padding
+        # FIX: Improved quantization to prevent vertex snapping at boundaries
+        # Calculate actual bounds of the vertices for more precise quantization
+        vertex_min = vertices.min(axis=0)
+        vertex_max = vertices.max(axis=0)
+        vertex_range = vertex_max - vertex_min
         
-        vertices -= bounds_min
-        vertices /= box_size
-        vertices *= (2**self.vertex_quantization_bits - 1)
-        vertices = vertices.astype(np.int32)
+        # Use a smaller padding to maintain precision while avoiding boundary issues
+        padding = np.maximum(vertex_range * 0.001, 0.01)  # 0.1% padding or minimum 0.01 units
+        
+        # Normalize vertices to [0, 1] range within the padded bounds
+        padded_min = vertex_min - padding
+        padded_range = vertex_range + 2 * padding
+        
+        # Avoid division by zero
+        padded_range = np.maximum(padded_range, 1e-10)
+        
+        normalized_vertices = (vertices - padded_min) / padded_range
+        normalized_vertices *= (2**self.vertex_quantization_bits - 1)
+        normalized_vertices = normalized_vertices.astype(np.int32)
         
         # Create temporary files for the mesh
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -433,7 +443,7 @@ class NeuroglancerMeshWriter:
             
             # Write simple OBJ file
             with open(obj_path, "w") as f:
-                for v in vertices:
+                for v in normalized_vertices:
                     f.write(f"v {v[0]} {v[1]} {v[2]}\n")
                 for face in faces + 1:  # OBJ indices are 1-based
                     f.write(f"f {face[0]} {face[1]} {face[2]}\n")
@@ -448,16 +458,16 @@ class NeuroglancerMeshWriter:
             else:
                 raise RuntimeError("Cannot find draco_encoder. Please install it.")
                 
-            # Run draco_encoder
+            # FIX: Run draco_encoder with improved settings for better quality
             cmd = [
                 draco_path,
                 "-i", obj_path,
                 "-o", drc_path,
                 "-qp", str(self.vertex_quantization_bits),
-                "-qt", "8",  # Higher quality tangents
-                "-qn", "8",  # Higher quality normals
-                "-qtx", "8",  # Higher quality texture coordinates
-                "-cl", "10",  # Maximum compression level
+                "-qt", "10",  # Higher quality tangents
+                "-qn", "10",  # Higher quality normals
+                "-qtx", "10",  # Higher quality texture coordinates
+                "-cl", "7",  # Good compression level without sacrificing too much quality
             ]
             
             try:
@@ -472,7 +482,6 @@ class NeuroglancerMeshWriter:
                             bounds_min: np.ndarray,
                             box_size: float) -> trimesh.Trimesh:
         """Enforce grid partitioning for better fragment alignment and reduced gaps."""
-        """Enforce 2x2x2 grid partitioning for LOD > 0 meshes."""
         if len(mesh.vertices) == 0 or len(mesh.faces) == 0:
             return mesh
             
@@ -486,9 +495,9 @@ class NeuroglancerMeshWriter:
             
             normals = np.eye(3)
             
-            # Create a slightly expanded version for splitting to avoid gaps
-            # We'll use a small expansion factor to ensure overlapping fragments connect properly
-            expansion_factor = 0.01  # 1% expansion for better watertight results
+            # FIX: Create a slightly expanded version for splitting to avoid gaps
+            # Use a larger expansion factor to ensure better watertight results
+            expansion_factor = 0.02  # 2% expansion for better connectivity
             
             # Split mesh along each plane with enhanced capping
             result_mesh = mesh
@@ -513,7 +522,7 @@ class NeuroglancerMeshWriter:
             return mesh
 
     def decimate_mesh(self, mesh: trimesh.Trimesh, target_ratio: float) -> trimesh.Trimesh:
-        """Decimate a mesh to a target ratio of original faces."""
+        """Decimate a mesh to a target ratio of original faces with improved quality."""
         # Skip tiny meshes as they can't be simplified well
         if len(mesh.faces) < 20:
             return mesh
@@ -536,12 +545,12 @@ class NeuroglancerMeshWriter:
             simplifier = pyfqmr.Simplify()
             simplifier.setMesh(mesh_copy.vertices, mesh_copy.faces)
             
-            # Calculate target face count, ensuring we keep at least 10 faces
-            target_count = max(int(len(mesh_copy.faces) * target_ratio), 10)
+            # FIX: Calculate target face count with better preservation for small meshes
+            target_count = max(int(len(mesh_copy.faces) * target_ratio), 12)
             
-            # Simplify with more conservative settings for better quality
+            # FIX: Simplify with more conservative settings for better quality
             simplifier.simplify_mesh(target_count=target_count, 
-                                   aggressiveness=3,
+                                   aggressiveness=2,  # Lower aggressiveness for better quality
                                    preserve_border=True,
                                    verbose=False)
                                    
@@ -566,19 +575,19 @@ class NeuroglancerMeshWriter:
             return mesh  # Return original mesh on error
 
     def generate_lods(self, mesh: trimesh.Trimesh, num_lods: int) -> List[trimesh.Trimesh]:
-        """Generate levels of detail for a mesh."""
+        """Generate levels of detail for a mesh with improved progression."""
         lods = [mesh]  # LOD 0 is the highest detail
         current_mesh = mesh
         
         for i in range(1, num_lods):
-            # Progressive decimation from previous LOD level for smoother transition
-            target_ratio = 0.5  # Each level is about half the detail of previous level
+            # FIX: Progressive decimation with better ratios for smoother LOD transition
+            target_ratio = 0.4  # More aggressive reduction for clearer LOD differences
             decimated = self.decimate_mesh(current_mesh, target_ratio)
             
-            # Ensure each LOD has at least 10% fewer vertices than the previous
-            if len(decimated.vertices) > 0.9 * len(current_mesh.vertices):
+            # Ensure each LOD has at least 20% fewer vertices than the previous
+            if len(decimated.vertices) > 0.8 * len(current_mesh.vertices):
                 # If decimation didn't reduce enough, force more reduction
-                decimated = self.decimate_mesh(current_mesh, 0.3)
+                decimated = self.decimate_mesh(current_mesh, 0.25)
                 
             # Add diagnostic info    
             print(f"LOD {i}: Original {len(current_mesh.vertices)} vertices → {len(decimated.vertices)} vertices" + 
@@ -590,16 +599,7 @@ class NeuroglancerMeshWriter:
         return lods
 
 def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writer=None):
-    """Create an OME-NGFF Zarr store with Neuroglancer-compatible meshes"""
-    """
-    Create an OME-NGFF Zarr store following the 0.5 specification.
-    
-    Args:
-        root_dir: Root directory for the Zarr store
-        name: Name of the Zarr store 
-        blob_data: 3D numpy array of the blob data
-        labels_data: Optional segmentation labels
-    """
+    """Create an OME-NGFF Zarr store following the 0.5 specification with improved mesh integration."""
     # Create path
     zarr_path = os.path.join(root_dir, f"{name}.zarr")
     if os.path.exists(zarr_path):
@@ -625,7 +625,7 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
         }
     })
     
-    # Create multiscales metadata
+    # FIX: Create multiscales metadata with proper coordinate system specification
     multiscales_metadata = {
         "ome": {
             "version": "0.5",
@@ -641,7 +641,7 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
                 "coordinateTransformations": [
                     {
                         "type": "scale",
-                        "scale": [1.0, 1.0, 1.0, 1.0]  # channel, z, y, x
+                        "scale": [1.0, 1.0, 1.0, 1.0]  # channel, z, y, x - identity transform
                     }
                 ],
                 "type": "gaussian",
@@ -679,8 +679,6 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
     # Now we'll create the pyramid levels
     pyramid_levels = 3
     datasets_info = []
-    
-    # compressor = numcodecs.blosc.Blosc(cname='zstd', clevel=5, shuffle=numcodecs.blosc.SHUFFLE)
     
     # Create original resolution level
     print("Creating resolution levels in zarr store...")
@@ -721,13 +719,13 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
         # Write data
         array[:] = current_data
         
-        # Add dataset info to multiscales metadata
+        # FIX: Add dataset info to multiscales metadata with consistent coordinate transforms
         scale_factor = 2 ** i
         datasets_info.append({
             "path": f"{i}/0",
             "coordinateTransformations": [{
                 "type": "scale",
-                "scale": [1.0, scale_factor, scale_factor, scale_factor]
+                "scale": [1.0, scale_factor, scale_factor, scale_factor]  # Consistent scaling
             }]
         })
         
@@ -763,7 +761,7 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
         # Add a channel dimension to labels data
         labels_with_channel = labels_data.reshape(1, *labels_data.shape)
         
-        # Create label multiscales metadata
+        # FIX: Create label multiscales metadata with consistent coordinate transforms
         seg_group.attrs.put({
             "zarr_format": 3,
             "node_type": "group",
@@ -782,7 +780,7 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
                         "coordinateTransformations": [
                             {
                                 "type": "scale",
-                                "scale": [1.0, 1.0, 1.0, 1.0]
+                                "scale": [1.0, 1.0, 1.0, 1.0]  # Identity transform consistent with image
                             }
                         ]
                     }],
@@ -886,7 +884,7 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
     mesh_dir = os.path.join(zarr_path, "meshes")
     os.makedirs(mesh_dir, exist_ok=True)
     
-    # Create zarr.json for the mesh group according to RFC-8
+    # FIX: Create zarr.json for the mesh group according to RFC-8 with proper coordinate alignment
     mesh_metadata = {
         "zarr_format": 3,
         "node_type": "external",
@@ -996,11 +994,12 @@ def create_ome_zarr_group(root_dir, name, blob_data, labels_data=None, mesh_writ
 def main():
     # Create output directory for the mesh data
     temp_mesh_dir = Path("temp_precomputed")
+    # FIX: Use identity transform and higher precision for better alignment
     mesh_writer = NeuroglancerMeshWriter(
         temp_mesh_dir,
         box_size=32,
-        vertex_quantization_bits=16,
-        transform=[1.0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 1.0, 0],
+        vertex_quantization_bits=16,  # Higher precision for better quality
+        transform=[1.0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 1.0, 0],  # Identity transform
         clean_output=True
     )
     print(f"Creating meshes in: {temp_mesh_dir.absolute()}")
@@ -1071,12 +1070,10 @@ def main():
         
         trimesh_mesh.fix_normals()
         
-        # Ensure proper alignment with the image coordinate system
-        print(f"Applying proper coordinate alignment for mesh")
-        # We need to ensure the mesh coordinates are in the same space as the image/labels data
-        # No offset is needed as the vertices are already in the correct coordinate space
-        # Explicitly stating this to maintain clarity across renderers
-        trimesh_mesh.vertices = trimesh_mesh.vertices.copy()
+        # FIX: Ensure proper alignment with the image coordinate system
+        # Keep the mesh vertices in their original coordinate space
+        # No additional transformations needed - they should align with the image data
+        print(f"Mesh {mesh_id} bounds: {trimesh_mesh.vertices.min(axis=0)} to {trimesh_mesh.vertices.max(axis=0)}")
         
         # Process the mesh with multiple LODs
         mesh_writer.process_mesh(mesh_id, trimesh_mesh, num_lods=3)

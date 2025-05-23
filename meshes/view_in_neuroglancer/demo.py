@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # /// script
 # title = "Neuroglancer Precomputed Mesh Viewer"
-# description = "A Python script to view precomputed multiscale mesh data in Neuroglancer - CORRECTED coordinate alignment"
+# description = "A Python script to view precomputed multiscale mesh data in Neuroglancer"
 # author = "Kyle Harrington"
 # license = "MIT"
-# version = "0.2.1"
+# version = "0.2.2"
 # keywords = ["mesh", "3D", "visualization", "neuroglancer", "precomputed"]
 # documentation = "https://github.com/google/neuroglancer"
 # requires-python = ">=3.8"
@@ -86,7 +86,7 @@ class CORSHTTPRequestHandler(SimpleHTTPRequestHandler):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='View multiscale mesh in Neuroglancer with CORRECTED coordinate alignment')
+    parser = argparse.ArgumentParser(description='View multiscale mesh in Neuroglancer')
     parser.add_argument('--zarr-path', type=str, required=True,
                         help='Path to the zarr directory containing the data')
     parser.add_argument('--debug', action='store_true',
@@ -108,7 +108,7 @@ def serve_directory(directory, port=8000):
 
 
 def ensure_info_file(mesh_dir, create_root_info=True):
-    """Ensure that an info file exists with the correct specifications for CORRECTED coordinate alignment."""
+    """Ensure that an info file exists with the correct specifications."""
     info_path = os.path.join(mesh_dir, "info")
     if not os.path.exists(info_path):
         # Create a properly configured info file for meshes with identity transform
@@ -403,14 +403,13 @@ def main():
     
     # Add instructions for users
     print("\n" + "="*80)
-    print("MESH VIEWING INSTRUCTIONS (CORRECTED COORDINATE ALIGNMENT):")
+    print("MESH VIEWING INSTRUCTIONS:")
     print("="*80)
     print("1. In Neuroglancer, make sure the 'multiscale_mesh' layer is visible")
     print("2. Use the 'Segments' tab to control which meshes are displayed")
     print("3. Meshes should now align properly with the image coordinate system")
     print("4. Use the 3D view controls to rotate and zoom the meshes")
     print("5. Try adjusting the 'Rendering' settings if meshes don't appear")
-    print("6. The identity transform ensures meshes stay in image coordinates")
     print("="*80)
     
     # Open the URL in a web browser

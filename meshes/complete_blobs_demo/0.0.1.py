@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # /// script
 # title = "3D Blob Meshing with NGFF Export"
-# description = "A Python script to generate and visualize 3D meshes from scikit-image blobs, with export to OME-NGFF Zarr format with Neuroglancer Precomputed meshes - FIXED coordinate alignment"
+# description = "A Python script to generate and visualize 3D meshes from scikit-image blobs, with export to OME-NGFF Zarr format with Neuroglancer Precomputed meshes"
 # author = "Kyle Harrington (modified)"
 # license = "MIT"
-# version = "0.2.2"
+# version = "0.2.3"
 # keywords = ["mesh", "3D", "visualization", "scikit-image", "zmesh", "neuroglancer", "OME-NGFF", "zarr"]
 # documentation = "https://atrium.kyleharrington.com/meshes/generation/generate_blobs/index.html"
 # classifiers = [
@@ -211,7 +211,7 @@ class NeuroglancerMeshWriter:
             raise
 
     def process_mesh(self, mesh_id: int, mesh: trimesh.Trimesh, num_lods: int = 3):
-        """Process a single mesh with CORRECTED coordinate alignment."""
+        """Process a single mesh with proper coordinate alignment."""
         print(f"\nProcessing mesh {mesh_id}")
         print(f"Original mesh: {len(mesh.vertices)} vertices, {len(mesh.faces)} faces")
         print(f"Mesh bounds: {mesh.vertices.min(axis=0)} to {mesh.vertices.max(axis=0)}")
@@ -230,9 +230,7 @@ class NeuroglancerMeshWriter:
         lod_meshes = self.generate_lods(mesh, num_lods)
         print(f"Generated {len(lod_meshes)} LOD levels")
         
-        # CRITICAL FIX: Calculate grid origin properly for coordinate alignment
-        # The mesh vertices are already in the correct image coordinate system
-        # Grid origin should be 0,0,0 or aligned to mesh bounds without additional offsets
+        # Calculate grid origin properly for coordinate alignment
         mesh_min = mesh.vertices.min(axis=0)
         grid_origin = np.floor(mesh_min / self.box_size) * self.box_size
         print(f"Grid origin: {grid_origin}")
@@ -387,24 +385,22 @@ class NeuroglancerMeshWriter:
         """Encode a mesh using Google's Draco encoder with proper coordinate normalization."""
         vertices = vertices.copy()
         
-        # Calculate actual bounds of the vertices for more precise quantization
-        vertex_min = vertices.min(axis=0)
-        vertex_max = vertices.max(axis=0)
-        vertex_range = vertex_max - vertex_min
+        # For proper coordinate alignment, we need to transform vertices relative to the fragment bounds
+        # This ensures that the quantized coordinates are interpreted correctly when decoded
         
-        # Use a smaller padding to maintain precision
-        padding = np.maximum(vertex_range * 0.001, 0.01)  # 0.1% padding or minimum 0.01 units
+        # Transform vertices to be relative to bounds_min
+        vertices_relative = vertices - bounds_min
         
-        # Normalize vertices to [0, 1] range within the padded bounds
-        padded_min = vertex_min - padding
-        padded_range = vertex_range + 2 * padding
+        # Normalize to [0, 1] range within the box
+        # Use the actual box size for this LOD level
+        vertices_normalized = vertices_relative / box_size
         
-        # Avoid division by zero
-        padded_range = np.maximum(padded_range, 1e-10)
+        # Clamp to [0, 1] to handle any numerical issues
+        vertices_normalized = np.clip(vertices_normalized, 0, 1)
         
-        normalized_vertices = (vertices - padded_min) / padded_range
-        normalized_vertices *= (2**self.vertex_quantization_bits - 1)
-        normalized_vertices = normalized_vertices.astype(np.int32)
+        # Quantize to the specified bit depth
+        max_quantized_value = (2**self.vertex_quantization_bits - 1)
+        vertices_quantized = (vertices_normalized * max_quantized_value).astype(np.int32)
         
         # Create temporary files for the mesh
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -413,7 +409,7 @@ class NeuroglancerMeshWriter:
             
             # Write simple OBJ file
             with open(obj_path, "w") as f:
-                for v in normalized_vertices:
+                for v in vertices_quantized:
                     f.write(f"v {v[0]} {v[1]} {v[2]}\n")
                 for face in faces + 1:  # OBJ indices are 1-based
                     f.write(f"f {face[0]} {face[1]} {face[2]}\n")
@@ -958,7 +954,7 @@ def main():
             
         trimesh_mesh = trimesh.Trimesh(vertices=mesh.vertices, faces=mesh.faces)
         
-        # CRITICAL DEBUG: Print mesh coordinate information
+        # DEBUG: Print mesh coordinate information
         print(f"\nMesh {mesh_id} (object {obj_id}) coordinate analysis:")
         print(f"  Mesh vertices bounds: {trimesh_mesh.vertices.min(axis=0)} to {trimesh_mesh.vertices.max(axis=0)}")
         print(f"  Mesh center: {(trimesh_mesh.vertices.min(axis=0) + trimesh_mesh.vertices.max(axis=0))/2}")
@@ -984,7 +980,7 @@ def main():
         
         trimesh_mesh.fix_normals()
         
-        # CRITICAL: Do NOT apply any coordinate transformations here
+        # Do NOT apply any coordinate transformations here
         # The mesh vertices are already in the correct image coordinate system
         print(f"Final mesh bounds: {trimesh_mesh.vertices.min(axis=0)} to {trimesh_mesh.vertices.max(axis=0)}")
         

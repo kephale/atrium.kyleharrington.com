@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # /// script
 # title = "Napari Precomputed Mesh Viewer"
-# description = "A Python script to view precomputed mesh data in napari with CORRECTED coordinate alignment"
+# description = "A Python script to view precomputed mesh data in napari with proper coordinate alignment"
 # author = "Kyle Harrington"
 # license = "MIT"
-# version = "0.5.1"
+# version = "0.5.2"
 # keywords = ["mesh", "3D", "visualization", "napari", "neuroglancer"]
 # documentation = "https://napari.org/stable/api/napari.html"
 # requires-python = ">=3.8"
@@ -222,7 +222,7 @@ class PrecomputedMeshLoader:
             
     def load_fragment(self, mesh_id: int, lod: int, fragment_idx: int, 
                      manifest: Dict) -> Optional[trimesh.Trimesh]:
-        """Load a specific mesh fragment with CORRECTED coordinate alignment."""
+        """Load a specific mesh fragment with proper coordinate alignment."""
         if lod not in manifest["fragments"]:
             self._log(f"LOD {lod} not found in manifest")
             return None
@@ -251,8 +251,7 @@ class PrecomputedMeshLoader:
             if mesh is None:
                 return None
                 
-            # CRITICAL FIX: Apply transformations to convert from local coordinates to world coordinates
-            # with CORRECTED coordinate system alignment
+            # Apply transformations to convert from local coordinates to world coordinates
             scale = manifest["lod_scales"][lod]
             grid_origin = manifest["grid_origin"]
             
@@ -265,7 +264,7 @@ class PrecomputedMeshLoader:
                 if lod == 0:
                     print(f"  - Mesh vertices before transform: {mesh.vertices.min(axis=0)} to {mesh.vertices.max(axis=0)}")
             
-            # CRITICAL FIX: Properly denormalize vertices from quantized space
+            # Properly denormalize vertices from quantized space
             if self.vertex_quantization_bits:
                 # Denormalize from quantized space [0, 2^bits-1] back to original coordinates
                 normalization = (2**self.vertex_quantization_bits - 1)
@@ -273,7 +272,7 @@ class PrecomputedMeshLoader:
                 # First scale back to the fragment coordinate space
                 mesh.vertices = mesh.vertices / normalization * scale
             
-            # CRITICAL FIX: Add position offsets to place fragment in world coordinates
+            # Add position offsets to place fragment in world coordinates
             # Box offset positions the fragment within the grid
             box_offset = position * scale
             
@@ -283,7 +282,7 @@ class PrecomputedMeshLoader:
             if self.debug and lod == 0:
                 print(f"  - Mesh vertices after transform: {mesh.vertices.min(axis=0)} to {mesh.vertices.max(axis=0)}")
             
-            # CRITICAL FIX: ONLY apply additional global transform if it's NOT the identity transform
+            # ONLY apply additional global transform if it's NOT the identity transform
             if self.transform is not None:
                 # Check if transform is identity [1,0,0,0, 0,1,0,0, 0,0,1,0]
                 identity_transform = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]])
@@ -587,7 +586,7 @@ class ZarrLoader:
             return None
 
 def load_mesh(mesh_loader, mesh_id, lod=None, max_fragments=None, load_all_lods=False):
-    """Load a mesh and return vertices and faces with CORRECTED coordinate alignment."""
+    """Load a mesh and return vertices and faces with proper coordinate alignment."""
     try:
         # Read the manifest
         manifest = mesh_loader.read_manifest(mesh_id)
@@ -655,7 +654,7 @@ def load_mesh(mesh_loader, mesh_id, lod=None, max_fragments=None, load_all_lods=
         return None
 
 def main():
-    parser = argparse.ArgumentParser(description="Zarr and Precomputed Mesh Viewer for Napari with CORRECTED coordinate alignment")
+    parser = argparse.ArgumentParser(description="Zarr and Precomputed Mesh Viewer for Napari with proper coordinate alignment")
     parser.add_argument("--zarr-path", type=str, required=True,
                        help="Path to the Zarr store containing OME-NGFF data with meshes")
     parser.add_argument("--num-meshes", type=int, default=0,
@@ -691,7 +690,7 @@ def main():
         # Initialize napari viewer with 3D mode
         viewer = napari.Viewer(ndisplay=3)
         
-        # CRITICAL: Use unit scaling by default - meshes should already be in image coordinates
+        # Use unit scaling by default - meshes should already be in image coordinates
         scale = np.ones(3)
         
         # Only use metadata scale if explicitly requested
@@ -776,7 +775,7 @@ def main():
                         
                     # Print out information about the meshing mode
                     if args.load_all_lods and not args.one_lod_per_mesh:
-                        print("Using multi-LOD mode: Loading all available mesh LODs with CORRECTED coordinate alignment")
+                        print("Using multi-LOD mode: Loading all available mesh LODs with proper coordinate alignment")
                     else:
                         print("Using single-LOD mode: Loading only one LOD level per mesh")
                     
@@ -790,7 +789,7 @@ def main():
                             if load_all_lods and isinstance(result, dict):
                                 # Add each LOD as a separate layer with unit scaling
                                 for lod, (vertices, faces) in result.items():
-                                    # CRITICAL FIX: Use unit scale - meshes are already in image coordinates
+                                    # Use unit scale - meshes are already in image coordinates
                                     mesh_scale = scale.copy()
                                     
                                     # Get mesh-specific transformation info for debugging
@@ -822,7 +821,7 @@ def main():
                                 # Single LOD case
                                 vertices, faces = result
                                 
-                                # CRITICAL FIX: Use unit scale for proper alignment
+                                # Use unit scale for proper alignment
                                 mesh_scale = scale.copy()
                                 
                                 # Add surface layer with proper coordinate alignment

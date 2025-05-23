@@ -35,7 +35,7 @@ URL: https://atrium.kyleharrington.com/zarr/server_v2
 
 Group: meshes
 Name: 3D Blob Meshing with NGFF Export
-Description: A Python script to generate and visualize 3D meshes from scikit-image blobs, with export to OME-NGFF Zarr format with Neuroglancer Precomputed meshes - FIXED coordinate alignment
+Description: A Python script to generate and visualize 3D meshes from scikit-image blobs, with export to OME-NGFF Zarr format with Neuroglancer Precomputed meshes
 URL: https://atrium.kyleharrington.com/meshes/complete_blobs_demo
 
 Group: meshes
@@ -50,12 +50,12 @@ URL: https://atrium.kyleharrington.com/meshes/generation
 
 Group: meshes
 Name: Neuroglancer Precomputed Mesh Viewer
-Description: A Python script to view precomputed multiscale mesh data in Neuroglancer - CORRECTED coordinate alignment
+Description: A Python script to view precomputed multiscale mesh data in Neuroglancer
 URL: https://atrium.kyleharrington.com/meshes/view_in_neuroglancer
 
 Group: meshes
 Name: Napari Precomputed Mesh Viewer
-Description: A Python script to view precomputed mesh data in napari with CORRECTED coordinate alignment
+Description: A Python script to view precomputed mesh data in napari with proper coordinate alignment
 URL: https://atrium.kyleharrington.com/meshes/view_in_napari
 
 Group: meshes

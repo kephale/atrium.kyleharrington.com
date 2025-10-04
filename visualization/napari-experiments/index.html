@@ -603,7 +603,7 @@
             <div class="command-section">
                 <h2 class="command-title">Run this script</h2>
                 <div class="command-box">
-                    <code>uv run https://atrium.kyleharrington.com/visualization/napari-experiments/napari-two-canvas-improved.py</code>
+                    <code>uv run https://atrium.kyleharrington.com/visualization/napari-experiments/napari-two-canvas.py</code>
                 </div>
                 <button class="copy-button" onclick="copyCommand()">
                     <i class="fas fa-copy"></i>
@@ -611,6 +611,48 @@
                 </button>
             </div>
 
+            
+            <div class="cli-arguments-section">
+                <h2>Command Line Arguments</h2>
+                
+                <div class="cli-arg-item">
+                    <code>--files</code>
+                    
+                    <span class="arg-type">(Optional[List[str]])</span>
+                    
+                    
+                    <p class="arg-help">Paths to files to load into the viewer.</p>
+                    
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--display_mode</code>
+                    
+                    <span class="arg-type">(str)</span>
+                    
+                    
+                    <p class="arg-help">Set viewer mode: '2d' or '3d'.</p>
+                    
+                    
+                    <p class="arg-default">Default: 2d</p>
+                    
+                </div>
+                
+                <div class="cli-arg-item">
+                    <code>--show_dual</code>
+                    
+                    <span class="arg-type">(bool)</span>
+                    
+                    
+                    <p class="arg-help">Display two sample images side by side in different widgets.</p>
+                    
+                    
+                    <p class="arg-default">Default: False</p>
+                    
+                </div>
+                
+            </div>
             
 
             
@@ -628,7 +670,7 @@
 
         <div class="links-section">
             
-                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/visualization/napari-experiments/napari-two-canvas-improved.py" target="_blank" class="link-item">
+                <a href="https://github.com/kephale/atrium.kyleharrington.com/blob/main/visualization/napari-experiments/napari-two-canvas.py" target="_blank" class="link-item">
                     <i class="fab fa-github"></i>
                     View Source Code on GitHub
                 </a>

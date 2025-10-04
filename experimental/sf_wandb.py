@@ -3,7 +3,7 @@
 # description = "Simple symbolic regression that evolves mathematical expressions and logs them to W&B"
 # author = "Kyle Harrington <atrium@kyleharrington.com>"
 # license = "MIT"
-# version = "0.0.1"
+# version = "0.0.2"
 # keywords = ["symbolic regression", "genetic programming", "machine learning", "wandb"]
 # requires-python = ">=3.10"
 # dependencies = [
@@ -194,13 +194,18 @@ def evolve(X: np.ndarray, y: np.ndarray,
         
         # Log to W&B
         if wandb_run:
+            # Log numeric metrics
             wandb_run.log({
                 "generation": gen,
                 "best_fitness": best_fitness,
                 "best_r2": r2,
                 "best_complexity": best_expr.complexity(),
                 "avg_fitness": np.mean(fitnesses),
-                "best_expression": str(best_expr)
+            })
+            
+            # Log expression as HTML so it's readable
+            wandb_run.log({
+                "expression": wandb.Html(f"<pre>Gen {gen}: {str(best_expr)}</pre>")
             })
         
         print(f"Gen {gen}: fitness={best_fitness:.4f}, r2={r2:.4f}, expr={best_expr}")
@@ -226,6 +231,21 @@ def evolve(X: np.ndarray, y: np.ndarray,
                 )
         
         population = new_population
+    
+    # Create table of top 10 final expressions
+    if wandb_run:
+        expr_data = []
+        final_fitnesses = [fitness(expr, X, y) for expr in population]
+        for expr, fit in sorted(zip(population, final_fitnesses), key=lambda x: x[1])[:10]:
+            y_pred = expr.eval(X)
+            r2 = r2_score(y, y_pred)
+            expr_data.append([str(expr), fit, r2, expr.complexity()])
+        
+        table = wandb.Table(
+            columns=["Expression", "Fitness", "R2", "Complexity"],
+            data=expr_data
+        )
+        wandb_run.log({"top_10_expressions": table})
     
     return best_ever_expr
 
@@ -292,14 +312,26 @@ def main():
         "final_mse": final_mse,
         "final_r2": final_r2,
         "final_complexity": best_expr.complexity(),
-        "final_expression": str(best_expr)
     })
     
-    # Save expression as artifact
+    # Create a text artifact for the best expression
+    artifact = wandb.Artifact("best_expression", type="model")
+    with artifact.new_file("expression.txt", mode="w") as f:
+        f.write(f"Expression: {best_expr}\n")
+        f.write(f"MSE: {final_mse:.6f}\n")
+        f.write(f"R2: {final_r2:.6f}\n")
+        f.write(f"Complexity: {best_expr.complexity()}\n")
+    run.log_artifact(artifact)
+    
+    # Save to summary (visible in overview)
     run.summary["best_expression"] = str(best_expr)
     run.summary["final_r2"] = final_r2
+    run.summary["final_mse"] = final_mse
+    run.summary["final_complexity"] = best_expr.complexity()
     
     run.finish()
+    
+    print(f"\nView results at: {run.url}")
 
 if __name__ == "__main__":
     main()

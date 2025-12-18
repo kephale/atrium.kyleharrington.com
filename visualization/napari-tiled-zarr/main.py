@@ -3,7 +3,7 @@
 # description = "Open a multiscale zarr with napari and use multiscale tiled loading"
 # author = "Kyle Harrington <napari@kyleharrington.com>"
 # license = "MIT"
-# version = "0.0.3"
+# version = "0.0.4"
 # keywords = ["napari", "viewer", "visualization"]
 # repository = "https://github.com/napari/napari"
 # documentation = "https://github.com/napari/napari#readme"
@@ -18,7 +18,7 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #     "zarr<3",
-#     "napari @ git+https://github.com/kephale/napari.git@1e43826432aaebc9e0c7c3c5f6467476859f15de",
+#     "napari @ git+https://github.com/kephale/napari.git@multiscale-mandelbrot",
 #     "pyside6",
 #     "typer",
 #     "dask",

@@ -3,7 +3,7 @@
 # description = "Stream one Zebrahub timepoint into SceneX with a camera shared by every lodstone-zebrahub entry"
 # author = "Kyle Harrington <atrium@kyleharrington.com>"
 # license = "MIT"
-# version = "0.1.0"
+# version = "0.1.1"
 # keywords = ["lodstone", "scenex", "ome-zarr", "multiscale", "zebrahub"]
 # repository = "https://github.com/kephale/lodstone"
 # requires-python = ">=3.12"
@@ -133,6 +133,19 @@ def scene_camera_matrix():
     return pose
 
 
+def draw_on_demand(canvas):
+    """Stop SceneX's PyGFX canvas from redrawing continuously.
+
+    Its draw loop schedules another frame after every frame, which keeps a
+    volume scene rendering at full cost while nothing changes.
+    """
+    from scenex.adaptors._pygfx._adaptor_registry import get_adaptor
+
+    adaptor = get_adaptor(canvas)
+    adaptor._renderer.request_draw(lambda: adaptor._draw(adaptor._renderer))
+    return adaptor._wgpu_canvas.request_draw
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--backend", choices=("pygfx", "vispy"), default="pygfx")
@@ -164,6 +177,7 @@ def main() -> None:
     )
     canvas = snx.Canvas(width=width, height=height, views=[view])
     snx.show(canvas)
+    request_draw = draw_on_demand(canvas) if arguments.backend == "pygfx" else None
 
     def apply_camera() -> None:
         view.camera.transform = snx.Transform(scene_camera_matrix().T)
@@ -175,15 +189,49 @@ def main() -> None:
     def on_presented(publication) -> None:
         handle = controller.target.handles[publication.level]
         handle.set_clims(tuple(SCENE["clims"]))
-        apply_camera()
+        if not posed:
+            # The first publication fits the view to the data; undo that once
+            # so the shared camera stands and the mouse owns it afterwards.
+            posed.append(True)
+            apply_camera()
 
+    def on_wheel(event) -> bool:
+        # Orbit zooms by moving the camera, which an orthographic view ignores.
+        if not isinstance(event, snx.app.events.WheelEvent):
+            return False
+        step = 2 ** (event.angle_delta[1] * 0.001)
+        view.camera.projection = view.camera.projection.scaled((step, step, 1.0))
+        return True
+
+    posed: list[bool] = []
     apply_camera()
+    view.camera.controller = snx.Orbit(
+        center=tuple(float(value) for value in camera["center_zyx_um"][::-1])
+    )
+    view.set_event_filter(on_wheel)
+    if request_draw is not None:
+        view.camera.events.transform.connect(lambda *_: request_draw())
+        view.camera.events.projection.connect(lambda *_: request_draw())
     controller = SceneXController(
         view,
         source,
         memory_limit=arguments.memory_mib * 1024**2,
         on_presented=on_presented,
     )
+    if request_draw is not None:
+        controller.canvas.refresh = request_draw
+        # The final mask lands after the last refresh, so draw on status changes.
+        seen: list[object] = [None]
+
+        def draw_on_status_change() -> None:
+            status = controller.stream.performance.status
+            if (status.generation, status.state) != seen[0]:
+                seen[0] = (status.generation, status.state)
+                request_draw()
+
+        repaint = QTimer()
+        repaint.timeout.connect(draw_on_status_change)
+        repaint.start(250)
     recorder = PerformanceRecorder(
         controller.stream, host="scenex", backend=arguments.backend
     )
